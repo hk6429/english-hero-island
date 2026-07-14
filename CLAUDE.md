@@ -34,12 +34,12 @@ npm run test:e2e
 npm run build
 ```
 
-最後一次本機紀錄為 2026-07-14：381 個 Vitest、18 個無障礙 Playwright、34 個全套 Playwright 均通過；這是本機紀錄，repository 目前還沒有 GitHub Actions 證據。
+最後一次本機紀錄為 2026-07-14：389 個 Vitest、18 個無障礙 Playwright、36 個全套 Playwright 均通過；這是本機紀錄，repository 目前還沒有 GitHub Actions 證據。
 
 ## 目前最高優先序
 
-1. 修正正式 Supabase 連線會被 CSP `connect-src 'self'` 阻擋的問題，並補 connected browser test。
-2. 建立 Supabase/PostgreSQL 真實 runtime 測試，不再只用 regex 檢查 migration。
+1. ~~修正正式 Supabase 連線會被 CSP `connect-src 'self'` 阻擋的問題，並補 connected browser test。~~（2026-07-14 完成：CSP connect-src 由 `NEXT_PUBLIC_SUPABASE_URL` 導出最小 allowlist，含 `e2e/supabase-csp.spec.ts` connected browser test。）
+2. 建立 Supabase/PostgreSQL 真實 runtime 測試，不再只用 regex 檢查 migration。（阻塞：接手機器目前無可用 Docker/Podman runtime。）
 3. 實作「即時重驗 bytes → 明確題目版本綁定 → 單一原子 batch RPC」的 server-only trusted worker。
 4. 建立不可覆寫／版本化的正式素材儲存，或由可信發布 worker 在發布前重新讀取 bytes。
 
