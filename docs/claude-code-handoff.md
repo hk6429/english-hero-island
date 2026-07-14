@@ -27,7 +27,7 @@
 - `npm run verify:db`：db reset＋28 個 pgTAP＋db lint 全數通過（2026-07-14 新增）。
 - `npm run ingest:production-assets`：在缺少正式 manifest 時以退出碼 1 阻擋，且沒有留下 production bank、verification report 或 lock。
 
-這些是本機執行紀錄，不是可追溯的 CI run。Repository 目前沒有 `.github/workflows`；建立版本化 CI 證據仍是 P1。
+2026-07-14 起已有 `.github/workflows/ci.yml`：quality（lint/typecheck/Vitest/build）、db（supabase db start＋pgTAP＋db lint）、e2e（Playwright 全套）三個 job 綁定 commit SHA，首輪全綠。
 
 ## 三、已完成的正式素材安全底層
 

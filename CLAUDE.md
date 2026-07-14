@@ -34,7 +34,7 @@ npm run test:e2e
 npm run build
 ```
 
-最後一次本機紀錄為 2026-07-14：389 個 Vitest、18 個無障礙 Playwright、36 個全套 Playwright 均通過；這是本機紀錄，repository 目前還沒有 GitHub Actions 證據。
+最後一次本機紀錄為 2026-07-14：389 個 Vitest、18 個無障礙 Playwright、36 個全套 Playwright 均通過；另有 GitHub Actions（quality/db/e2e 三 job）綁定 commit SHA 的 CI 證據。
 
 ## 目前最高優先序
 
