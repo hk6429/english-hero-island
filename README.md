@@ -4,7 +4,16 @@
 
 ## 專案狀態
 
-目前正在實作「學生端垂直切片」，不是正式公開版。試作題目在兩位英語教師完成複核前一律維持草稿狀態，不能進入正式學習回合。
+目前已完成可玩的「學生端功能垂直切片」，但不是正式公開版，也尚未通過第一階段內容閘門。試作題目在兩位英語教師完成複核前一律維持草稿狀態，只能在固定試作模式使用，不能進入正式學習回合。
+
+目前可操作的流程：
+
+- 三、四、五、六年級皆可完成建立英雄、五題診斷、能力島、提示工具選擇、五題練功、Boss、結果與修煉排程。
+- 60 題原創試作題，每年級 15 題；正解位置穩定打散，避免固定第一格偏誤。
+- 首次獨立答對、提示後答對、救援完成與待支援分開記錄。
+- XP、護盾、連擊、島嶼修復、能力卡、圖鑑與跨日精熟規則已接上。
+- 進度以 IndexedDB 保存在學生目前的瀏覽器，不要求帳號或真實姓名。
+- 題庫發布閘門強制要求兩位不同的英語教師複核，研究參考資料不得直接發布成題目。
 
 完整完成條件包含：
 
@@ -27,7 +36,7 @@
 - Next.js App Router、React、TypeScript
 - Zod
 - Vitest、Testing Library、Playwright
-- IndexedDB（學生本機進度，後續里程碑）
+- IndexedDB（學生本機進度，已完成）
 - Supabase（教師、班級、正式題庫與伺服器判分，後續里程碑）
 - Vercel Preview（通過驗收後）
 
@@ -57,6 +66,17 @@ npm run build
 
 - 設計規格：`../../docs/superpowers/specs/2026-07-14-english-hero-island-design.md`
 - 實作計畫：`../../docs/superpowers/plans/2026-07-14-english-hero-island-plan.md`
+- Octalysis 實作稽核：`docs/octalysis-audit.md`
+- 視覺規範：`design-system/MASTER.md`
+
+## 已驗證品質
+
+- 51 個單元、契約與元件測試。
+- 10 個 Playwright 流程：四個年級各在桌機與 360px 手機完成主線，另含鍵盤答錯救援。
+- `lint`、TypeScript 型別檢查與 production build 全數通過。
+- 360px 主流程沒有橫向捲動；選項高度、焦點樣式與 reduced motion 已納入設計系統。
+
+上述結果不等於正式發布。內容雙人複核、教師課堂、伺服器判分、三角色 Octalysis 評分、兒童實測、資安與完整 WCAG 驗收仍是硬性閘門。
 
 ## 授權與內容
 

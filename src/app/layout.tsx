@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { AdventureProvider } from "@/features/adventure/AdventureProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,14 +8,21 @@ export const metadata: Metadata = {
   description: "國小三至六年級英語學習扶助遊戲化自學系統",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0c678a",
+  colorScheme: "light",
+};
+
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="zh-Hant-TW">
+    <html lang="zh-Hant-TW" data-scroll-behavior="smooth">
       <body>
         <a className="skip-link" href="#main-content">
           跳到主要內容
         </a>
-        {children}
+        <AdventureProvider>{children}</AdventureProvider>
       </body>
     </html>
   );
