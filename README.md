@@ -21,6 +21,7 @@
 - 全班任務不需目標名單；小組至少選 2 位匿名學生，個別任務恰選 1 位。活動與目標名單以同班級外鍵綁定，不能只掛上裝飾性的「小組」標籤。
 - 學生以六碼、匿名暱稱與選填學習代碼加入；小組或個別任務會由伺服器確認該代碼確實在目標名單，且不能被第二個匿名身分重複占用。
 - 教師可停止新加入、結束活動，並在重新整理後接回最近活動；已保存的學習事件不會因結束活動而刪除。
+- 課堂作答會先以 IndexedDB 保存在目前裝置，再送交伺服器判分；斷線、重整或回應遺失時沿用同一事件 ID 自動重送，成功判分前不顯示正解。
 - 課堂看板只顯示已加入、進行中、已完成與可能需要協助，不顯示分數、速度或排名。
 - 全班作答會累積共同修復值與 Boss 護甲；學習事件不可直接修改或刪除。
 - 未設定專用 Supabase 專案時，學生與教師入口會停在安全閘門，不建立假的跨裝置活動。
@@ -48,7 +49,7 @@
 - Next.js App Router、React、TypeScript
 - Zod
 - Vitest、Testing Library、Playwright
-- IndexedDB（學生本機進度，已完成）
+- IndexedDB（學生本機進度與課堂待送答案，已完成程式及自動化驗證）
 - Supabase（教師、班級、正式題庫、RLS、Realtime 與伺服器判分；程式已完成，待專用專案驗證）
 - Vercel Preview（通過驗收後）
 
@@ -95,13 +96,14 @@ npm run build
 
 - Octalysis 實作稽核：`docs/octalysis-audit.md`
 - 課堂版安全架構：`docs/classroom-security.md`
+- 弱網路作答保護：`docs/weak-network-submission.md`
 - 視覺規範：`design-system/MASTER.md`
 
 完整產品設計規格與分階段實作計畫目前由母工作區管理；公開 repository 只放可獨立理解、能直接驗證的專案文件。
 
 ## 已驗證品質
 
-- 141 個單元、契約與元件測試。
+- 145 個單元、契約與元件測試。
 - 14 個 Playwright 流程：四個年級各在桌機與 360px 手機完成主線，另含鍵盤答錯救援及課堂安全閘門。
 - `lint`、TypeScript 型別檢查與 production build 全數通過。
 - 360px 主流程沒有橫向捲動；選項高度、焦點樣式與 reduced motion 已納入設計系統。

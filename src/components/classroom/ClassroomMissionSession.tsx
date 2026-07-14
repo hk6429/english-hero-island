@@ -2,9 +2,15 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CheckCircle2, HandHeart, Swords } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AudioControls } from "@/components/question/AudioControls";
 import { QuestionScene } from "@/components/question/QuestionScene";
+import { IndexedDbPendingSubmissionStore } from "@/infrastructure/classroom/IndexedDbPendingSubmissionStore";
+import { MemoryPendingSubmissionStore } from "@/infrastructure/classroom/MemoryPendingSubmissionStore";
+import type {
+  PendingClassroomSubmission,
+  PendingClassroomSubmissionStore,
+} from "@/infrastructure/classroom/PendingClassroomSubmissionStore";
 import {
   getStudentActivityQuestionsWithSupabase,
   submitClassroomResponseWithSupabase,
@@ -16,15 +22,27 @@ type Props = Readonly<{
   client: SupabaseClient;
   activityId: string;
   participantId: string;
+  pendingStore?: PendingClassroomSubmissionStore;
 }>;
 
-type PendingSubmission = Readonly<{
-  questionId: string;
-  selectedOptionId: string;
-  deviceEventId: string;
-}>;
+const OFFLINE_NOTICE = "答案已安全保存在這台裝置，恢復連線後會自動送出。";
 
-export function ClassroomMissionSession({ client, activityId, participantId }: Props) {
+function createDefaultPendingStore(): PendingClassroomSubmissionStore {
+  if (typeof indexedDB === "undefined") {
+    return new MemoryPendingSubmissionStore();
+  }
+  return new IndexedDbPendingSubmissionStore();
+}
+
+export function ClassroomMissionSession({
+  client,
+  activityId,
+  participantId,
+  pendingStore,
+}: Props) {
+  const [submissionStore] = useState<PendingClassroomSubmissionStore>(
+    () => pendingStore ?? createDefaultPendingStore(),
+  );
   const [questions, setQuestions] = useState<ReadonlyArray<ClassroomStudentQuestion>>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedback, setFeedback] = useState<SubmittedClassroomResponse | null>(null);
@@ -34,64 +52,164 @@ export function ClassroomMissionSession({ client, activityId, participantId }: P
   const [finished, setFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingSubmission, setPendingSubmission] =
-    useState<PendingSubmission | null>(null);
+    useState<PendingClassroomSubmission | null>(null);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [retryRevision, setRetryRevision] = useState(0);
+  const syncInFlightEventId = useRef<string | null>(null);
+  const mounted = useRef(true);
 
   useEffect(() => {
-    let mounted = true;
-    void getStudentActivityQuestionsWithSupabase(client, activityId)
-      .then((loadedQuestions) => {
-        if (mounted) {
-          setQuestions(loadedQuestions);
-          setError(loadedQuestions.length === 0 ? "這場活動目前沒有可作答題目。" : null);
-        }
-      })
-      .catch((cause) => {
-        if (mounted) {
-          setError(cause instanceof Error ? cause.message : "課堂題目載入失敗。");
-        }
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+    mounted.current = true;
     return () => {
-      mounted = false;
+      mounted.current = false;
     };
-  }, [activityId, client]);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.allSettled([
+      getStudentActivityQuestionsWithSupabase(client, activityId),
+      submissionStore.list(activityId, participantId),
+    ]).then(([questionResult, pendingResult]) => {
+      if (!active) return;
+
+      const loadedQuestions =
+        questionResult.status === "fulfilled" ? questionResult.value : [];
+      const queuedSubmission =
+        pendingResult.status === "fulfilled" ? pendingResult.value[0] : undefined;
+
+      if (queuedSubmission) {
+        const otherQuestions = loadedQuestions.filter(
+          (question) =>
+            question.id !== queuedSubmission.question.id ||
+            question.version !== queuedSubmission.question.version,
+        );
+        setQuestions([queuedSubmission.question, ...otherQuestions]);
+        setCurrentIndex(0);
+        setPendingSubmission(queuedSubmission);
+        setSelectedOptionId(queuedSubmission.selectedOptionId);
+        setSyncNotice(
+          typeof navigator !== "undefined" && navigator.onLine === false
+            ? OFFLINE_NOTICE
+            : "已找回尚未送出的答案，正在重新送出…",
+        );
+        setError(
+          questionResult.status === "rejected"
+            ? "新題目暫時無法更新，但上次保留的答案仍可安全重送。"
+            : null,
+        );
+      } else {
+        setQuestions(loadedQuestions);
+        if (pendingResult.status === "rejected") {
+          setError("無法讀取這台裝置上的答案佇列，請先不要關閉頁面並通知老師。");
+        } else if (questionResult.status === "rejected") {
+          setError(
+            questionResult.reason instanceof Error
+              ? questionResult.reason.message
+              : "課堂題目載入失敗。",
+          );
+        } else {
+          setError(
+            loadedQuestions.length === 0 ? "這場活動目前沒有可作答題目。" : null,
+          );
+        }
+      }
+
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [activityId, client, participantId, submissionStore]);
+
+  useEffect(() => {
+    function retryWhenOnline() {
+      setSyncNotice("網路已恢復，正在送出保留的答案…");
+      setRetryRevision((revision) => revision + 1);
+    }
+    window.addEventListener("online", retryWhenOnline);
+    return () => window.removeEventListener("online", retryWhenOnline);
+  }, []);
+
+  useEffect(() => {
+    if (loading || feedback || !pendingSubmission) return;
+
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return;
+    }
+
+    if (syncInFlightEventId.current === pendingSubmission.deviceEventId) return;
+    syncInFlightEventId.current = pendingSubmission.deviceEventId;
+    const submission = pendingSubmission;
+
+    void Promise.resolve().then(async () => {
+      if (!mounted.current) return;
+      setSubmitting(true);
+      setError(null);
+      setSyncNotice("答案已保存在裝置，正在由伺服器判分…");
+
+      try {
+        const result = await submitClassroomResponseWithSupabase(client, {
+          activityId: submission.activityId,
+          participantId: submission.participantId,
+          questionId: submission.question.id,
+          questionVersion: submission.question.version,
+          selectedOptionId: submission.selectedOptionId,
+          deviceEventId: submission.deviceEventId,
+        });
+        await submissionStore.remove(submission.deviceEventId);
+        if (!mounted.current) return;
+        setFeedback(result);
+        setPendingSubmission(null);
+        setSyncNotice(null);
+      } catch (cause) {
+        if (!mounted.current) return;
+        setError(cause instanceof Error ? cause.message : "答案暫時無法送達。");
+        setSyncNotice("答案仍安全保存在這台裝置；可按下重送，或等待網路恢復。");
+      } finally {
+        if (syncInFlightEventId.current === submission.deviceEventId) {
+          syncInFlightEventId.current = null;
+        }
+        if (mounted.current) setSubmitting(false);
+      }
+    });
+  }, [client, feedback, loading, pendingSubmission, retryRevision, submissionStore]);
 
   const currentQuestion = questions[currentIndex];
 
   async function submitOption(optionId: string) {
-    if (!currentQuestion || feedback || submitting) return;
+    if (!currentQuestion || feedback || submitting || pendingSubmission) return;
 
-    const reusableSubmission = pendingSubmission;
-    const deviceEventId =
-      reusableSubmission?.questionId === currentQuestion.id &&
-      reusableSubmission.selectedOptionId === optionId
-        ? reusableSubmission.deviceEventId
-        : crypto.randomUUID();
-
-    setPendingSubmission({
-      questionId: currentQuestion.id,
+    const submission: PendingClassroomSubmission = {
+      activityId,
+      participantId,
+      deviceEventId: crypto.randomUUID(),
       selectedOptionId: optionId,
-      deviceEventId,
-    });
+      queuedAt: new Date().toISOString(),
+      question: currentQuestion,
+    };
+
     setSelectedOptionId(optionId);
     setSubmitting(true);
     setError(null);
+    setSyncNotice("正在把答案安全保存在這台裝置…");
 
     try {
-      const result = await submitClassroomResponseWithSupabase(client, {
-        activityId,
-        participantId,
-        questionId: currentQuestion.id,
-        questionVersion: currentQuestion.version,
-        selectedOptionId: optionId,
-        deviceEventId,
-      });
-      setFeedback(result);
-      setPendingSubmission(null);
+      await submissionStore.put(submission);
+      setPendingSubmission(submission);
+      setSyncNotice(
+        typeof navigator !== "undefined" && navigator.onLine === false
+          ? OFFLINE_NOTICE
+          : "答案已安全保存，準備送出…",
+      );
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "答案送出失敗，請再試一次。");
+      setSelectedOptionId(null);
+      setSyncNotice(null);
+      setError(
+        cause instanceof Error
+          ? `答案尚未送出：${cause.message}`
+          : "瀏覽器無法安全保存答案，因此尚未送出；請保留頁面並通知老師。",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -108,6 +226,11 @@ export function ClassroomMissionSession({ client, activityId, participantId }: P
     setSelectedOptionId(null);
     setError(null);
     setPendingSubmission(null);
+    setSyncNotice(null);
+  }
+
+  function retryPendingSubmission() {
+    setRetryRevision((revision) => revision + 1);
   }
 
   if (loading) {
@@ -204,12 +327,11 @@ export function ClassroomMissionSession({ client, activityId, participantId }: P
       <h2 className="classroom-question-prompt">{currentQuestion.prompt}</h2>
       <div className="option-grid">
         {currentQuestion.options.map((option) => {
-          const anotherOptionIsPending =
-            pendingSubmission !== null && selectedOptionId !== option.id;
           return (
             <button
-              className="answer-option"
-              disabled={submitting || Boolean(anotherOptionIsPending)}
+              aria-pressed={selectedOptionId === option.id}
+              className={`answer-option ${selectedOptionId === option.id ? "answer-option-pending" : ""}`}
+              disabled={submitting || pendingSubmission !== null}
               key={option.id}
               onClick={() => void submitOption(option.id)}
               type="button"
@@ -222,10 +344,23 @@ export function ClassroomMissionSession({ client, activityId, participantId }: P
           );
         })}
       </div>
-      {submitting ? <p className="field-help">正在由伺服器判分…</p> : null}
+      {syncNotice ? (
+        <p className="classroom-sync-notice" role="status">
+          {syncNotice}
+        </p>
+      ) : null}
+      {pendingSubmission && !submitting ? (
+        <button
+          className="secondary-button classroom-retry-button"
+          onClick={retryPendingSubmission}
+          type="button"
+        >
+          立即重送保留的答案
+        </button>
+      ) : null}
       {error ? (
         <p className="inline-form-alert" role="alert">
-          {error} 請再按一次剛才的答案，系統會沿用同一筆事件。
+          {error}
         </p>
       ) : null}
     </section>

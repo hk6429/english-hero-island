@@ -1949,6 +1949,35 @@ select:focus-visible,
   box-shadow: none;
 }
 
+.classroom-question-card .answer-option:disabled {
+  color: var(--muted);
+  background: #f3f6f7;
+  border-color: var(--border-soft);
+  opacity: 0.72;
+}
+
+.classroom-question-card .answer-option-pending:disabled {
+  color: var(--primary-strong);
+  background: var(--sky);
+  border-color: var(--primary);
+  opacity: 1;
+}
+
+.classroom-sync-notice {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  color: var(--primary-strong);
+  font-weight: 800;
+  background: var(--sky);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+}
+
+.classroom-retry-button {
+  width: 100%;
+  margin-top: 12px;
+}
+
 .option-letter {
   display: grid;
   flex: 0 0 auto;
