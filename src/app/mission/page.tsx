@@ -4,7 +4,7 @@ import { ArrowRight, Check, Circle, MapPinned, ShieldCheck, Sparkles } from "luc
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
-import { pilotQuestionBank } from "@/content/pilot";
+import { playableQuestionBank } from "@/content/playable";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import {
   FOCUS_MICRO_SKILL,
@@ -27,7 +27,7 @@ export default function MissionPage() {
     ? createMissionSession(
         profile.grade,
         FOCUS_MICRO_SKILL[profile.grade],
-        pilotQuestionBank,
+        playableQuestionBank,
         "content-check",
       ) !== null
     : true;
@@ -46,7 +46,7 @@ export default function MissionPage() {
     }
 
     const focus = FOCUS_MICRO_SKILL[profile.grade];
-    const created = createMissionSession(profile.grade, focus, pilotQuestionBank, crypto.randomUUID());
+    const created = createMissionSession(profile.grade, focus, playableQuestionBank, crypto.randomUUID());
     if (!created) return;
     dispatch({ type: "start_session", session: created });
   }, [

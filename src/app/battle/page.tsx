@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { BattleSession } from "@/components/battle/BattleSession";
 import { AppShell } from "@/components/layout/AppShell";
-import { pilotQuestionBank } from "@/content/pilot";
+import { playableQuestionBank } from "@/content/playable";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 
 export default function BattlePage() {
@@ -25,7 +25,7 @@ export default function BattlePage() {
     <AppShell pageClassName="battle-page">
       <main id="main-content" className="page-main battle-main" tabIndex={-1}>
         <BattleSession
-          bank={pilotQuestionBank}
+          bank={playableQuestionBank}
           onComplete={() => {
             const wasDiagnostic = session?.kind === "diagnostic";
             dispatch({ type: "complete_session" });

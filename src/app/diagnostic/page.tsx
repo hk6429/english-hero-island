@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { BattleSession } from "@/components/battle/BattleSession";
 import { AppShell } from "@/components/layout/AppShell";
 import { DiagnosticEmptyState, DiagnosticIntro } from "./DiagnosticIntro";
-import { pilotQuestionBank } from "@/content/pilot";
+import { playableQuestionBank } from "@/content/playable";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { createDiagnosticSession } from "@/features/adventure/session-factory";
 
@@ -15,7 +15,7 @@ export default function DiagnosticPage() {
   const profile = progress.profile;
   const session = progress.activeSession;
   const contentAvailable = profile
-    ? createDiagnosticSession(profile.grade, pilotQuestionBank, "content-check") !== null
+    ? createDiagnosticSession(profile.grade, playableQuestionBank, "content-check") !== null
     : true;
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function DiagnosticPage() {
     }
     if (session?.kind === "diagnostic") return;
 
-    const created = createDiagnosticSession(profile.grade, pilotQuestionBank, crypto.randomUUID());
+    const created = createDiagnosticSession(profile.grade, playableQuestionBank, crypto.randomUUID());
     if (!created) return;
     dispatch({ type: "start_session", session: created });
   }, [dispatch, profile, ready, router, session?.kind]);
@@ -40,7 +40,7 @@ export default function DiagnosticPage() {
           <DiagnosticEmptyState />
         ) : (
           <BattleSession
-            bank={pilotQuestionBank}
+            bank={playableQuestionBank}
             onComplete={() => {
               dispatch({ type: "complete_session" });
               router.push("/island");

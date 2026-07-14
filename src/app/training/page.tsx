@@ -11,7 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
-import { pilotQuestionBank } from "@/content/pilot";
+import { playableQuestionBank } from "@/content/playable";
 import { scheduleReview } from "@/domain/mastery/schedule-review";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { FOCUS_MICRO_SKILL, microSkillLabel } from "@/features/adventure/content-map";
@@ -59,7 +59,7 @@ export default function TrainingPage() {
     const session = createReviewSession(
       profile!.grade,
       focus!,
-      pilotQuestionBank,
+      playableQuestionBank,
       crypto.randomUUID(),
       seenEvents.map((event) => event.questionId),
       seenEvents.map((event) => event.variantGroup),

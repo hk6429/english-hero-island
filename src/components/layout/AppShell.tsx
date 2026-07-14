@@ -20,7 +20,7 @@ export function AppShell({
       <div className="pilot-banner" role="status">
         <FlaskConical aria-hidden="true" size={20} />
         <span>
-          <strong>試作內容</strong>：60 題原創草稿，待兩位英語教師複核，不作正式評量。
+          <strong>試作內容</strong>：200 題原創草稿，待兩位英語教師複核，不作正式評量。
         </span>
       </div>
       <header className="site-header">

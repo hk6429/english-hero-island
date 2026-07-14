@@ -29,7 +29,7 @@ describe("AppShell", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      "試作內容：60 題原創草稿，待兩位英語教師複核，不作正式評量。",
+      "試作內容：200 題原創草稿，待兩位英語教師複核，不作正式評量。",
     );
   });
 

@@ -16,7 +16,7 @@ import { useEffect } from "react";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
 import { StreakGlow } from "@/components/adventure/StreakGlow";
 import { AppShell } from "@/components/layout/AppShell";
-import { pilotQuestionBank } from "@/content/pilot";
+import { playableQuestionBank } from "@/content/playable";
 import { deriveMastery, type MasteryStatus } from "@/domain/mastery/derive-mastery";
 import type { Skill } from "@/domain/questions/question-schema";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
@@ -71,7 +71,7 @@ export default function IslandPage() {
   const mission = MISSION_COPY[profile.grade];
   const focusMastery = deriveMastery(focus, progress.events);
   const secretUnlocked = progress.repairedZones.length >= 1;
-  const diagnosticQuestions = pilotQuestionBank.filter(
+  const diagnosticQuestions = playableQuestionBank.filter(
     (question) => question.grade === profile.grade && question.purpose === "diagnostic",
   );
 
