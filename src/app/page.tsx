@@ -96,7 +96,7 @@ export default function HomePage() {
             <Image
               className="island-photo"
               src="/art/island-key-visual.jpg"
-              alt="水彩酒精潑染畫風的英語英雄島鳥瞰圖：三位 Q 版小英雄站在島中央的石板路上，周圍有字母港、拼讀森林、字詞花園、對話小鎮、句型工坊與理解燈塔"
+              alt="酒精潑染畫風的英語英雄島鳥瞰圖：藍衣男孩小浪、綠衣女孩小森與金衣男孩小星三位 Q 版小英雄站在島中央的石板路上，周圍有字母港、拼讀森林、字詞花園、對話小鎮、句型工坊與理解燈塔"
               fill
               sizes="(max-width: 900px) 100vw, 46vw"
               priority
