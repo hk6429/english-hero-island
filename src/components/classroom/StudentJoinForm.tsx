@@ -5,10 +5,12 @@ import { type FormEvent, useState } from "react";
 
 const JOIN_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/;
 const JOIN_CODE_FILTER = /[^23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
+const MEMBER_CODE_FILTER = /[^23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
 
 export type StudentJoinRequest = Readonly<{
   joinCode: string;
   nickname: string;
+  memberCode: string;
 }>;
 
 export type JoinedClassroomActivity = Readonly<{
@@ -26,6 +28,7 @@ type Props = Readonly<{
 
 export function StudentJoinForm({ onJoin, onJoined }: Props) {
   const [joinCode, setJoinCode] = useState("");
+  const [memberCode, setMemberCode] = useState("");
   const [nickname, setNickname] = useState("");
   const [joined, setJoined] = useState<JoinedClassroomActivity | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +48,11 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
     setError(null);
 
     try {
-      const result = await onJoin({ joinCode, nickname: normalizedNickname });
+      const result = await onJoin({
+        joinCode,
+        nickname: normalizedNickname,
+        memberCode,
+      });
       setJoined(result);
       onJoined?.(result);
     } catch (cause) {
@@ -103,6 +110,29 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
       </label>
 
       <label className="classroom-field">
+        <span>匿名學習代碼（選填）</span>
+        <input
+          aria-label="匿名學習代碼（選填）"
+          autoCapitalize="characters"
+          autoComplete="off"
+          maxLength={8}
+          onChange={(event) =>
+            setMemberCode(
+              event.target.value
+                .toUpperCase()
+                .replace(MEMBER_CODE_FILTER, "")
+                .slice(0, 8),
+            )
+          }
+          placeholder="例如 B7"
+          spellCheck={false}
+          type="text"
+          value={memberCode}
+        />
+        <small>小組或個別任務請輸入老師給的代碼；全班任務可以留白。</small>
+      </label>
+
+      <label className="classroom-field">
         <span>匿名暱稱</span>
         <input
           aria-label="匿名暱稱"
@@ -123,7 +153,7 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
 
       <button className="primary-button" disabled={!canSubmit} type="submit">
         <UsersRound aria-hidden="true" />
-        {submitting ? "正在加入…" : "加入全班任務"}
+        {submitting ? "正在加入…" : "加入課堂任務"}
       </button>
 
       {error ? (

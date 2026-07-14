@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validateActivityTargets } from "./validate-activity-targets";
 
 const gradeSchema = z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6)]);
 const audienceSchema = z.enum(["whole_class", "small_group", "individual"]);
@@ -12,6 +13,7 @@ const createActivityInputSchema = z.object({
   microSkill: z.string().trim().min(1).max(80),
   questionCount: questionCountSchema,
   audience: audienceSchema,
+  targetMemberIds: z.array(z.string().uuid()),
 });
 
 const classroomActivitySchema = createActivityInputSchema.extend({
@@ -44,9 +46,18 @@ export function createClassroomActivity(
     return { ok: false, reasons: parsedInput.error.issues.map((issue) => issue.message) };
   }
 
+  const targetValidation = validateActivityTargets(
+    parsedInput.data.audience,
+    parsedInput.data.targetMemberIds,
+  );
+  if (!targetValidation.ok) {
+    return { ok: false, reasons: [targetValidation.reason] };
+  }
+
   const createdAt = dependencies.now();
   const activity = classroomActivitySchema.safeParse({
     ...parsedInput.data,
+    targetMemberIds: targetValidation.targetIds,
     id: dependencies.activityId(),
     joinCode: dependencies.joinCode(),
     status: "waiting",

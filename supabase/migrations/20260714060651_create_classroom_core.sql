@@ -20,6 +20,22 @@ create table public.classrooms (
   unique (id, teacher_id)
 );
 
+create table public.classroom_members (
+  id uuid primary key default gen_random_uuid(),
+  classroom_id uuid not null references public.classrooms(id) on delete cascade,
+  member_code text not null
+    check (member_code ~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{2,8}$'),
+  display_alias text not null check (char_length(trim(display_alias)) between 1 and 24),
+  group_label text check (
+    group_label is null or char_length(trim(group_label)) between 1 and 24
+  ),
+  archived_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (classroom_id, member_code),
+  unique (id, classroom_id)
+);
+
 create table public.classroom_activities (
   id uuid primary key default gen_random_uuid(),
   classroom_id uuid not null,
@@ -40,19 +56,34 @@ create table public.classroom_activities (
   updated_at timestamptz not null default now(),
   foreign key (classroom_id, teacher_id)
     references public.classrooms(id, teacher_id) on delete cascade,
-  check (join_closes_at > created_at)
+  check (join_closes_at > created_at),
+  unique (id, classroom_id)
+);
+
+create table public.activity_targets (
+  activity_id uuid not null,
+  classroom_id uuid not null,
+  member_id uuid not null,
+  created_at timestamptz not null default now(),
+  primary key (activity_id, member_id),
+  foreign key (activity_id, classroom_id)
+    references public.classroom_activities(id, classroom_id) on delete cascade,
+  foreign key (member_id, classroom_id)
+    references public.classroom_members(id, classroom_id) on delete restrict
 );
 
 create table public.activity_participants (
   id uuid primary key default gen_random_uuid(),
   activity_id uuid not null references public.classroom_activities(id) on delete cascade,
   auth_user_id uuid references auth.users(id) on delete set null,
+  classroom_member_id uuid references public.classroom_members(id) on delete restrict,
   nickname text not null check (char_length(trim(nickname)) between 1 and 12),
   state text not null default 'joined'
     check (state in ('joined', 'in_progress', 'completed', 'may_need_help')),
   joined_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
   unique (activity_id, auth_user_id),
+  unique (activity_id, classroom_member_id),
   unique (id, activity_id)
 );
 
@@ -164,10 +195,15 @@ create table public.classroom_story_progress (
 
 create index classrooms_teacher_id_idx
   on public.classrooms (teacher_id);
+create index classroom_members_classroom_active_idx
+  on public.classroom_members (classroom_id, group_label, display_alias)
+  where archived_at is null;
 create index classroom_activities_classroom_status_idx
   on public.classroom_activities (classroom_id, status, created_at desc);
 create index classroom_activities_teacher_status_idx
   on public.classroom_activities (teacher_id, status, created_at desc);
+create index activity_targets_member_idx
+  on public.activity_targets (member_id, activity_id);
 create index activity_participants_activity_state_idx
   on public.activity_participants (activity_id, state);
 create index activity_participants_auth_user_idx
@@ -186,7 +222,9 @@ alter publication supabase_realtime add table public.activity_participants;
 
 alter table public.teacher_profiles enable row level security;
 alter table public.classrooms enable row level security;
+alter table public.classroom_members enable row level security;
 alter table public.classroom_activities enable row level security;
+alter table public.activity_targets enable row level security;
 alter table public.activity_participants enable row level security;
 alter table public.activity_questions enable row level security;
 alter table public.activity_responses enable row level security;
@@ -196,7 +234,9 @@ alter table private.question_versions enable row level security;
 
 alter table public.teacher_profiles force row level security;
 alter table public.classrooms force row level security;
+alter table public.classroom_members force row level security;
 alter table public.classroom_activities force row level security;
+alter table public.activity_targets force row level security;
 alter table public.activity_participants force row level security;
 alter table public.activity_questions force row level security;
 alter table public.activity_responses force row level security;
@@ -206,7 +246,9 @@ alter table private.question_versions force row level security;
 
 revoke all on public.teacher_profiles from anon, authenticated;
 revoke all on public.classrooms from anon, authenticated;
+revoke all on public.classroom_members from anon, authenticated;
 revoke all on public.classroom_activities from anon, authenticated;
+revoke all on public.activity_targets from anon, authenticated;
 revoke all on public.activity_participants from anon, authenticated;
 revoke all on public.activity_questions from anon, authenticated;
 revoke all on public.activity_responses from anon, authenticated;
@@ -218,8 +260,10 @@ revoke all on private.question_versions from public, anon, authenticated;
 grant usage on schema public to authenticated;
 grant select on public.teacher_profiles to authenticated;
 grant update (display_name) on public.teacher_profiles to authenticated;
-grant select, insert, update, delete on public.classrooms to authenticated;
+grant select on public.classrooms to authenticated;
+grant select on public.classroom_members to authenticated;
 grant select, delete on public.classroom_activities to authenticated;
+grant select on public.activity_targets to authenticated;
 grant select on public.activity_participants to authenticated;
 grant select on public.activity_questions to authenticated;
 grant select on public.activity_responses to authenticated;
@@ -290,6 +334,17 @@ using (
   )
 );
 
+create policy classroom_members_teacher_select
+on public.classroom_members for select
+to authenticated
+using (
+  exists (
+    select 1 from public.classrooms classroom
+    where classroom.id = public.classroom_members.classroom_id
+      and classroom.teacher_id = (select auth.uid())
+  )
+);
+
 create policy classroom_activities_teacher_select
 on public.classroom_activities for select
 to authenticated
@@ -331,6 +386,17 @@ using (
     select 1 from public.teacher_profiles profile
     where profile.user_id = (select auth.uid())
       and profile.approval_status = 'approved'
+  )
+);
+
+create policy activity_targets_teacher_select
+on public.activity_targets for select
+to authenticated
+using (
+  exists (
+    select 1 from public.classroom_activities activity
+    where activity.id = public.activity_targets.activity_id
+      and activity.teacher_id = (select auth.uid())
   )
 );
 
@@ -510,6 +576,93 @@ $$;
 
 revoke execute on function public.start_classroom_activity(uuid) from public, anon;
 grant execute on function public.start_classroom_activity(uuid) to authenticated;
+
+create or replace function public.end_classroom_activity(p_activity_id uuid)
+returns table (
+  activity_id uuid,
+  activity_status text,
+  ended_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved teacher authentication required' using errcode = '42501';
+  end if;
+
+  return query
+  update public.classroom_activities as activity
+  set
+    status = 'ended',
+    join_closes_at = least(activity.join_closes_at, now()),
+    ended_at = now(),
+    updated_at = now()
+  where activity.id = p_activity_id
+    and activity.teacher_id = auth.uid()
+    and activity.status in ('waiting', 'active')
+    and exists (
+      select 1
+      from public.teacher_profiles profile
+      where profile.user_id = auth.uid()
+        and profile.approval_status = 'approved'
+    )
+  returning activity.id, activity.status, activity.ended_at;
+
+  if not found then
+    raise exception 'activity cannot be ended' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+revoke execute on function public.end_classroom_activity(uuid) from public, anon;
+grant execute on function public.end_classroom_activity(uuid) to authenticated;
+
+create or replace function public.close_classroom_activity_join(p_activity_id uuid)
+returns table (
+  activity_id uuid,
+  activity_status text,
+  join_closes_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved teacher authentication required' using errcode = '42501';
+  end if;
+
+  return query
+  update public.classroom_activities as activity
+  set
+    join_closes_at = now(),
+    updated_at = now()
+  where activity.id = p_activity_id
+    and activity.teacher_id = auth.uid()
+    and activity.status in ('waiting', 'active')
+    and activity.join_closes_at > now()
+    and exists (
+      select 1
+      from public.teacher_profiles profile
+      where profile.user_id = auth.uid()
+        and profile.approval_status = 'approved'
+    )
+  returning activity.id, activity.status, activity.join_closes_at;
+
+  if not found then
+    raise exception 'activity join is already closed' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+revoke execute on function public.close_classroom_activity_join(uuid) from public, anon;
+grant execute on function public.close_classroom_activity_join(uuid) to authenticated;
 
 create or replace function public.get_student_activity_state(p_activity_id uuid)
 returns table (
@@ -928,6 +1081,306 @@ $$;
 revoke execute on function public.list_teacher_classrooms() from public, anon;
 grant execute on function public.list_teacher_classrooms() to authenticated;
 
+create or replace function public.create_classroom_member(
+  p_classroom_id uuid,
+  p_display_alias text,
+  p_member_code text,
+  p_group_label text
+)
+returns table (
+  member_id uuid,
+  member_code text,
+  display_alias text,
+  group_label text
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  saved_member public.classroom_members%rowtype;
+  normalized_member_code text := upper(trim(p_member_code));
+  normalized_group_label text := nullif(trim(p_group_label), '');
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+    or not exists (
+      select 1
+      from public.classrooms classroom
+      join public.teacher_profiles profile on profile.user_id = classroom.teacher_id
+      where classroom.id = p_classroom_id
+        and classroom.teacher_id = auth.uid()
+        and classroom.archived_at is null
+        and profile.approval_status = 'approved'
+    )
+  then
+    raise exception 'approved classroom owner required' using errcode = '42501';
+  end if;
+
+  if p_display_alias is null
+    or char_length(trim(p_display_alias)) not between 1 and 24
+  then
+    raise exception 'display alias must contain 1 to 24 characters' using errcode = '22023';
+  end if;
+
+  if normalized_member_code is null
+    or normalized_member_code !~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{2,8}$'
+  then
+    raise exception 'member code must contain 2 to 8 safe characters' using errcode = '22023';
+  end if;
+
+  if normalized_group_label is not null
+    and char_length(normalized_group_label) > 24
+  then
+    raise exception 'group label must contain at most 24 characters' using errcode = '22023';
+  end if;
+
+  insert into public.classroom_members (
+    classroom_id,
+    member_code,
+    display_alias,
+    group_label
+  )
+  values (
+    p_classroom_id,
+    normalized_member_code,
+    trim(p_display_alias),
+    normalized_group_label
+  )
+  returning * into saved_member;
+
+  return query
+  select
+    saved_member.id,
+    saved_member.member_code,
+    saved_member.display_alias,
+    saved_member.group_label;
+exception
+  when unique_violation then
+    raise exception 'member code already exists in this classroom' using errcode = '23505';
+end;
+$$;
+
+revoke execute on function public.create_classroom_member(uuid, text, text, text) from public, anon;
+grant execute on function public.create_classroom_member(uuid, text, text, text) to authenticated;
+
+create or replace function public.list_classroom_members(p_classroom_id uuid)
+returns table (
+  member_id uuid,
+  member_code text,
+  display_alias text,
+  group_label text
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    member.id,
+    member.member_code,
+    member.display_alias,
+    member.group_label
+  from public.classroom_members member
+  join public.classrooms classroom on classroom.id = member.classroom_id
+  join public.teacher_profiles profile on profile.user_id = classroom.teacher_id
+  where member.classroom_id = p_classroom_id
+    and member.archived_at is null
+    and classroom.teacher_id = auth.uid()
+    and classroom.archived_at is null
+    and profile.approval_status = 'approved'
+    and coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is false
+  order by member.group_label nulls last, member.display_alias, member.member_code;
+$$;
+
+revoke execute on function public.list_classroom_members(uuid) from public, anon;
+grant execute on function public.list_classroom_members(uuid) to authenticated;
+
+create or replace function public.archive_classroom_member(p_member_id uuid)
+returns table (
+  member_id uuid,
+  archived_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved teacher authentication required' using errcode = '42501';
+  end if;
+
+  return query
+  update public.classroom_members as member
+  set
+    archived_at = now(),
+    updated_at = now()
+  from public.classrooms classroom
+  where member.id = p_member_id
+    and member.classroom_id = classroom.id
+    and member.archived_at is null
+    and classroom.teacher_id = auth.uid()
+    and exists (
+      select 1
+      from public.teacher_profiles profile
+      where profile.user_id = auth.uid()
+        and profile.approval_status = 'approved'
+    )
+    and not exists (
+      select 1
+      from public.activity_targets target
+      join public.classroom_activities activity on activity.id = target.activity_id
+      where target.member_id = member.id
+        and activity.status in ('waiting', 'active')
+    )
+  returning member.id, member.archived_at;
+
+  if not found then
+    raise exception 'classroom member cannot be archived' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+revoke execute on function public.archive_classroom_member(uuid) from public, anon;
+grant execute on function public.archive_classroom_member(uuid) to authenticated;
+
+create or replace function public.list_teacher_activities(p_classroom_id uuid)
+returns table (
+  activity_id uuid,
+  activity_title text,
+  join_code text,
+  activity_status text,
+  join_closes_at timestamptz,
+  question_count smallint,
+  audience text,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    activity.id,
+    activity.title,
+    activity.join_code,
+    activity.status,
+    activity.join_closes_at,
+    activity.question_count,
+    activity.audience,
+    activity.created_at
+  from public.classroom_activities activity
+  join public.teacher_profiles profile on profile.user_id = activity.teacher_id
+  where activity.classroom_id = p_classroom_id
+    and activity.teacher_id = auth.uid()
+    and profile.approval_status = 'approved'
+    and coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is false
+  order by activity.created_at desc
+  limit 20;
+$$;
+
+revoke execute on function public.list_teacher_activities(uuid) from public, anon;
+grant execute on function public.list_teacher_activities(uuid) to authenticated;
+
+create or replace function public.create_teacher_classroom(
+  p_title text,
+  p_grade smallint
+)
+returns table (
+  classroom_id uuid,
+  classroom_title text,
+  grade smallint
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  saved_classroom public.classrooms%rowtype;
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+    or not exists (
+      select 1
+      from public.teacher_profiles profile
+      where profile.user_id = auth.uid()
+        and profile.approval_status = 'approved'
+    )
+  then
+    raise exception 'approved teacher authentication required' using errcode = '42501';
+  end if;
+
+  if p_title is null or char_length(trim(p_title)) not between 1 and 80 then
+    raise exception 'classroom title must contain 1 to 80 characters'
+      using errcode = '22023';
+  end if;
+
+  if p_grade is null or p_grade not between 3 and 6 then
+    raise exception 'classroom grade must be between 3 and 6'
+      using errcode = '22023';
+  end if;
+
+  insert into public.classrooms (teacher_id, title, grade)
+  values (auth.uid(), trim(p_title), p_grade)
+  returning * into saved_classroom;
+
+  return query
+  select saved_classroom.id, saved_classroom.title, saved_classroom.grade;
+end;
+$$;
+
+revoke execute on function public.create_teacher_classroom(text, smallint) from public, anon;
+grant execute on function public.create_teacher_classroom(text, smallint) to authenticated;
+
+create or replace function public.archive_teacher_classroom(p_classroom_id uuid)
+returns table (
+  classroom_id uuid,
+  archived_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved teacher authentication required' using errcode = '42501';
+  end if;
+
+  return query
+  update public.classrooms as classroom
+  set
+    archived_at = now(),
+    updated_at = now()
+  where classroom.id = p_classroom_id
+    and classroom.teacher_id = auth.uid()
+    and classroom.archived_at is null
+    and exists (
+      select 1
+      from public.teacher_profiles profile
+      where profile.user_id = auth.uid()
+        and profile.approval_status = 'approved'
+    )
+    and not exists (
+      select 1
+      from public.classroom_activities activity
+      where activity.classroom_id = classroom.id
+        and activity.status in ('waiting', 'active')
+    )
+  returning classroom.id, classroom.archived_at;
+
+  if not found then
+    raise exception 'classroom cannot be archived' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+revoke execute on function public.archive_teacher_classroom(uuid) from public, anon;
+grant execute on function public.archive_teacher_classroom(uuid) to authenticated;
+
 create or replace function public.list_classroom_micro_skills(p_classroom_id uuid)
 returns table (
   micro_skill text,
@@ -966,7 +1419,8 @@ create or replace function public.create_classroom_activity(
   p_micro_skill text,
   p_question_count smallint,
   p_audience text,
-  p_join_code text
+  p_join_code text,
+  p_target_member_ids uuid[]
 )
 returns table (
   activity_id uuid,
@@ -983,6 +1437,8 @@ declare
   saved_activity_id uuid;
   saved_join_code text := upper(trim(p_join_code));
   saved_join_closes_at timestamptz := now() + interval '24 hours';
+  target_member_ids uuid[] := coalesce(p_target_member_ids, '{}'::uuid[]);
+  target_member_count integer;
   available_question_count integer;
 begin
   if auth.uid() is null
@@ -1009,6 +1465,30 @@ begin
     raise exception 'audience is invalid' using errcode = '22023';
   end if;
 
+  if array_position(target_member_ids, null) is not null then
+    raise exception 'target member identifiers are invalid' using errcode = '22023';
+  end if;
+
+  select count(distinct target.member_id)::integer
+  into target_member_count
+  from unnest(target_member_ids) as target(member_id);
+
+  if target_member_count <> cardinality(target_member_ids) then
+    raise exception 'target members must be distinct' using errcode = '22023';
+  end if;
+
+  if p_audience = 'whole_class' and cardinality(target_member_ids) <> 0 then
+    raise exception 'whole class cannot have target members' using errcode = '22023';
+  end if;
+
+  if p_audience = 'small_group' and cardinality(target_member_ids) < 2 then
+    raise exception 'small group requires at least two members' using errcode = '22023';
+  end if;
+
+  if p_audience = 'individual' and cardinality(target_member_ids) <> 1 then
+    raise exception 'individual activity requires exactly one member' using errcode = '22023';
+  end if;
+
   if saved_join_code is null
     or saved_join_code !~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$'
   then
@@ -1027,6 +1507,17 @@ begin
 
   if not found then
     raise exception 'approved classroom owner required' using errcode = '42501';
+  end if;
+
+  select count(*)::integer
+  into target_member_count
+  from public.classroom_members member
+  where member.classroom_id = classroom_record.id
+    and member.archived_at is null
+    and member.id = any(target_member_ids);
+
+  if target_member_count <> cardinality(target_member_ids) then
+    raise exception 'target members must belong to the active classroom' using errcode = '42501';
   end if;
 
   select count(*)
@@ -1065,6 +1556,17 @@ begin
     saved_join_closes_at
   )
   returning id into saved_activity_id;
+
+  insert into public.activity_targets (
+    activity_id,
+    classroom_id,
+    member_id
+  )
+  select
+    saved_activity_id,
+    classroom_record.id,
+    target.member_id
+  from unnest(target_member_ids) as target(member_id);
 
   insert into public.activity_questions (
     activity_id,
@@ -1116,12 +1618,13 @@ begin
 end;
 $$;
 
-revoke execute on function public.create_classroom_activity(uuid, text, text, smallint, text, text) from public, anon;
-grant execute on function public.create_classroom_activity(uuid, text, text, smallint, text, text) to authenticated;
+revoke execute on function public.create_classroom_activity(uuid, text, text, smallint, text, text, uuid[]) from public, anon;
+grant execute on function public.create_classroom_activity(uuid, text, text, smallint, text, text, uuid[]) to authenticated;
 
 create or replace function public.join_classroom_activity(
   p_join_code text,
-  p_nickname text
+  p_nickname text,
+  p_member_code text
 )
 returns table (
   activity_id uuid,
@@ -1137,7 +1640,9 @@ as $$
 declare
   activity_record public.classroom_activities%rowtype;
   saved_participant_id uuid;
+  matched_member_id uuid;
   normalized_nickname text := trim(p_nickname);
+  normalized_member_code text := nullif(upper(trim(p_member_code)), '');
 begin
   if auth.uid() is null then
     raise exception 'anonymous authentication required' using errcode = '42501';
@@ -1159,6 +1664,12 @@ begin
     raise exception 'nickname must contain 1 to 12 characters' using errcode = '22023';
   end if;
 
+  if normalized_member_code is not null
+    and normalized_member_code !~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{2,8}$'
+  then
+    raise exception 'activity code or learner code is invalid' using errcode = '22023';
+  end if;
+
   select activity.*
   into activity_record
   from public.classroom_activities activity
@@ -1171,14 +1682,48 @@ begin
     raise exception 'activity code is invalid or expired' using errcode = 'P0002';
   end if;
 
+  if activity_record.audience in ('small_group', 'individual') then
+    if normalized_member_code is null then
+      raise exception 'activity code or learner code is invalid' using errcode = 'P0002';
+    end if;
+
+    select member.id
+    into matched_member_id
+    from public.classroom_members member
+    join public.activity_targets target
+      on target.member_id = member.id
+      and target.classroom_id = member.classroom_id
+    where target.activity_id = activity_record.id
+      and member.classroom_id = activity_record.classroom_id
+      and member.member_code = normalized_member_code
+      and member.archived_at is null;
+
+    if not found then
+      raise exception 'activity code or learner code is invalid' using errcode = 'P0002';
+    end if;
+  elsif normalized_member_code is not null then
+    select member.id
+    into matched_member_id
+    from public.classroom_members member
+    where member.classroom_id = activity_record.classroom_id
+      and member.member_code = normalized_member_code
+      and member.archived_at is null;
+
+    if not found then
+      raise exception 'activity code or learner code is invalid' using errcode = 'P0002';
+    end if;
+  end if;
+
   insert into public.activity_participants (
     activity_id,
     auth_user_id,
+    classroom_member_id,
     nickname
   )
   values (
     activity_record.id,
     auth.uid(),
+    matched_member_id,
     normalized_nickname
   )
   on conflict (activity_id, auth_user_id)
@@ -1194,11 +1739,14 @@ begin
     activity_record.title,
     activity_record.grade,
     'joined'::text;
+exception
+  when unique_violation then
+    raise exception 'learner code is already joined to this activity' using errcode = '23505';
 end;
 $$;
 
-revoke execute on function public.join_classroom_activity(text, text) from public, anon;
-grant execute on function public.join_classroom_activity(text, text) to authenticated;
+revoke execute on function public.join_classroom_activity(text, text, text) from public, anon;
+grant execute on function public.join_classroom_activity(text, text, text) to authenticated;
 
 create or replace function private.prevent_classroom_learning_event_mutation()
 returns trigger

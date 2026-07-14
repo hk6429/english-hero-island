@@ -15,7 +15,9 @@ describe("classroom core migration", () => {
     const exposedTables = [
       "teacher_profiles",
       "classrooms",
+      "classroom_members",
       "classroom_activities",
+      "activity_targets",
       "activity_participants",
       "activity_questions",
       "activity_responses",
@@ -69,10 +71,10 @@ describe("classroom core migration", () => {
     expect(migration).toContain("activity.join_closes_at > now()");
     expect(migration).toContain("insert into public.activity_participants");
     expect(migration).toContain(
-      "grant execute on function public.join_classroom_activity(text, text) to authenticated",
+      "grant execute on function public.join_classroom_activity(text, text, text) to authenticated",
     );
     expect(migration).toContain(
-      "revoke execute on function public.join_classroom_activity(text, text) from public, anon",
+      "revoke execute on function public.join_classroom_activity(text, text, text) from public, anon",
     );
   });
 
@@ -96,7 +98,7 @@ describe("classroom core migration", () => {
     expect(createActivityFunction).not.toContain("explanation");
     expect(createActivityFunction).not.toContain("hints");
     expect(migration).toContain(
-      "grant execute on function public.create_classroom_activity(uuid, text, text, smallint, text, text) to authenticated",
+      "grant execute on function public.create_classroom_activity(uuid, text, text, smallint, text, text, uuid[]) to authenticated",
     );
   });
 
@@ -180,6 +182,38 @@ describe("classroom core migration", () => {
     expect(startActivityFunction).toContain("status = 'active'");
     expect(migration).toContain(
       "grant execute on function public.start_classroom_activity(uuid) to authenticated",
+    );
+  });
+
+  it("ends waiting or active activities through an approved-teacher lifecycle RPC", () => {
+    const endFunction = migration.match(
+      /create or replace function public\.end_classroom_activity[\s\S]*?\$\$;/,
+    )?.[0];
+
+    expect(endFunction).toBeDefined();
+    expect(endFunction).toContain("security definer");
+    expect(endFunction).toContain("activity.teacher_id = auth.uid()");
+    expect(endFunction).toContain("activity.status in ('waiting', 'active')");
+    expect(endFunction).toContain("status = 'ended'");
+    expect(endFunction).toContain("join_closes_at = least(activity.join_closes_at, now())");
+    expect(migration).toContain(
+      "grant execute on function public.end_classroom_activity(uuid) to authenticated",
+    );
+  });
+
+  it("lets the owner revoke new joins without ending current participants", () => {
+    const closeJoinFunction = migration.match(
+      /create or replace function public\.close_classroom_activity_join[\s\S]*?\$\$;/,
+    )?.[0];
+
+    expect(closeJoinFunction).toBeDefined();
+    expect(closeJoinFunction).toContain("security definer");
+    expect(closeJoinFunction).toContain("activity.teacher_id = auth.uid()");
+    expect(closeJoinFunction).toContain("activity.status in ('waiting', 'active')");
+    expect(closeJoinFunction).toContain("join_closes_at = now()");
+    expect(closeJoinFunction).not.toContain("status = 'ended'");
+    expect(migration).toContain(
+      "grant execute on function public.close_classroom_activity_join(uuid) to authenticated",
     );
   });
 
@@ -281,5 +315,96 @@ describe("classroom core migration", () => {
     expect(migration).not.toContain(
       "grant select, update, delete on public.classroom_activities to authenticated",
     );
+  });
+
+  it("manages classrooms through approved-teacher RPCs instead of direct table writes", () => {
+    const createClassroomFunction = migration.match(
+      /create or replace function public\.create_teacher_classroom[\s\S]*?\$\$;/,
+    )?.[0];
+    const archiveClassroomFunction = migration.match(
+      /create or replace function public\.archive_teacher_classroom[\s\S]*?\$\$;/,
+    )?.[0];
+
+    expect(migration).toContain("grant select on public.classrooms to authenticated");
+    expect(migration).not.toContain(
+      "grant select, insert, update, delete on public.classrooms to authenticated",
+    );
+    expect(createClassroomFunction).toContain("profile.approval_status = 'approved'");
+    expect(createClassroomFunction).toContain("insert into public.classrooms");
+    expect(archiveClassroomFunction).toContain("activity.status in ('waiting', 'active')");
+    expect(archiveClassroomFunction).toContain("archived_at = now()");
+    expect(migration).toContain(
+      "grant execute on function public.create_teacher_classroom(text, smallint) to authenticated",
+    );
+    expect(migration).toContain(
+      "grant execute on function public.archive_teacher_classroom(uuid) to authenticated",
+    );
+  });
+
+  it("lists only the owning teacher's recent classroom activities", () => {
+    const listActivitiesFunction = migration.match(
+      /create or replace function public\.list_teacher_activities[\s\S]*?\$\$;/,
+    )?.[0];
+
+    expect(listActivitiesFunction).toBeDefined();
+    expect(listActivitiesFunction).toContain("security definer");
+    expect(listActivitiesFunction).toContain("activity.teacher_id = auth.uid()");
+    expect(listActivitiesFunction).toContain("activity.classroom_id = p_classroom_id");
+    expect(listActivitiesFunction).toContain("limit 20");
+    expect(migration).toContain(
+      "grant execute on function public.list_teacher_activities(uuid) to authenticated",
+    );
+  });
+
+  it("manages a pseudonymous classroom roster without collecting student identity", () => {
+    const memberTable = migration.match(
+      /create table public\.classroom_members[\s\S]*?\n\);/,
+    )?.[0];
+
+    expect(memberTable).toBeDefined();
+    expect(memberTable).toContain("member_code text");
+    expect(memberTable).toContain("display_alias text");
+    expect(memberTable).toContain("group_label text");
+    expect(memberTable).not.toMatch(/real_name|email|birthday/);
+    expect(migration).toContain(
+      "grant execute on function public.create_classroom_member(uuid, text, text, text) to authenticated",
+    );
+    expect(migration).toContain(
+      "grant execute on function public.list_classroom_members(uuid) to authenticated",
+    );
+    expect(migration).toContain(
+      "grant execute on function public.archive_classroom_member(uuid) to authenticated",
+    );
+  });
+
+  it("stores same-classroom activity targets and enforces audience cardinality", () => {
+    const targetTable = migration.match(
+      /create table public\.activity_targets[\s\S]*?\n\);/,
+    )?.[0];
+    const createActivityFunction = migration.match(
+      /create or replace function public\.create_classroom_activity[\s\S]*?\$\$;/,
+    )?.[0];
+
+    expect(targetTable).toBeDefined();
+    expect(targetTable).toContain("foreign key (activity_id, classroom_id)");
+    expect(targetTable).toContain("foreign key (member_id, classroom_id)");
+    expect(createActivityFunction).toContain("p_target_member_ids uuid[]");
+    expect(createActivityFunction).toContain("small group requires at least two members");
+    expect(createActivityFunction).toContain("individual activity requires exactly one member");
+    expect(createActivityFunction).toContain("whole class cannot have target members");
+    expect(createActivityFunction).toContain("insert into public.activity_targets");
+  });
+
+  it("admits targeted students only when their learner code is on the activity target list", () => {
+    const joinFunction = migration.match(
+      /create or replace function public\.join_classroom_activity[\s\S]*?\$\$;/,
+    )?.[0];
+
+    expect(joinFunction).toContain("p_member_code text");
+    expect(joinFunction).toContain("public.classroom_members member");
+    expect(joinFunction).toContain("public.activity_targets target");
+    expect(joinFunction).toContain("target.activity_id = activity_record.id");
+    expect(joinFunction).toContain("classroom_member_id");
+    expect(joinFunction).not.toContain("member.display_alias =");
   });
 });

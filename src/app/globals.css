@@ -646,6 +646,9 @@ select:focus-visible,
 }
 
 .classroom-form,
+.classroom-manager,
+.teacher-recent-activities,
+.teacher-roster-manager,
 .student-join-form,
 .teacher-login-card,
 .classroom-setup-gate,
@@ -658,6 +661,9 @@ select:focus-visible,
 }
 
 .classroom-form,
+.classroom-manager,
+.teacher-recent-activities,
+.teacher-roster-manager,
 .student-join-form,
 .teacher-login-card {
   display: flex;
@@ -1080,6 +1086,271 @@ select:focus-visible,
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+.classroom-manager-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(150px, 0.7fr) auto;
+  gap: 14px;
+  align-items: end;
+  margin-top: 24px;
+}
+
+.teacher-roster-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.65fr) minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.teacher-roster-list {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.teacher-roster-list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--white);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius-control);
+}
+
+.teacher-roster-list > li > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.teacher-roster-list span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.activity-target-picker {
+  padding: 18px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.activity-target-picker > legend {
+  padding-inline: 6px;
+  font-weight: 900;
+}
+
+.activity-target-picker > p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.activity-target-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.activity-target-options > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 10px 12px;
+  background: var(--white);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+.activity-target-options > label:has(input:checked) {
+  background: var(--forest-pale);
+  border-color: var(--primary);
+}
+
+.activity-target-options input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary);
+}
+
+.activity-target-options span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activity-target-options small {
+  color: var(--muted);
+}
+
+.classroom-manager-list {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 24px 0 0;
+  list-style: none;
+}
+
+.classroom-manager-list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--white);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius-control);
+}
+
+.recent-activity-list {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.recent-activity-list > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--white);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius-control);
+}
+
+.recent-activity-list > li[data-selected="true"] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.recent-activity-main,
+.recent-activity-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recent-activity-main span,
+.recent-activity-meta span:last-child {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.activity-status-chip {
+  width: fit-content;
+  padding: 3px 9px;
+  font-size: 0.8rem;
+  font-weight: 900;
+  border-radius: 999px;
+}
+
+.activity-status-chip.status-waiting {
+  color: #745219;
+  background: #fff0c6;
+}
+
+.activity-status-chip.status-active {
+  color: #1f5c42;
+  background: var(--forest-pale);
+}
+
+.activity-status-chip.status-completed,
+.activity-status-chip.status-ended {
+  color: var(--muted);
+  background: var(--sky);
+}
+
+.classroom-manager-list > li > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.classroom-manager-list span,
+.classroom-archive-confirmation span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.icon-text-button,
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 8px 12px;
+  color: var(--primary-strong);
+  font-weight: 850;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+.icon-text-button:hover:not(:disabled),
+.text-button:hover:not(:disabled) {
+  background: var(--sky);
+}
+
+.icon-text-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.classroom-archive-confirmation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.danger-button,
+.danger-text-button {
+  color: #8b2c2c;
+  border-color: #c77676;
+}
+
+.live-room-active-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.join-closed-note,
+.activity-ended-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.activity-end-confirmation {
+  padding: 18px;
+  color: #6f2727;
+  background: #fff1ef;
+  border: 2px solid #d99a92;
+  border-radius: var(--radius-control);
+}
+
+.activity-end-confirmation p {
+  margin: 6px 0 12px;
+}
+
+.activity-end-confirmation > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .live-room-code {
@@ -3190,11 +3461,49 @@ select:focus-visible,
   }
 
   .classroom-form,
+  .classroom-manager,
+  .teacher-recent-activities,
+  .teacher-roster-manager,
   .student-join-form,
   .teacher-login-card,
   .classroom-setup-gate,
   .student-waiting-card {
     padding: 24px 18px;
+  }
+
+  .classroom-manager-form {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-roster-form,
+  .activity-target-options {
+    grid-template-columns: 1fr;
+  }
+
+  .classroom-manager-form .secondary-button,
+  .teacher-roster-form .secondary-button {
+    width: 100%;
+  }
+
+  .classroom-manager-list > li,
+  .teacher-roster-list > li,
+  .recent-activity-list > li,
+  .live-room-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .recent-activity-list > li {
+    display: flex;
+  }
+
+  .recent-activity-list .secondary-button {
+    width: 100%;
+  }
+
+  .classroom-archive-confirmation {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .classroom-mission-entry {

@@ -12,6 +12,11 @@ import type {
 } from "@/components/classroom/TeacherQuickActivityForm";
 import type { ClassroomStatusInput } from "@/domain/classroom/project-classroom-status";
 import type { StudentActivityQuestion } from "@/domain/classroom/build-student-activity-payload";
+import {
+  createClassroomDraft,
+  type SupportedGrade,
+} from "@/domain/classroom/create-classroom";
+import { validateActivityTargets } from "@/domain/classroom/validate-activity-targets";
 
 const joinedActivityRowSchema = z.object({
   activity_id: z.string().uuid(),
@@ -28,11 +33,43 @@ const createdActivityRowSchema = z.object({
   activity_status: z.literal("waiting"),
 });
 
-const teacherClassroomRowsSchema = z.array(
+const teacherClassroomRowSchema = z.object({
+  classroom_id: z.string().uuid(),
+  classroom_title: z.string().min(1),
+  grade: z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6)]),
+});
+
+const teacherClassroomRowsSchema = z.array(teacherClassroomRowSchema);
+
+const classroomMemberRowSchema = z.object({
+  member_id: z.string().uuid(),
+  member_code: z.string().regex(/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{2,8}$/),
+  display_alias: z.string().min(1).max(24),
+  group_label: z.string().min(1).max(24).nullable(),
+});
+
+const classroomMemberRowsSchema = z.array(classroomMemberRowSchema);
+
+const archivedClassroomMemberRowSchema = z.object({
+  member_id: z.string().uuid(),
+  archived_at: z.string().datetime(),
+});
+
+const archivedClassroomRowSchema = z.object({
+  classroom_id: z.string().uuid(),
+  archived_at: z.string().datetime(),
+});
+
+const teacherActivityRowsSchema = z.array(
   z.object({
-    classroom_id: z.string().uuid(),
-    classroom_title: z.string().min(1),
-    grade: z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6)]),
+    activity_id: z.string().uuid(),
+    activity_title: z.string().min(1),
+    join_code: z.string().regex(/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/),
+    activity_status: z.enum(["waiting", "active", "completed", "ended"]),
+    join_closes_at: z.string().datetime(),
+    question_count: z.union([z.literal(3), z.literal(5)]),
+    audience: z.enum(["whole_class", "small_group", "individual"]),
+    created_at: z.string().datetime(),
   }),
 );
 
@@ -59,6 +96,18 @@ const startedActivityRowSchema = z.object({
   activity_id: z.string().uuid(),
   activity_status: z.literal("active"),
   started_at: z.string().datetime(),
+});
+
+const endedActivityRowSchema = z.object({
+  activity_id: z.string().uuid(),
+  activity_status: z.literal("ended"),
+  ended_at: z.string().datetime(),
+});
+
+const closedActivityJoinRowSchema = z.object({
+  activity_id: z.string().uuid(),
+  activity_status: z.enum(["waiting", "active"]),
+  join_closes_at: z.string().datetime(),
 });
 
 const studentActivityStateRowSchema = z.object({
@@ -149,6 +198,58 @@ export type StartedClassroomActivity = Readonly<{
   activityId: string;
   activityStatus: "active";
   startedAt: string;
+}>;
+
+export type CreateTeacherClassroomRequest = Readonly<{
+  title: string;
+  grade: SupportedGrade;
+}>;
+
+export type ArchivedTeacherClassroom = Readonly<{
+  classroomId: string;
+  archivedAt: string;
+}>;
+
+export type ClassroomMember = Readonly<{
+  id: string;
+  code: string;
+  alias: string;
+  groupLabel: string | null;
+}>;
+
+export type CreateClassroomMemberRequest = Readonly<{
+  classroomId: string;
+  displayAlias: string;
+  memberCode: string;
+  groupLabel: string;
+}>;
+
+export type ArchivedClassroomMember = Readonly<{
+  memberId: string;
+  archivedAt: string;
+}>;
+
+export type TeacherActivitySummary = Readonly<{
+  id: string;
+  title: string;
+  joinCode: string;
+  status: "waiting" | "active" | "completed" | "ended";
+  joinClosesAt: string;
+  questionCount: 3 | 5;
+  audience: "whole_class" | "small_group" | "individual";
+  createdAt: string;
+}>;
+
+export type EndedClassroomActivity = Readonly<{
+  activityId: string;
+  activityStatus: "ended";
+  endedAt: string;
+}>;
+
+export type ClosedClassroomJoin = Readonly<{
+  activityId: string;
+  activityStatus: "waiting" | "active";
+  joinClosesAt: string;
 }>;
 
 export type StudentActivityState = Readonly<{
@@ -307,6 +408,54 @@ export async function startClassroomActivityWithSupabase(
   };
 }
 
+export async function endClassroomActivityWithSupabase(
+  client: SupabaseClient,
+  activityId: string,
+): Promise<EndedClassroomActivity> {
+  const { data, error } = await client.rpc("end_classroom_activity", {
+    p_activity_id: activityId,
+  });
+  if (error) {
+    throw new Error("無法結束活動，請確認活動仍在等待或進行中。");
+  }
+
+  const parsed = endedActivityRowSchema.safeParse(Array.isArray(data) ? data[0] : data);
+  if (!parsed.success) {
+    throw new Error("活動結束結果不完整，請重新整理後確認。");
+  }
+
+  return {
+    activityId: parsed.data.activity_id,
+    activityStatus: parsed.data.activity_status,
+    endedAt: parsed.data.ended_at,
+  };
+}
+
+export async function closeClassroomJoinWithSupabase(
+  client: SupabaseClient,
+  activityId: string,
+): Promise<ClosedClassroomJoin> {
+  const { data, error } = await client.rpc("close_classroom_activity_join", {
+    p_activity_id: activityId,
+  });
+  if (error) {
+    throw new Error("無法停止新加入，請確認活動仍在等待或進行中。");
+  }
+
+  const parsed = closedActivityJoinRowSchema.safeParse(
+    Array.isArray(data) ? data[0] : data,
+  );
+  if (!parsed.success) {
+    throw new Error("停止加入的結果不完整，請重新整理後確認。");
+  }
+
+  return {
+    activityId: parsed.data.activity_id,
+    activityStatus: parsed.data.activity_status,
+    joinClosesAt: parsed.data.join_closes_at,
+  };
+}
+
 export async function listActivityParticipantStatusWithSupabase(
   client: SupabaseClient,
   activityId: string,
@@ -372,10 +521,203 @@ export async function listTeacherClassroomsWithSupabase(
   }));
 }
 
+export async function listClassroomMembersWithSupabase(
+  client: SupabaseClient,
+  classroomId: string,
+): Promise<ReadonlyArray<ClassroomMember>> {
+  const { data, error } = await client.rpc("list_classroom_members", {
+    p_classroom_id: classroomId,
+  });
+  if (error) {
+    throw new Error("無法讀取匿名學生名單，請確認班級仍屬於目前教師。");
+  }
+
+  const parsed = classroomMemberRowsSchema.safeParse(data ?? []);
+  if (!parsed.success) {
+    throw new Error("匿名學生名單格式不完整，請重新整理後再試。");
+  }
+
+  return parsed.data.map((row) => ({
+    id: row.member_id,
+    code: row.member_code,
+    alias: row.display_alias,
+    groupLabel: row.group_label,
+  }));
+}
+
+export async function createClassroomMemberWithSupabase(
+  client: SupabaseClient,
+  request: CreateClassroomMemberRequest,
+): Promise<ClassroomMember> {
+  const normalized = {
+    classroomId: request.classroomId,
+    displayAlias: request.displayAlias.trim(),
+    memberCode: request.memberCode.trim().toUpperCase(),
+    groupLabel: request.groupLabel.trim(),
+  };
+  const validRequest =
+    z.string().uuid().safeParse(normalized.classroomId).success &&
+    normalized.displayAlias.length >= 1 &&
+    normalized.displayAlias.length <= 24 &&
+    /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{2,8}$/.test(normalized.memberCode) &&
+    normalized.groupLabel.length <= 24;
+  if (!validRequest) {
+    throw new Error("請輸入 1–24 字匿名別名、2–8 碼學習代碼，以及最多 24 字小組名稱。");
+  }
+
+  const { data, error } = await client.rpc("create_classroom_member", {
+    p_classroom_id: normalized.classroomId,
+    p_display_alias: normalized.displayAlias,
+    p_member_code: normalized.memberCode,
+    p_group_label: normalized.groupLabel || null,
+  });
+  if (error) {
+    if (error.message.includes("already exists")) {
+      throw new Error("這個學習代碼已被使用，請換一組代碼。");
+    }
+    throw new Error("無法新增匿名學生，請確認教師帳號與班級狀態。");
+  }
+
+  const parsed = classroomMemberRowSchema.safeParse(
+    Array.isArray(data) ? data[0] : data,
+  );
+  if (!parsed.success) {
+    throw new Error("匿名學生已送出，但回傳資料不完整，請重新整理後確認。");
+  }
+
+  return {
+    id: parsed.data.member_id,
+    code: parsed.data.member_code,
+    alias: parsed.data.display_alias,
+    groupLabel: parsed.data.group_label,
+  };
+}
+
+export async function archiveClassroomMemberWithSupabase(
+  client: SupabaseClient,
+  memberId: string,
+): Promise<ArchivedClassroomMember> {
+  const { data, error } = await client.rpc("archive_classroom_member", {
+    p_member_id: memberId,
+  });
+  if (error) {
+    throw new Error("無法封存匿名學生；仍被進行中活動指派時，請先結束活動。");
+  }
+
+  const parsed = archivedClassroomMemberRowSchema.safeParse(
+    Array.isArray(data) ? data[0] : data,
+  );
+  if (!parsed.success) {
+    throw new Error("匿名學生封存結果不完整，請重新整理後確認。");
+  }
+
+  return {
+    memberId: parsed.data.member_id,
+    archivedAt: parsed.data.archived_at,
+  };
+}
+
+export async function listTeacherActivitiesWithSupabase(
+  client: SupabaseClient,
+  classroomId: string,
+): Promise<ReadonlyArray<TeacherActivitySummary>> {
+  const { data, error } = await client.rpc("list_teacher_activities", {
+    p_classroom_id: classroomId,
+  });
+  if (error) {
+    throw new Error("無法讀取最近活動，請確認班級仍屬於目前教師。");
+  }
+
+  const parsed = teacherActivityRowsSchema.safeParse(data ?? []);
+  if (!parsed.success) {
+    throw new Error("最近活動資料不完整，請重新整理後再試。");
+  }
+
+  return parsed.data.map((row) => ({
+    id: row.activity_id,
+    title: row.activity_title,
+    joinCode: row.join_code,
+    status: row.activity_status,
+    joinClosesAt: row.join_closes_at,
+    questionCount: row.question_count,
+    audience: row.audience,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function createTeacherClassroomWithSupabase(
+  client: SupabaseClient,
+  request: CreateTeacherClassroomRequest,
+): Promise<TeacherClassroomOption> {
+  const draft = createClassroomDraft(request);
+  if (!draft.ok) {
+    throw new Error("班級名稱需為 1 到 80 個字，年級只能選三至六年級。");
+  }
+
+  const { data, error } = await client.rpc("create_teacher_classroom", {
+    p_title: draft.classroom.title,
+    p_grade: draft.classroom.grade,
+  });
+  if (error) {
+    throw new Error("無法建立班級，請確認教師帳號已通過核准。");
+  }
+
+  const parsed = teacherClassroomRowSchema.safeParse(
+    Array.isArray(data) ? data[0] : data,
+  );
+  if (!parsed.success) {
+    throw new Error("班級建立結果不完整，請重新整理後確認。");
+  }
+
+  return {
+    id: parsed.data.classroom_id,
+    title: parsed.data.classroom_title,
+    grade: parsed.data.grade,
+  };
+}
+
+export async function archiveTeacherClassroomWithSupabase(
+  client: SupabaseClient,
+  classroomId: string,
+): Promise<ArchivedTeacherClassroom> {
+  const { data, error } = await client.rpc("archive_teacher_classroom", {
+    p_classroom_id: classroomId,
+  });
+  if (error) {
+    throw new Error("無法封存班級；仍進行中的活動需先結束。");
+  }
+
+  const parsed = archivedClassroomRowSchema.safeParse(
+    Array.isArray(data) ? data[0] : data,
+  );
+  if (!parsed.success) {
+    throw new Error("班級封存結果不完整，請重新整理後確認。");
+  }
+
+  return {
+    classroomId: parsed.data.classroom_id,
+    archivedAt: parsed.data.archived_at,
+  };
+}
+
 export async function createClassroomActivityWithSupabase(
   client: SupabaseClient,
   request: QuickActivityRequest,
 ): Promise<CreatedQuickActivity> {
+  const targetValidation = validateActivityTargets(
+    request.audience,
+    request.targetMemberIds ?? [],
+  );
+  if (!targetValidation.ok) {
+    const messages = {
+      invalid_target_id: "目標名單包含無效的匿名學生識別碼。",
+      whole_class_cannot_have_targets: "全班任務不應另外指定個別名單。",
+      small_group_requires_two_members: "小組任務至少要選 2 位匿名學生。",
+      individual_requires_one_member: "個別任務必須剛好選 1 位匿名學生。",
+    } as const;
+    throw new Error(messages[targetValidation.reason]);
+  }
+
   const { data, error } = await client.rpc("create_classroom_activity", {
     p_classroom_id: request.classroomId,
     p_title: request.title,
@@ -383,6 +725,7 @@ export async function createClassroomActivityWithSupabase(
     p_question_count: request.questionCount,
     p_audience: request.audience,
     p_join_code: request.joinCode,
+    p_target_member_ids: targetValidation.targetIds,
   });
 
   if (error) {
@@ -427,6 +770,9 @@ export async function joinClassroomWithSupabase(
   const { data, error } = await client.rpc("join_classroom_activity", {
     p_join_code: request.joinCode,
     p_nickname: request.nickname,
+    p_member_code: request.memberCode.trim()
+      ? request.memberCode.trim().toUpperCase()
+      : null,
   });
 
   if (error) {

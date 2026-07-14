@@ -3,6 +3,8 @@
 import { Clock3, ShieldCheck, UsersRound } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { generateJoinCode } from "@/domain/classroom/generate-join-code";
+import { validateActivityTargets } from "@/domain/classroom/validate-activity-targets";
+import type { ClassroomMember } from "@/infrastructure/supabase/classroom-gateway";
 
 export type TeacherClassroomOption = Readonly<{
   id: string;
@@ -23,6 +25,7 @@ export type QuickActivityRequest = Readonly<{
   questionCount: 3 | 5;
   audience: "whole_class" | "small_group" | "individual";
   joinCode: string;
+  targetMemberIds: ReadonlyArray<string>;
 }>;
 
 export type CreatedQuickActivity = Readonly<{
@@ -35,6 +38,7 @@ export type CreatedQuickActivity = Readonly<{
 type Props = Readonly<{
   classrooms: ReadonlyArray<TeacherClassroomOption>;
   microSkills: ReadonlyArray<ClassroomMicroSkillOption>;
+  members?: ReadonlyArray<ClassroomMember>;
   onCreate: (request: QuickActivityRequest) => Promise<CreatedQuickActivity>;
   onClassroomChange?: (classroomId: string) => void;
   onCreated?: (activity: CreatedQuickActivity) => void;
@@ -44,6 +48,7 @@ type Props = Readonly<{
 export function TeacherQuickActivityForm({
   classrooms,
   microSkills,
+  members = [],
   onCreate,
   onClassroomChange,
   onCreated,
@@ -56,6 +61,7 @@ export function TeacherQuickActivityForm({
   const [audience, setAudience] = useState<QuickActivityRequest["audience"]>(
     "whole_class",
   );
+  const [targetMemberIds, setTargetMemberIds] = useState<ReadonlyArray<string>>([]);
   const [created, setCreated] = useState<CreatedQuickActivity | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -71,10 +77,15 @@ export function TeacherQuickActivityForm({
     () => microSkills.find((option) => option.id === activeMicroSkill),
     [activeMicroSkill, microSkills],
   );
+  const targetValidation = useMemo(
+    () => validateActivityTargets(audience, targetMemberIds),
+    [audience, targetMemberIds],
+  );
 
   const canSubmit =
     Boolean(classroomId && title.trim() && activeMicroSkill) &&
     (selectedMicroSkill?.availableQuestions ?? 0) >= questionCount &&
+    targetValidation.ok &&
     !submitting;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -93,6 +104,7 @@ export function TeacherQuickActivityForm({
         questionCount,
         audience,
         joinCode: generateCode(),
+        targetMemberIds: targetValidation.ok ? targetValidation.targetIds : [],
       });
       setCreated(result);
       onCreated?.(result);
@@ -125,6 +137,8 @@ export function TeacherQuickActivityForm({
               const nextClassroomId = event.target.value;
               setClassroomId(nextClassroomId);
               setCreated(null);
+              setAudience("whole_class");
+              setTargetMemberIds([]);
               onClassroomChange?.(nextClassroomId);
             }}
             required
@@ -191,16 +205,68 @@ export function TeacherQuickActivityForm({
           <span>派給誰</span>
           <select
             value={audience}
-            onChange={(event) =>
-              setAudience(event.target.value as QuickActivityRequest["audience"])
-            }
+            onChange={(event) => {
+              setAudience(event.target.value as QuickActivityRequest["audience"]);
+              setTargetMemberIds([]);
+            }}
           >
             <option value="whole_class">全班</option>
-            <option value="small_group">小組</option>
-            <option value="individual">個別學生</option>
+            <option disabled={members.length < 2} value="small_group">
+              小組
+            </option>
+            <option disabled={members.length < 1} value="individual">
+              個別學生
+            </option>
           </select>
         </label>
       </div>
+
+      {audience !== "whole_class" ? (
+        <fieldset className="activity-target-picker">
+          <legend>{audience === "small_group" ? "選擇小組成員" : "選擇一位學生"}</legend>
+          <p>只使用匿名別名與學習代碼，不要輸入學生真實姓名。</p>
+          <div className="activity-target-options">
+            {members.map((member) => {
+              const checked = targetMemberIds.includes(member.id);
+              return (
+                <label key={member.id}>
+                  <input
+                    checked={checked}
+                    name={audience === "individual" ? "target-member" : undefined}
+                    onChange={() => {
+                      if (audience === "individual") {
+                        setTargetMemberIds([member.id]);
+                        return;
+                      }
+                      setTargetMemberIds(
+                        checked
+                          ? targetMemberIds.filter((targetId) => targetId !== member.id)
+                          : [...targetMemberIds, member.id],
+                      );
+                    }}
+                    type={audience === "individual" ? "radio" : "checkbox"}
+                  />
+                  <span>
+                    <strong>{member.alias}</strong>
+                    <small>
+                      代碼 {member.code}
+                      {member.groupLabel ? `・${member.groupLabel}` : ""}
+                    </small>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      ) : null}
+
+      {!targetValidation.ok && audience !== "whole_class" ? (
+        <p className="field-error" role="alert">
+          {audience === "small_group"
+            ? "小組任務至少要選 2 位匿名學生。"
+            : "個別任務必須選 1 位匿名學生。"}
+        </p>
+      ) : null}
 
       {selectedMicroSkill && selectedMicroSkill.availableQuestions < questionCount ? (
         <p className="field-error" role="alert">

@@ -3,17 +3,28 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { Cable, KeyRound, MailCheck, ShieldAlert } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { TeacherClassroomManager } from "@/components/classroom/TeacherClassroomManager";
 import {
   TeacherQuickActivityForm,
   type ClassroomMicroSkillOption,
   type CreatedQuickActivity,
   type TeacherClassroomOption,
 } from "@/components/classroom/TeacherQuickActivityForm";
+import { TeacherRecentActivities } from "@/components/classroom/TeacherRecentActivities";
+import { TeacherRosterManager } from "@/components/classroom/TeacherRosterManager";
 import { createBrowserSupabaseClient } from "@/infrastructure/supabase/browser-client";
 import {
+  archiveTeacherClassroomWithSupabase,
+  archiveClassroomMemberWithSupabase,
+  createClassroomMemberWithSupabase,
+  createTeacherClassroomWithSupabase,
   createClassroomActivityWithSupabase,
   listClassroomMicroSkillsWithSupabase,
+  listClassroomMembersWithSupabase,
+  listTeacherActivitiesWithSupabase,
   listTeacherClassroomsWithSupabase,
+  type TeacherActivitySummary,
+  type ClassroomMember,
 } from "@/infrastructure/supabase/classroom-gateway";
 import { TeacherActivityLiveRoom } from "./TeacherActivityLiveRoom";
 
@@ -30,6 +41,11 @@ export function TeacherClassroomWorkspace({ client }: Props) {
   const [checkingSession, setCheckingSession] = useState(Boolean(activeClient));
   const [classrooms, setClassrooms] = useState<ReadonlyArray<TeacherClassroomOption>>([]);
   const [microSkills, setMicroSkills] = useState<ReadonlyArray<ClassroomMicroSkillOption>>([]);
+  const [activities, setActivities] = useState<ReadonlyArray<TeacherActivitySummary>>([]);
+  const [members, setMembers] = useState<ReadonlyArray<ClassroomMember>>([]);
+  const [selectedClassroomId, setSelectedClassroomId] = useState<string | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<TeacherActivitySummary | null>(null);
+  const [selectedActivityJoinOpen, setSelectedActivityJoinOpen] = useState(false);
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
   const [email, setEmail] = useState("");
   const [magicLinkSent, setMagicLinkSent] = useState(false);
@@ -70,13 +86,23 @@ export function TeacherClassroomWorkspace({ client }: Props) {
           if (!mounted) return;
           setClassrooms(loadedClassrooms);
           if (loadedClassrooms[0]) {
-            const loadedSkills = await listClassroomMicroSkillsWithSupabase(
-              activeClient,
-              loadedClassrooms[0].id,
-            );
-            if (mounted) setMicroSkills(loadedSkills);
+            const classroomId = loadedClassrooms[0].id;
+            setSelectedClassroomId(classroomId);
+            const [loadedSkills, loadedActivities, loadedMembers] = await Promise.all([
+              listClassroomMicroSkillsWithSupabase(activeClient, classroomId),
+              listTeacherActivitiesWithSupabase(activeClient, classroomId),
+              listClassroomMembersWithSupabase(activeClient, classroomId),
+            ]);
+            if (mounted) {
+              setMicroSkills(loadedSkills);
+              setActivities(loadedActivities);
+              setMembers(loadedMembers);
+            }
           } else {
             setMicroSkills([]);
+            setActivities([]);
+            setMembers([]);
+            setSelectedClassroomId(null);
           }
         })
         .catch((cause) => {
@@ -116,15 +142,72 @@ export function TeacherClassroomWorkspace({ client }: Props) {
     if (!activeClient) return;
     setLoadingWorkspace(true);
     setMessage(null);
+    setSelectedClassroomId(classroomId);
+    setCreatedActivity(null);
+    setSelectedActivity(null);
+    setMembers([]);
     try {
-      setMicroSkills(
-        await listClassroomMicroSkillsWithSupabase(activeClient, classroomId),
-      );
+      const [loadedSkills, loadedActivities, loadedMembers] = await Promise.all([
+        listClassroomMicroSkillsWithSupabase(activeClient, classroomId),
+        listTeacherActivitiesWithSupabase(activeClient, classroomId),
+        listClassroomMembersWithSupabase(activeClient, classroomId),
+      ]);
+      setMicroSkills(loadedSkills);
+      setActivities(loadedActivities);
+      setMembers(loadedMembers);
     } catch (cause) {
       setMicroSkills([]);
+      setActivities([]);
+      setMembers([]);
       setMessage(cause instanceof Error ? cause.message : "能力清單載入失敗。");
     } finally {
       setLoadingWorkspace(false);
+    }
+  }
+
+  async function reloadClassroomsAndSkills() {
+    if (!activeClient) return;
+    setLoadingWorkspace(true);
+    setMessage(null);
+    setCreatedActivity(null);
+    setSelectedActivity(null);
+    try {
+      const loadedClassrooms = await listTeacherClassroomsWithSupabase(activeClient);
+      setClassrooms(loadedClassrooms);
+      const nextClassroom =
+        loadedClassrooms.find((classroom) => classroom.id === selectedClassroomId) ??
+        loadedClassrooms[0];
+      if (nextClassroom) {
+        setSelectedClassroomId(nextClassroom.id);
+        const [loadedSkills, loadedActivities, loadedMembers] = await Promise.all([
+          listClassroomMicroSkillsWithSupabase(activeClient, nextClassroom.id),
+          listTeacherActivitiesWithSupabase(activeClient, nextClassroom.id),
+          listClassroomMembersWithSupabase(activeClient, nextClassroom.id),
+        ]);
+        setMicroSkills(loadedSkills);
+        setActivities(loadedActivities);
+        setMembers(loadedMembers);
+      } else {
+        setMicroSkills([]);
+        setActivities([]);
+        setMembers([]);
+        setSelectedClassroomId(null);
+      }
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "教師工作區載入失敗。");
+    } finally {
+      setLoadingWorkspace(false);
+    }
+  }
+
+  async function reloadMembers() {
+    if (!activeClient || !selectedClassroomId) return;
+    try {
+      setMembers(
+        await listClassroomMembersWithSupabase(activeClient, selectedClassroomId),
+      );
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "匿名學生名單載入失敗。");
     }
   }
 
@@ -200,34 +283,89 @@ export function TeacherClassroomWorkspace({ client }: Props) {
     );
   }
 
-  if (classrooms.length === 0) {
-    return (
-      <section className="classroom-setup-gate">
-        <h2>目前沒有可派任務的班級</h2>
-        <p>教師帳號需先通過核准，並由管理者建立或指派班級。</p>
-      </section>
-    );
-  }
+  const classroomManager = (
+    <TeacherClassroomManager
+      classrooms={classrooms}
+      onArchive={(classroomId) =>
+        archiveTeacherClassroomWithSupabase(activeClient, classroomId)
+      }
+      onChanged={() => void reloadClassroomsAndSkills()}
+      onCreate={(request) => createTeacherClassroomWithSupabase(activeClient, request)}
+    />
+  );
+
+  const recentActivities = (
+    <TeacherRecentActivities
+      activities={activities}
+      onSelect={(activity) => {
+        setCreatedActivity(null);
+        setSelectedActivity(activity);
+        setSelectedActivityJoinOpen(
+          (activity.status === "waiting" || activity.status === "active") &&
+            new Date(activity.joinClosesAt).getTime() > Date.now(),
+        );
+      }}
+      selectedActivityId={createdActivity?.activityId ?? selectedActivity?.id ?? null}
+    />
+  );
+
+  const rosterManager = selectedClassroomId ? (
+    <TeacherRosterManager
+      classroomId={selectedClassroomId}
+      members={members}
+      onArchive={(memberId) =>
+        archiveClassroomMemberWithSupabase(activeClient, memberId)
+      }
+      onChanged={() => void reloadMembers()}
+      onCreate={(request) => createClassroomMemberWithSupabase(activeClient, request)}
+    />
+  ) : null;
+
+  const selectedActivityRoom = selectedActivity ? (
+    <TeacherActivityLiveRoom
+      key={selectedActivity.id}
+      activityId={selectedActivity.id}
+      client={activeClient}
+      initialJoinOpen={selectedActivityJoinOpen}
+      initialStatus={selectedActivity.status}
+      joinCode={selectedActivity.joinCode}
+    />
+  ) : null;
+
+  if (classrooms.length === 0) return classroomManager;
 
   if (microSkills.length === 0) {
     return (
-      <section className="classroom-setup-gate">
-        <h2>這個班級尚無可派的雙人複核題</h2>
-        <p>至少要有三題正式發布且具兩筆複核紀錄，能力才會出現在快派清單。</p>
-      </section>
+      <div className="teacher-workspace-stack">
+        {classroomManager}
+        {rosterManager}
+        {recentActivities}
+        {selectedActivityRoom}
+        <section className="classroom-setup-gate">
+          <h2>這個班級尚無可派的雙人複核題</h2>
+          <p>至少要有三題正式發布且具兩筆複核紀錄，能力才會出現在快派清單。</p>
+        </section>
+      </div>
     );
   }
 
   return (
     <div className="teacher-workspace-stack">
+      {classroomManager}
+      {rosterManager}
+      {recentActivities}
       <TeacherQuickActivityForm
         classrooms={classrooms}
+        members={members}
         microSkills={microSkills}
         onClassroomChange={(classroomId) => void loadMicroSkills(classroomId)}
         onCreate={(request) =>
           createClassroomActivityWithSupabase(activeClient, request)
         }
-        onCreated={setCreatedActivity}
+        onCreated={(activity) => {
+          setSelectedActivity(null);
+          setCreatedActivity(activity);
+        }}
       />
       {createdActivity ? (
         <TeacherActivityLiveRoom
@@ -236,6 +374,7 @@ export function TeacherClassroomWorkspace({ client }: Props) {
           joinCode={createdActivity.joinCode}
         />
       ) : null}
+      {selectedActivityRoom}
     </div>
   );
 }

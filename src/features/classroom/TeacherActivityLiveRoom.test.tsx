@@ -52,7 +52,7 @@ describe("TeacherActivityLiveRoom", () => {
     );
   });
 
-  it("lets the owning teacher start the waiting activity", async () => {
+  it("lets the owning teacher start and deliberately end the activity", async () => {
     const user = userEvent.setup();
     const rpc = vi.fn().mockImplementation(async (name: string) => {
       if (name === "start_classroom_activity") {
@@ -62,6 +62,30 @@ describe("TeacherActivityLiveRoom", () => {
               activity_id: "33333333-3333-4333-8333-333333333333",
               activity_status: "active",
               started_at: "2026-07-14T07:00:00.000Z",
+            },
+          ],
+          error: null,
+        };
+      }
+      if (name === "end_classroom_activity") {
+        return {
+          data: [
+            {
+              activity_id: "33333333-3333-4333-8333-333333333333",
+              activity_status: "ended",
+              ended_at: "2026-07-14T07:30:00.000Z",
+            },
+          ],
+          error: null,
+        };
+      }
+      if (name === "close_classroom_activity_join") {
+        return {
+          data: [
+            {
+              activity_id: "33333333-3333-4333-8333-333333333333",
+              activity_status: "active",
+              join_closes_at: "2026-07-14T07:20:00.000Z",
             },
           ],
           error: null,
@@ -93,5 +117,24 @@ describe("TeacherActivityLiveRoom", () => {
       p_activity_id: "33333333-3333-4333-8333-333333333333",
     });
     expect(await screen.findByText("任務進行中")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "停止新加入" }));
+    expect(rpc).toHaveBeenCalledWith("close_classroom_activity_join", {
+      p_activity_id: "33333333-3333-4333-8333-333333333333",
+    });
+    expect(await screen.findByText("新加入已關閉")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "停止新加入" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "結束活動" }));
+    expect(
+      screen.getByText("結束後學生不能再加入或送出新答案，已保存的學習事件不會刪除。"),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "確認結束活動" }));
+
+    expect(rpc).toHaveBeenCalledWith("end_classroom_activity", {
+      p_activity_id: "33333333-3333-4333-8333-333333333333",
+    });
+    expect(await screen.findByText("活動已結束")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "結束活動" })).not.toBeInTheDocument();
   });
 });

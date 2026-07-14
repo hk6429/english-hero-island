@@ -2,14 +2,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 import {
   createClassroomActivityWithSupabase,
+  closeClassroomJoinWithSupabase,
+  createTeacherClassroomWithSupabase,
+  createClassroomMemberWithSupabase,
+  endClassroomActivityWithSupabase,
   getStudentActivityStateWithSupabase,
   getStudentActivityQuestionsWithSupabase,
   joinClassroomWithSupabase,
   listActivityParticipantStatusWithSupabase,
   listClassroomMicroSkillsWithSupabase,
+  listClassroomMembersWithSupabase,
   listTeacherClassroomsWithSupabase,
+  listTeacherActivitiesWithSupabase,
   startClassroomActivityWithSupabase,
   submitClassroomResponseWithSupabase,
+  archiveTeacherClassroomWithSupabase,
+  archiveClassroomMemberWithSupabase,
 } from "./classroom-gateway";
 
 describe("joinClassroomWithSupabase", () => {
@@ -49,12 +57,14 @@ describe("joinClassroomWithSupabase", () => {
     const result = await joinClassroomWithSupabase(client, {
       joinCode: "A7K9Q2",
       nickname: "小浪",
+      memberCode: "",
     });
 
     expect(callOrder).toEqual(["session", "anonymous-auth", "join-rpc"]);
     expect(client.rpc).toHaveBeenCalledWith("join_classroom_activity", {
       p_join_code: "A7K9Q2",
       p_nickname: "小浪",
+      p_member_code: null,
     });
     expect(result).toEqual({
       activityId: "33333333-3333-4333-8333-333333333333",
@@ -89,6 +99,7 @@ describe("createClassroomActivityWithSupabase", () => {
       questionCount: 5,
       audience: "whole_class",
       joinCode: "A7K9Q2",
+      targetMemberIds: [],
     });
 
     expect(client.rpc).toHaveBeenCalledWith("create_classroom_activity", {
@@ -98,12 +109,118 @@ describe("createClassroomActivityWithSupabase", () => {
       p_question_count: 5,
       p_audience: "whole_class",
       p_join_code: "A7K9Q2",
+      p_target_member_ids: [],
     });
     expect(result).toEqual({
       activityId: "33333333-3333-4333-8333-333333333333",
       joinCode: "A7K9Q2",
       joinClosesAt: "2026-07-15T06:30:00.000Z",
       activityStatus: "waiting",
+    });
+  });
+
+  it("rejects a decorative small-group label without real target members", async () => {
+    const client = { rpc: vi.fn() } as unknown as SupabaseClient;
+
+    await expect(
+      createClassroomActivityWithSupabase(client, {
+        classroomId: "22222222-2222-4222-8222-222222222222",
+        title: "小組救援",
+        microSkill: "yes-no-questions",
+        questionCount: 3,
+        audience: "small_group",
+        joinCode: "A7K9Q2",
+        targetMemberIds: ["44444444-4444-4444-8444-444444444444"],
+      }),
+    ).rejects.toThrow("小組任務至少要選 2 位匿名學生");
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("classroom roster gateway", () => {
+  it("lists, creates, and archives only pseudonymous classroom members", async () => {
+    const client = {
+      rpc: vi.fn().mockImplementation(async (name: string) => {
+        if (name === "list_classroom_members") {
+          return {
+            data: [
+              {
+                member_id: "44444444-4444-4444-8444-444444444444",
+                member_code: "B7",
+                display_alias: "藍鯨 7 號",
+                group_label: "海洋組",
+              },
+            ],
+            error: null,
+          };
+        }
+        if (name === "create_classroom_member") {
+          return {
+            data: [
+              {
+                member_id: "44444444-4444-4444-8444-444444444444",
+                member_code: "B7",
+                display_alias: "藍鯨 7 號",
+                group_label: "海洋組",
+              },
+            ],
+            error: null,
+          };
+        }
+        return {
+          data: [
+            {
+              member_id: "44444444-4444-4444-8444-444444444444",
+              archived_at: "2026-07-14T09:00:00.000Z",
+            },
+          ],
+          error: null,
+        };
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      listClassroomMembersWithSupabase(
+        client,
+        "22222222-2222-4222-8222-222222222222",
+      ),
+    ).resolves.toEqual([
+      {
+        id: "44444444-4444-4444-8444-444444444444",
+        code: "B7",
+        alias: "藍鯨 7 號",
+        groupLabel: "海洋組",
+      },
+    ]);
+
+    await expect(
+      createClassroomMemberWithSupabase(client, {
+        classroomId: "22222222-2222-4222-8222-222222222222",
+        displayAlias: " 藍鯨 7 號 ",
+        memberCode: " b7 ",
+        groupLabel: " 海洋組 ",
+      }),
+    ).resolves.toEqual({
+      id: "44444444-4444-4444-8444-444444444444",
+      code: "B7",
+      alias: "藍鯨 7 號",
+      groupLabel: "海洋組",
+    });
+    expect(client.rpc).toHaveBeenCalledWith("create_classroom_member", {
+      p_classroom_id: "22222222-2222-4222-8222-222222222222",
+      p_display_alias: "藍鯨 7 號",
+      p_member_code: "B7",
+      p_group_label: "海洋組",
+    });
+
+    await expect(
+      archiveClassroomMemberWithSupabase(
+        client,
+        "44444444-4444-4444-8444-444444444444",
+      ),
+    ).resolves.toEqual({
+      memberId: "44444444-4444-4444-8444-444444444444",
+      archivedAt: "2026-07-14T09:00:00.000Z",
     });
   });
 });
@@ -131,6 +248,104 @@ describe("listTeacherClassroomsWithSupabase", () => {
       },
     ]);
     expect(client.rpc).toHaveBeenCalledWith("list_teacher_classrooms");
+  });
+});
+
+describe("teacher classroom management", () => {
+  it("creates and archives classrooms through approved-teacher RPCs", async () => {
+    const client = {
+      rpc: vi.fn().mockImplementation(async (name: string) => {
+        if (name === "create_teacher_classroom") {
+          return {
+            data: [
+              {
+                classroom_id: "22222222-2222-4222-8222-222222222222",
+                classroom_title: "四年一班",
+                grade: 4,
+              },
+            ],
+            error: null,
+          };
+        }
+        return {
+          data: [
+            {
+              classroom_id: "22222222-2222-4222-8222-222222222222",
+              archived_at: "2026-07-14T08:00:00.000Z",
+            },
+          ],
+          error: null,
+        };
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      createTeacherClassroomWithSupabase(client, { title: " 四年一班 ", grade: 4 }),
+    ).resolves.toEqual({
+      id: "22222222-2222-4222-8222-222222222222",
+      title: "四年一班",
+      grade: 4,
+    });
+    expect(client.rpc).toHaveBeenCalledWith("create_teacher_classroom", {
+      p_title: "四年一班",
+      p_grade: 4,
+    });
+
+    await expect(
+      archiveTeacherClassroomWithSupabase(
+        client,
+        "22222222-2222-4222-8222-222222222222",
+      ),
+    ).resolves.toEqual({
+      classroomId: "22222222-2222-4222-8222-222222222222",
+      archivedAt: "2026-07-14T08:00:00.000Z",
+    });
+    expect(client.rpc).toHaveBeenCalledWith("archive_teacher_classroom", {
+      p_classroom_id: "22222222-2222-4222-8222-222222222222",
+    });
+  });
+});
+
+describe("listTeacherActivitiesWithSupabase", () => {
+  it("returns recent owned activities so lifecycle controls survive a reload", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          {
+            activity_id: "33333333-3333-4333-8333-333333333333",
+            activity_title: "Yes／No 快速救援",
+            join_code: "A7K9Q2",
+            activity_status: "active",
+            join_closes_at: "2026-07-15T06:30:00.000Z",
+            question_count: 5,
+            audience: "whole_class",
+            created_at: "2026-07-14T06:30:00.000Z",
+          },
+        ],
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      listTeacherActivitiesWithSupabase(
+        client,
+        "22222222-2222-4222-8222-222222222222",
+      ),
+    ).resolves.toEqual([
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        title: "Yes／No 快速救援",
+        joinCode: "A7K9Q2",
+        status: "active",
+        joinClosesAt: "2026-07-15T06:30:00.000Z",
+        questionCount: 5,
+        audience: "whole_class",
+        createdAt: "2026-07-14T06:30:00.000Z",
+      },
+    ]);
+    expect(client.rpc).toHaveBeenCalledWith("list_teacher_activities", {
+      p_classroom_id: "22222222-2222-4222-8222-222222222222",
+    });
   });
 });
 
@@ -214,6 +429,68 @@ describe("startClassroomActivityWithSupabase", () => {
       startedAt: "2026-07-14T07:00:00.000Z",
     });
     expect(client.rpc).toHaveBeenCalledWith("start_classroom_activity", {
+      p_activity_id: "33333333-3333-4333-8333-333333333333",
+    });
+  });
+});
+
+describe("endClassroomActivityWithSupabase", () => {
+  it("ends an owned waiting or active activity through its lifecycle RPC", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          {
+            activity_id: "33333333-3333-4333-8333-333333333333",
+            activity_status: "ended",
+            ended_at: "2026-07-14T07:30:00.000Z",
+          },
+        ],
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      endClassroomActivityWithSupabase(
+        client,
+        "33333333-3333-4333-8333-333333333333",
+      ),
+    ).resolves.toEqual({
+      activityId: "33333333-3333-4333-8333-333333333333",
+      activityStatus: "ended",
+      endedAt: "2026-07-14T07:30:00.000Z",
+    });
+    expect(client.rpc).toHaveBeenCalledWith("end_classroom_activity", {
+      p_activity_id: "33333333-3333-4333-8333-333333333333",
+    });
+  });
+});
+
+describe("closeClassroomJoinWithSupabase", () => {
+  it("revokes new joins without ending the active learning session", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          {
+            activity_id: "33333333-3333-4333-8333-333333333333",
+            activity_status: "active",
+            join_closes_at: "2026-07-14T07:20:00.000Z",
+          },
+        ],
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      closeClassroomJoinWithSupabase(
+        client,
+        "33333333-3333-4333-8333-333333333333",
+      ),
+    ).resolves.toEqual({
+      activityId: "33333333-3333-4333-8333-333333333333",
+      activityStatus: "active",
+      joinClosesAt: "2026-07-14T07:20:00.000Z",
+    });
+    expect(client.rpc).toHaveBeenCalledWith("close_classroom_activity_join", {
       p_activity_id: "33333333-3333-4333-8333-333333333333",
     });
   });
