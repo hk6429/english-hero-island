@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
+import { StreakGlow } from "@/components/adventure/StreakGlow";
 import { AppShell } from "@/components/layout/AppShell";
 import { pilotQuestionBank } from "@/content/pilot";
 import { deriveMastery, type MasteryStatus } from "@/domain/mastery/derive-mastery";
@@ -68,7 +69,7 @@ export default function IslandPage() {
   const focus = FOCUS_MICRO_SKILL[profile.grade];
   const mission = MISSION_COPY[profile.grade];
   const focusMastery = deriveMastery(focus, progress.events);
-  const secretUnlocked = progress.repairedZones.length >= 3;
+  const secretUnlocked = progress.repairedZones.length >= 1;
   const diagnosticQuestions = pilotQuestionBank.filter(
     (question) => question.grade === profile.grade && question.purpose === "diagnostic",
   );
@@ -77,13 +78,15 @@ export default function IslandPage() {
     <AppShell pageClassName="island-page">
       <main id="main-content" className="page-main">
         <section className="island-welcome">
-          <HeroGlyph heroId={profile.heroId} size="large" />
+          <HeroGlyph heroId={profile.heroId} accent={profile.accent} size="large" />
           <div>
             <p className="eyebrow">{profile.nickname} 的能力島</p>
             <h1>地圖不是分數表，是下一步的導航。</h1>
             <p>診斷只決定今天的起點；之後每一次作答，都能改變能力狀態。</p>
           </div>
         </section>
+
+        <StreakGlow streak={progress.streak} />
 
         <section className="mission-recommendation" aria-labelledby="mission-title">
           <div className="mission-copy">
@@ -158,7 +161,17 @@ export default function IslandPage() {
           <div>
             <p className="eyebrow">能力門檻，不是付費牆</p>
             <h2 id="secret-title">雲端秘境</h2>
-            <p>{secretUnlocked ? "三區已修復，秘境入口出現了。" : `再修復 ${3 - progress.repairedZones.length} 區，就能解鎖新的故事任務。`}</p>
+            <p>
+              {secretUnlocked
+                ? "主線能力卡已取得，星光秘境入口出現了。"
+                : "完成今天的主線任務，就能用能力打開第一個探索入口。"}
+            </p>
+            {secretUnlocked ? (
+              <Link className="secondary-button secondary-link secret-link" href="/secret">
+                進入星光秘境
+                <ArrowRight aria-hidden="true" />
+              </Link>
+            ) : null}
           </div>
         </section>
       </main>

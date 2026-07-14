@@ -5,8 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
+import { StreakGlow } from "@/components/adventure/StreakGlow";
 import { AppShell } from "@/components/layout/AppShell";
+import { ShareEncouragementButton } from "@/components/social/ShareEncouragementButton";
+import { PairEncouragementRelay } from "@/components/social/PairEncouragementRelay";
 import { deriveMastery } from "@/domain/mastery/derive-mastery";
+import { deriveOutcomeStory } from "@/domain/story/derive-outcome-story";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { microSkillLabel } from "@/features/adventure/content-map";
 
@@ -40,18 +44,33 @@ export default function ResultPage() {
   ).length;
   const focus = session.microSkill ?? sessionEvents[0]?.microSkill ?? "adventure";
   const mastery = deriveMastery(focus, progress.events);
+  const story = deriveOutcomeStory(session.outcomes);
 
   return (
     <AppShell pageClassName="result-page">
       <main id="main-content" className="page-main narrow-main">
         <section className="result-hero">
-          <HeroGlyph heroId={profile.heroId} size="large" />
+          <HeroGlyph heroId={profile.heroId} accent={profile.accent} size="large" />
           <span className="result-spark" aria-hidden="true">
             <Sparkles />
           </span>
           <p className="eyebrow">任務完成</p>
           <h1>{microSkillLabel(focus)}已留下新的學習證據。</h1>
           <p>不是只有全對才算進步；知道何時用線索、完成救援，也都會進入下一次安排。</p>
+        </section>
+
+        <section
+          className={`story-branch story-${story.tone}`}
+          aria-labelledby="story-branch-title"
+        >
+          <span className="story-symbol" aria-hidden="true">
+            <Sparkles />
+          </span>
+          <div>
+            <p className="eyebrow">本次探索分支</p>
+            <h2 id="story-branch-title">{story.title}</h2>
+            <p>{story.story}</p>
+          </div>
         </section>
 
         <section className="result-grid" aria-label="本次任務結果">
@@ -83,6 +102,30 @@ export default function ResultPage() {
           </div>
           <span className="xp-medal">累積 {progress.xp} XP</span>
         </section>
+
+        <StreakGlow streak={progress.streak} compact />
+
+        <section className="encouragement-card" aria-labelledby="encouragement-title">
+          <div>
+            <p className="eyebrow">不排名的學伴互動</p>
+            <h2 id="encouragement-title">把一句方法送給下一位學伴</h2>
+            <p>分享內容不含姓名、XP、分數或錯題；由你自己決定要不要傳，以及傳給誰。</p>
+          </div>
+          <ShareEncouragementButton abilityLabel={microSkillLabel(focus)} />
+        </section>
+
+        <PairEncouragementRelay
+          onReceive={(message) =>
+            dispatch({
+              type: "record_partner_encouragement",
+              card: {
+                id: crypto.randomUUID(),
+                message,
+                receivedAt: new Date().toISOString(),
+              },
+            })
+          }
+        />
 
         <div className="result-actions">
           <button

@@ -1,14 +1,14 @@
 "use client";
 
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, Palette, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
 import { AppShell } from "@/components/layout/AppShell";
 import type { Grade } from "@/domain/questions/question-schema";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
-import { HEROES } from "@/features/adventure/content-map";
-import type { HeroId } from "@/infrastructure/progress/progress-types";
+import { HEROES, HERO_ACCENTS } from "@/features/adventure/content-map";
+import type { HeroAccent, HeroId } from "@/infrastructure/progress/progress-types";
 
 const grades: Grade[] = [3, 4, 5, 6];
 
@@ -17,6 +17,7 @@ export default function StartPage() {
   const { ready, progress, dispatch, reset } = useAdventure();
   const [grade, setGrade] = useState<Grade>(progress.profile?.grade ?? 3);
   const [heroId, setHeroId] = useState<HeroId>(progress.profile?.heroId ?? "wave-scout");
+  const [accent, setAccent] = useState<HeroAccent>(progress.profile?.accent ?? "ocean");
   const [nickname, setNickname] = useState(progress.profile?.nickname ?? "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -36,7 +37,7 @@ export default function StartPage() {
     }
     dispatch({
       type: "create_profile",
-      profile: { nickname: safeNickname, grade, heroId },
+      profile: { nickname: safeNickname, grade, heroId, accent },
     });
     router.push("/diagnostic");
   }
@@ -85,7 +86,11 @@ export default function StartPage() {
                       checked={heroId === hero.id}
                       onChange={() => setHeroId(hero.id)}
                     />
-                    <HeroGlyph heroId={hero.id} size="large" />
+                    <HeroGlyph
+                      heroId={hero.id}
+                      accent={heroId === hero.id ? accent : "ocean"}
+                      size="large"
+                    />
                     <strong>{hero.name}</strong>
                     <span>{hero.title}</span>
                     <small>{hero.description}</small>
@@ -94,8 +99,35 @@ export default function StartPage() {
               </div>
             </fieldset>
 
+            <fieldset className="form-section">
+              <legend>3. 選擇英雄光環</legend>
+              <p className="field-intro">
+                <Palette aria-hidden="true" />
+                光環只改變你的收藏外觀，不影響題目、XP 或能力。
+              </p>
+              <div className="accent-choice-grid">
+                {HERO_ACCENTS.map((choice) => (
+                  <label
+                    className={`choice-card accent-choice accent-${choice.id} ${accent === choice.id ? "selected" : ""}`}
+                    key={choice.id}
+                  >
+                    <input
+                      type="radio"
+                      name="accent"
+                      value={choice.id}
+                      checked={accent === choice.id}
+                      onChange={() => setAccent(choice.id)}
+                    />
+                    <span className="accent-swatch" aria-hidden="true" />
+                    <strong>{choice.name}</strong>
+                    <small>{choice.description}</small>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
             <div className="form-section nickname-section">
-              <label htmlFor="nickname">3. 英雄暱稱</label>
+              <label htmlFor="nickname">4. 英雄暱稱</label>
               <input
                 id="nickname"
                 name="nickname"

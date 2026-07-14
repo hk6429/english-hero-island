@@ -20,6 +20,7 @@ function baseSession(
     phase,
     hintsUsed: 0,
     selectedTool: null,
+    selectedRoute: null,
     battle: {
       armor: questionIds.length,
       shields: 3,

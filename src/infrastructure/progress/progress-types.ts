@@ -3,7 +3,9 @@ import type { LearningEvent, LearningOutcome } from "@/domain/learning/types";
 import type { Grade } from "@/domain/questions/question-schema";
 
 export type HeroId = "wave-scout" | "forest-keeper" | "star-smith";
+export type HeroAccent = "ocean" | "coral" | "gold";
 export type HintTool = "sound-lens" | "word-bridge" | "example-card";
+export type MissionRoute = "steady-bridge" | "story-trail";
 export type AdventureStage =
   | "onboarding"
   | "diagnostic"
@@ -17,6 +19,13 @@ export type StudentProfile = Readonly<{
   nickname: string;
   grade: Grade;
   heroId: HeroId;
+  accent?: HeroAccent;
+}>;
+
+export type PartnerEncouragement = Readonly<{
+  id: string;
+  message: string;
+  receivedAt: string;
 }>;
 
 export type ActiveSession = Readonly<{
@@ -28,6 +37,7 @@ export type ActiveSession = Readonly<{
   phase: "diagnostic" | "practice" | "boss" | "review";
   hintsUsed: number;
   selectedTool: HintTool | null;
+  selectedRoute?: MissionRoute | null;
   battle: BattleState;
   outcomes: LearningOutcome[];
 }>;
@@ -41,6 +51,8 @@ export type ProgressSnapshot = Readonly<{
   abilityCards: string[];
   repairedZones: string[];
   dexEntries: string[];
+  discoveries: string[];
+  partnerEncouragements: PartnerEncouragement[];
   activeSession: ActiveSession | null;
   streak: Readonly<{
     completedDates: string[];
@@ -58,6 +70,8 @@ export function createEmptyProgress(): ProgressSnapshot {
     abilityCards: [],
     repairedZones: [],
     dexEntries: [],
+    discoveries: [],
+    partnerEncouragements: [],
     activeSession: null,
     streak: {
       completedDates: [],

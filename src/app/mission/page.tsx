@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Check, MapPinned, ShieldCheck, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -9,6 +9,7 @@ import { useAdventure } from "@/features/adventure/AdventureProvider";
 import {
   FOCUS_MICRO_SKILL,
   HINT_TOOLS,
+  MISSION_ROUTES,
   MISSION_COPY,
   microSkillLabel,
 } from "@/features/adventure/content-map";
@@ -90,6 +91,36 @@ export default function MissionPage() {
           </div>
         ) : (
           <>
+            <section className="route-section" aria-labelledby="route-title">
+              <div className="section-heading">
+                <p className="eyebrow">自主路線</p>
+                <h2 id="route-title">同一份能力，想怎麼走？</h2>
+                <p>兩條路使用相同題目、提示與 XP 規則，只改變你看見的探索方式。</p>
+              </div>
+              <div className="route-grid" role="radiogroup" aria-label="練功路線">
+                {MISSION_ROUTES.map((route) => {
+                  const selected = session?.selectedRoute === route.id;
+                  return (
+                    <button
+                      className={`route-card ${selected ? "selected" : ""}`}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      key={route.id}
+                      onClick={() => dispatch({ type: "choose_route", route: route.id })}
+                    >
+                      <MapPinned aria-hidden="true" />
+                      <span>
+                        <strong>{route.name}</strong>
+                        <small>{route.description}</small>
+                        <em>{route.effect}</em>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
             <section className="tool-section" aria-labelledby="tool-title">
               <div className="section-heading">
                 <p className="eyebrow">策略選擇</p>
@@ -135,13 +166,17 @@ export default function MissionPage() {
             <button
               className="primary-button wide-action"
               type="button"
-              disabled={!session?.selectedTool}
+              disabled={!session?.selectedTool || !session?.selectedRoute}
               onClick={() => {
                 dispatch({ type: "begin_battle" });
                 router.push("/battle");
               }}
             >
-              {session?.selectedTool ? "開始練功" : "先選一個提示工具"}
+              {!session?.selectedRoute
+                ? "先選一條練功路線"
+                : session.selectedTool
+                  ? "開始練功"
+                  : "再選一個提示工具"}
               <ArrowRight aria-hidden="true" />
             </button>
           </>

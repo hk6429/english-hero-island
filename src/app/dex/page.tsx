@@ -1,6 +1,14 @@
 "use client";
 
-import { ArrowLeft, BookOpenCheck, CheckCircle2, LockKeyhole, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpenCheck,
+  CheckCircle2,
+  HandHeart,
+  LockKeyhole,
+  Sparkles,
+  Star,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
@@ -8,6 +16,21 @@ import { AppShell } from "@/components/layout/AppShell";
 import { deriveMastery } from "@/domain/mastery/derive-mastery";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { FOCUS_MICRO_SKILL, microSkillLabel } from "@/features/adventure/content-map";
+
+const discoveryTitles: Readonly<Record<string, string>> = {
+  "g3-constellation-cat": "短母音星",
+  "g3-constellation-map": "地圖星",
+  "g3-constellation-sun": "太陽星",
+  "g4-constellation-yes": "回應星",
+  "g4-constellation-this": "近方星",
+  "g4-constellation-that": "遠方星",
+  "g5-constellation-can": "能力星",
+  "g5-constellation-age": "年齡星",
+  "g5-constellation-question": "提問星",
+  "g6-constellation-now": "此刻星",
+  "g6-constellation-they": "同行星",
+  "g6-constellation-question": "觀察星",
+};
 
 export default function DexPage() {
   const router = useRouter();
@@ -47,7 +70,7 @@ export default function DexPage() {
         </button>
 
         <section className="dex-header">
-          <HeroGlyph heroId={profile.heroId} size="large" />
+          <HeroGlyph heroId={profile.heroId} accent={profile.accent} size="large" />
           <div>
             <p className="eyebrow">{profile.nickname} 的收藏</p>
             <h1>能力圖鑑</h1>
@@ -97,6 +120,49 @@ export default function DexPage() {
             <h2>更多微技能卡</h2>
             <p>正式題庫通過雙人複核後，其他能力區會依序開放。</p>
           </article>
+        </section>
+
+        <section className="exploration-dex" aria-labelledby="exploration-dex-title">
+          <div className="section-heading">
+            <p className="eyebrow">秘境不是抽獎</p>
+            <h2 id="exploration-dex-title">星光探索收藏</h2>
+            <p>每一顆星都能找到；這裡只記錄你已經親手打開的知識片段。</p>
+          </div>
+          {(progress.discoveries ?? []).length === 0 ? (
+            <p className="empty-collection">完成主線並進入星光秘境，就能收藏第一顆知識星。</p>
+          ) : (
+            <div className="discovery-entry-grid">
+              {(progress.discoveries ?? []).map((discoveryId) => (
+                <article className="discovery-entry" key={discoveryId}>
+                  <Star aria-hidden="true" />
+                  <div>
+                    <strong>{discoveryTitles[discoveryId] ?? "未知星片"}</strong>
+                    <span>已收入探索圖鑑</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="partner-dex" aria-labelledby="partner-dex-title">
+          <div className="section-heading">
+            <p className="eyebrow">不公開、不排名</p>
+            <h2 id="partner-dex-title">夥伴鼓勵收藏</h2>
+            <p>只收藏學伴選擇的鼓勵句，不記錄對方姓名、分數、速度或錯題。</p>
+          </div>
+          {(progress.partnerEncouragements ?? []).length === 0 ? (
+            <p className="empty-collection">完成任務後，可把裝置交給身旁學伴留下一張卡。</p>
+          ) : (
+            <div className="partner-entry-grid">
+              {(progress.partnerEncouragements ?? []).map((card) => (
+                <article className="partner-entry" key={card.id}>
+                  <HandHeart aria-hidden="true" />
+                  <p>{card.message}</p>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       </main>
     </AppShell>

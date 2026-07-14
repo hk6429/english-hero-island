@@ -99,7 +99,7 @@ describe("adventure state machine", () => {
     expect(next.activeSession).toEqual(nextSession);
   });
 
-  it("lets the student choose a hint tool before beginning a mission battle", () => {
+  it("requires both a hint tool and an equal-cost route before beginning a mission battle", () => {
     const progress = {
       ...createEmptyProgress(),
       profile: { nickname: "小森", grade: 5 as const, heroId: "forest-keeper" as const },
@@ -113,6 +113,7 @@ describe("adventure state machine", () => {
         phase: "practice" as const,
         hintsUsed: 0,
         selectedTool: null,
+        selectedRoute: null,
         battle: { armor: 4, shields: 3, combo: 0, rescueActive: false },
         outcomes: [],
       },
@@ -122,9 +123,16 @@ describe("adventure state machine", () => {
       type: "choose_tool",
       tool: "sound-lens",
     });
-    const battling = reduceAdventure(prepared, { type: "begin_battle" });
+    const blocked = reduceAdventure(prepared, { type: "begin_battle" });
+    const routed = reduceAdventure(prepared, {
+      type: "choose_route",
+      route: "story-trail",
+    });
+    const battling = reduceAdventure(routed, { type: "begin_battle" });
 
     expect(prepared.activeSession?.selectedTool).toBe("sound-lens");
+    expect(blocked.stage).toBe("mission");
+    expect(routed.activeSession?.selectedRoute).toBe("story-trail");
     expect(battling.stage).toBe("battle");
   });
 
@@ -154,10 +162,27 @@ describe("adventure state machine", () => {
   });
 
   it("records a completed mission repair before returning to the island", () => {
+    const completedEvent = Object.freeze({
+      id: "event-mission-complete",
+      type: "question_completed" as const,
+      outcome: "independent_correct" as const,
+      studentId: "student-05",
+      sessionId: "mission-01",
+      questionId: "boss",
+      questionVersion: 1,
+      microSkill: "age-and-can",
+      variantGroup: "age-can-boss",
+      firstSelectedOptionId: "a",
+      hintsUsed: 0,
+      rescueVariantCorrect: false,
+      occurredAt: "2026-07-14T10:00:00.000Z",
+      studyDate: "2026-07-14",
+    });
     const progress = {
       ...createEmptyProgress(),
       profile: { nickname: "小森", grade: 5 as const, heroId: "forest-keeper" as const },
       stage: "battle" as const,
+      events: [completedEvent],
       activeSession: {
         id: "mission-01",
         kind: "mission" as const,
@@ -179,7 +204,53 @@ describe("adventure state machine", () => {
     expect(result.repairedZones).toContain("age-and-can");
     expect(result.dexEntries).toContain("age-and-can");
     expect(result.abilityCards).toContain("ability-age-and-can");
+    expect(result.streak).toEqual({ completedDates: ["2026-07-14"], brightness: 3 });
     expect(island.stage).toBe("island");
     expect(island.activeSession).toBeNull();
+  });
+
+  it("collects one secret discovery without duplicating it", () => {
+    const progress = {
+      ...createEmptyProgress(),
+      profile: { nickname: "小星", grade: 6 as const, heroId: "star-smith" as const },
+      stage: "island" as const,
+    };
+
+    const discovered = reduceAdventure(progress, {
+      type: "record_discovery",
+      discoveryId: "constellation-action-now",
+    });
+    const repeated = reduceAdventure(discovered, {
+      type: "record_discovery",
+      discoveryId: "constellation-action-now",
+    });
+
+    expect(discovered.discoveries).toEqual(["constellation-action-now"]);
+    expect(repeated.discoveries).toEqual(["constellation-action-now"]);
+  });
+
+  it("keeps one anonymous partner encouragement card without duplicating it", () => {
+    const progress = {
+      ...createEmptyProgress(),
+      profile: { nickname: "小浪", grade: 3 as const, heroId: "wave-scout" as const },
+      stage: "result" as const,
+    };
+    const card = {
+      id: "encouragement-01",
+      message: "我看見你有先自己想，再決定要不要用提示。",
+      receivedAt: "2026-07-14T10:00:00.000Z",
+    };
+
+    const received = reduceAdventure(progress, {
+      type: "record_partner_encouragement",
+      card,
+    });
+    const repeated = reduceAdventure(received, {
+      type: "record_partner_encouragement",
+      card,
+    });
+
+    expect(received.partnerEncouragements).toEqual([card]);
+    expect(repeated.partnerEncouragements).toEqual([card]);
   });
 });

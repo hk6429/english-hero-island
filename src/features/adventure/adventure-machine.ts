@@ -1,7 +1,10 @@
 import type { LearningEvent, LearningOutcome } from "@/domain/learning/types";
+import { updateStreak } from "@/domain/rewards/update-streak";
 import type {
   ActiveSession,
   HintTool,
+  MissionRoute,
+  PartnerEncouragement,
   ProgressSnapshot,
   StudentProfile,
 } from "@/infrastructure/progress/progress-types";
@@ -10,6 +13,7 @@ export type AdventureAction =
   | Readonly<{ type: "create_profile"; profile: StudentProfile }>
   | Readonly<{ type: "start_session"; session: ActiveSession }>
   | Readonly<{ type: "choose_tool"; tool: HintTool }>
+  | Readonly<{ type: "choose_route"; route: MissionRoute }>
   | Readonly<{ type: "begin_battle" }>
   | Readonly<{
       type: "record_question";
@@ -19,6 +23,8 @@ export type AdventureAction =
       nextSession: ActiveSession;
     }>
   | Readonly<{ type: "complete_session" }>
+  | Readonly<{ type: "record_discovery"; discoveryId: string }>
+  | Readonly<{ type: "record_partner_encouragement"; card: PartnerEncouragement }>
   | Readonly<{ type: "open_training" }>
   | Readonly<{ type: "return_to_island" }>;
 
@@ -70,10 +76,21 @@ export function reduceAdventure(
     };
   }
 
+  if (action.type === "choose_route" && progress.activeSession?.kind === "mission") {
+    return {
+      ...progress,
+      activeSession: {
+        ...progress.activeSession,
+        selectedRoute: action.route,
+      },
+    };
+  }
+
   if (
     action.type === "begin_battle" &&
     progress.activeSession &&
-    (progress.activeSession.kind !== "mission" || progress.activeSession.selectedTool)
+    (progress.activeSession.kind !== "mission" ||
+      (progress.activeSession.selectedTool && progress.activeSession.selectedRoute))
   ) {
     return {
       ...progress,
@@ -92,9 +109,16 @@ export function reduceAdventure(
 
     const completedSkill = progress.activeSession.microSkill;
     const earnedAbilityCard = completedSkill ? `ability-${completedSkill}` : null;
+    const latestSessionEvent = progress.events
+      .filter((event) => event.sessionId === progress.activeSession?.id)
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))[0];
     return {
       ...progress,
       stage: "result",
+      streak:
+        progress.activeSession.kind === "mission" && latestSessionEvent
+          ? updateStreak(progress.streak, latestSessionEvent.studyDate)
+          : progress.streak,
       abilityCards:
         progress.activeSession.kind === "mission" &&
         earnedAbilityCard &&
@@ -111,6 +135,24 @@ export function reduceAdventure(
         completedSkill && !progress.dexEntries.includes(completedSkill)
           ? [...progress.dexEntries, completedSkill]
           : progress.dexEntries,
+    };
+  }
+
+  if (action.type === "record_discovery" && progress.profile) {
+    const discoveries = progress.discoveries ?? [];
+    if (discoveries.includes(action.discoveryId)) return progress;
+    return {
+      ...progress,
+      discoveries: [...discoveries, action.discoveryId],
+    };
+  }
+
+  if (action.type === "record_partner_encouragement" && progress.profile) {
+    const cards = progress.partnerEncouragements ?? [];
+    if (cards.some((card) => card.id === action.card.id)) return progress;
+    return {
+      ...progress,
+      partnerEncouragements: [...cards, action.card],
     };
   }
 

@@ -5,6 +5,31 @@ import { createEmptyProgress, type ProgressSnapshot } from "./progress-types";
 const STORE_NAME = "progress";
 const SNAPSHOT_KEY = "student-progress";
 
+function normalizeProgress(stored: ProgressSnapshot): ProgressSnapshot {
+  const empty = createEmptyProgress();
+  return {
+    ...empty,
+    ...stored,
+    events: stored.events ?? [],
+    abilityCards: stored.abilityCards ?? [],
+    repairedZones: stored.repairedZones ?? [],
+    dexEntries: stored.dexEntries ?? [],
+    discoveries: stored.discoveries ?? [],
+    partnerEncouragements: stored.partnerEncouragements ?? [],
+    activeSession: stored.activeSession
+      ? {
+          ...stored.activeSession,
+          selectedRoute: stored.activeSession.selectedRoute ?? null,
+        }
+      : null,
+    streak: {
+      ...empty.streak,
+      ...(stored.streak ?? {}),
+      completedDates: stored.streak?.completedDates ?? [],
+    },
+  };
+}
+
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.addEventListener("success", () => resolve(request.result));
@@ -43,7 +68,7 @@ export class IndexedDbProgressStore implements ProgressStore {
       transaction.objectStore(STORE_NAME).get(SNAPSHOT_KEY),
     );
     await transactionDone(transaction);
-    return stored ? structuredClone(stored) : createEmptyProgress();
+    return stored ? normalizeProgress(structuredClone(stored)) : createEmptyProgress();
   }
 
   async save(progress: ProgressSnapshot): Promise<void> {

@@ -12,6 +12,11 @@ async function finishBattleSession(page: Page): Promise<void> {
     const feedback = page.locator(".feedback-card");
     const availableOptions = page.locator(".answer-option:not([disabled])");
     await expect(availableOptions.first()).toBeVisible();
+    if (await page.locator(".boss-badge").isVisible()) {
+      await expect(page.locator(".boss-move-card")).toContainText(
+        "只改變故事演出；題目、提示與 XP 規則完全相同。",
+      );
+    }
     await availableOptions.first().click();
 
     if (!(await feedback.isVisible())) {
@@ -35,6 +40,7 @@ for (const grade of [3, 4, 5, 6] as const) {
   test(`${grade} 年級可走完學生端垂直切片`, async ({ page }) => {
     await page.goto("/start");
     await page.getByRole("radio", { name: new RegExp(`${grade}\\s*年級`) }).check();
+    await page.getByRole("radio", { name: /珊瑚橘/ }).check();
     await page.getByLabel("英雄暱稱").fill(`測試${grade}`);
     await page.getByRole("button", { name: "進入五題診斷戰" }).click();
 
@@ -46,18 +52,49 @@ for (const grade of [3, 4, 5, 6] as const) {
 
     await page.getByRole("link", { name: /前往今日任務/ }).click();
     await expect(page).toHaveURL(/\/mission$/);
+    await page.getByRole("radio", { name: /探索徑/ }).click();
     await page.getByRole("radio", { name: /聲音透鏡/ }).click();
     await page.getByRole("button", { name: /開始練功/ }).click();
 
     await expect(page).toHaveURL(/\/battle$/);
+    await expect(page.getByText("探索徑・故事線索 1")).toBeVisible();
     await finishBattleSession(page);
     await expect(page).toHaveURL(/\/result$/);
     await expect(page.getByRole("heading", { name: /學習證據/ })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /星光捷徑|共鳴小徑|夥伴營火/ }),
+    ).toBeVisible();
+    await expect(page.getByLabel(/島嶼亮度 3 格，共完成 1 個學習日/)).toBeVisible();
+    await expect(page.locator(".result-hero .hero-accent-coral")).toBeVisible();
+    await expect(page.getByRole("button", { name: "分享鼓勵卡" })).toBeVisible();
+    await page.getByRole("button", { name: "開啟同桌鼓勵接力" }).click();
+    await page
+      .getByRole("button", { name: "我看見你有先自己想，再決定要不要用提示。" })
+      .click();
+    await page.getByRole("button", { name: "封好鼓勵卡，交還給英雄" }).click();
+    await expect(page.getByRole("heading", { name: /英雄，可以把裝置拿回來了/ })).toBeVisible();
+    await page.getByRole("button", { name: "打開夥伴鼓勵" }).click();
+    await expect(page.getByText("我看見你有先自己想，再決定要不要用提示。")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
 
     await page.getByRole("button", { name: /安排下一次修煉/ }).click();
     await expect(page).toHaveURL(/\/training$/);
     await expect(page.getByRole("heading", { name: /換一天、換一種題目再確認/ })).toBeVisible();
     await expectNoHorizontalOverflow(page);
+
+    await page.getByRole("button", { name: /回能力島/ }).click();
+    await expect(page).toHaveURL(/\/island$/);
+    await page.getByRole("link", { name: /進入星光秘境/ }).click();
+    await expect(page).toHaveURL(/\/secret$/);
+    await page.locator(".discovery-choice").first().click();
+    await expect(page.getByText("已收入探索圖鑑")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await page.getByRole("link", { name: "查看探索收藏" }).click();
+    await expect(page).toHaveURL(/\/dex$/);
+    await expect(page.getByRole("heading", { name: "星光探索收藏" })).toBeVisible();
+    await expect(page.locator(".discovery-entry")).toHaveCount(1);
+    await expect(page.getByRole("heading", { name: "夥伴鼓勵收藏" })).toBeVisible();
+    await expect(page.locator(".partner-entry")).toHaveCount(1);
   });
 }
 

@@ -6,6 +6,7 @@ import {
   Flame,
   HandHeart,
   Lightbulb,
+  MapPinned,
   Shield,
   Swords,
 } from "lucide-react";
@@ -15,11 +16,13 @@ import { createLearningEvent } from "@/domain/learning/create-learning-event";
 import type { LearningOutcome } from "@/domain/learning/types";
 import type { Question } from "@/domain/questions/question-schema";
 import { calculateXp } from "@/domain/rewards/calculate-xp";
+import { deriveBossMove } from "@/domain/story/derive-boss-move";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { HINT_TOOLS } from "@/features/adventure/content-map";
 import { AudioControls } from "@/components/question/AudioControls";
 import { QuestionScene } from "@/components/question/QuestionScene";
 import { ProgressMeter } from "@/components/ui/ProgressMeter";
+import type { MissionRoute } from "@/infrastructure/progress/progress-types";
 
 type Feedback = Readonly<{
   outcome: LearningOutcome;
@@ -49,6 +52,29 @@ function outcomeMessage(outcome: LearningOutcome): string {
     case "pending_support":
       return "這一小段先放進修煉佇列，下次會換一個更清楚的線索。";
   }
+}
+
+const storyTrailMoments = [
+  "一道星光落在前方，照出藏在題目裡的第一個線索。",
+  "島嶼風鈴響了一聲，提醒你換一個角度觀察。",
+  "遠處地圖浮出新記號，下一步仍由你決定。",
+  "Boss 留下的腳印變清楚了，但方法仍比速度重要。",
+  "最後一段道路發亮，準備把方法帶進 Boss 回合。",
+  "路線在終點交會，你用自己的方式走完了同一份能力。",
+] as const;
+
+function routeMoment(route: MissionRoute, index: number): Readonly<{ title: string; detail: string }> {
+  const step = index + 1;
+  if (route === "story-trail") {
+    return {
+      title: `探索徑・故事線索 ${step}`,
+      detail: storyTrailMoments[index % storyTrailMoments.length],
+    };
+  }
+  return {
+    title: `穩步橋・方法步驟 ${step}`,
+    detail: "先圈出關鍵字，再比較選項；需要時使用你選的提示工具。",
+  };
 }
 
 export function BattleSession({
@@ -86,6 +112,8 @@ export function BattleSession({
   const temporaryShieldLoss = firstWrongOptionId ? 1 : 0;
   const visibleShields = Math.max(0, session.battle.shields - temporaryShieldLoss);
   const selectedTool = HINT_TOOLS.find((tool) => tool.id === session.selectedTool);
+  const selectedRoute = session.selectedRoute ?? null;
+  const route = selectedRoute ? routeMoment(selectedRoute, session.currentIndex) : null;
 
   if (feedback) {
     const FeedbackIcon =
@@ -144,6 +172,7 @@ export function BattleSession({
   }
 
   const isBoss = question.purpose === "boss";
+  const bossMove = isBoss ? deriveBossMove(question.id) : null;
 
   function showHint() {
     if (!hintVisible) {
@@ -259,6 +288,17 @@ export function BattleSession({
         tone={isBoss ? "gold" : "ocean"}
       />
 
+      {route ? (
+        <div className={`route-moment route-${selectedRoute}`} role="status">
+          <MapPinned aria-hidden="true" />
+          <div>
+            <strong>{route.title}</strong>
+            <p>{route.detail}</p>
+            <small>兩條路使用相同題目、提示與 XP 規則。</small>
+          </div>
+        </div>
+      ) : null}
+
       <div className={`question-card ${isBoss ? "boss-question" : ""}`}>
         <div className="question-meta">
           <span>
@@ -274,6 +314,18 @@ export function BattleSession({
 
         {question.audio ? <AudioControls transcript={question.audio.transcript} /> : null}
         {question.image ? <QuestionScene src={question.image.src} alt={question.image.alt} /> : null}
+
+        {bossMove ? (
+          <div className="boss-move-card" role="status">
+            <Swords aria-hidden="true" />
+            <div>
+              <span>Boss 招式</span>
+              <strong>{bossMove.name}</strong>
+              <p>{bossMove.strategy}</p>
+              <small>{bossMove.ruleNotice}</small>
+            </div>
+          </div>
+        ) : null}
 
         <h1 id="question-title" className="question-prompt">
           {question.prompt}
@@ -294,6 +346,7 @@ export function BattleSession({
             <Lightbulb aria-hidden="true" />
             <div>
               <strong>{selectedTool?.name ?? "提示工具"}</strong>
+              {selectedTool ? <p className="hint-strategy">{selectedTool.description}</p> : null}
               <p>{question.hints[0]}</p>
             </div>
           </div>
