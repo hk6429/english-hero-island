@@ -14,7 +14,6 @@ import {
   Timer,
   UsersRound,
 } from "lucide-react";
-import Image from "next/image";
 import { AppShell } from "@/components/layout/AppShell";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
 import { HeroPortrait } from "@/components/adventure/HeroPortrait";
@@ -49,27 +48,67 @@ export default function HomePage() {
   return (
     <AppShell pageClassName="home-page">
       <main id="main-content" tabIndex={-1}>
-        <section className="hero-section">
-          <div className="hero-copy">
-            <p className="eyebrow">國小三至六年級英語冒險</p>
-            <h1>把不熟的地方，修成自己的能力島。</h1>
-            <p className="hero-lead">
-              先用五題找出起點，再一場一場小任務，把不熟的能力慢慢修回來。答錯不扣分，會得到線索與救援。
+        <section className="hero-stage" aria-labelledby="hero-title">
+          <div className="ink-panel ink-left" aria-hidden="true" />
+          <div className="ink-panel ink-right" aria-hidden="true" />
+          <div className="hero-stage-inner">
+            <p className="eyebrow">國小三至六年級・英語學習扶助冒險</p>
+            <h1
+              id="hero-title"
+              className="hero-title"
+              aria-label="把不熟的地方，修成自己的能力島。"
+            >
+              <span className="title-clause">把不熟的地方，</span>
+              <span className="title-clause">修成自己的能力島。</span>
+            </h1>
+            <p className="hero-subtitle">
+              <span className="subtitle-part">五題找起點</span>
+              <span className="subtitle-dot" aria-hidden="true">・</span>
+              <span className="subtitle-part">一場一場小任務</span>
+              <span className="subtitle-dot" aria-hidden="true">・</span>
+              <span className="subtitle-part">答錯不扣分，會得到線索與救援</span>
             </p>
-            <ul className={styles.trustChips} aria-label="給家長與孩子的三個安心點">
-              <li className={styles.trustChip}>
-                <Timer aria-hidden="true" size={18} />
-                一場任務約 3–5 分鐘
+
+            <ul className="stat-row" aria-label="給家長與孩子的三個安心點">
+              <li className="stat-card">
+                <Timer aria-hidden="true" size={22} />
+                <strong>3–5 分鐘</strong>
+                <span>一場任務</span>
               </li>
-              <li className={styles.trustChip}>
-                <LifeBuoy aria-hidden="true" size={18} />
-                答錯有線索與救援
+              <li className="stat-card">
+                <LifeBuoy aria-hidden="true" size={22} />
+                <strong>線索＋救援</strong>
+                <span>答錯不扣分</span>
               </li>
-              <li className={styles.trustChip}>
-                <EyeOff aria-hidden="true" size={18} />
-                不公開成績與排名
+              <li className="stat-card">
+                <EyeOff aria-hidden="true" size={22} />
+                <strong>不排名</strong>
+                <span>不公開成績</span>
               </li>
             </ul>
+
+            <div className="hero-cast">
+              <figure className="cast-hero cast-side">
+                <HeroPortrait heroId="wave-scout" size="large" alt="海風偵察員小浪" />
+                <figcaption>小浪・海風偵察員</figcaption>
+              </figure>
+              <figure className="cast-hero cast-lead">
+                <HeroPortrait heroId="forest-keeper" size="large" alt="森林守護員小森" />
+                <figcaption>小森・森林守護員</figcaption>
+              </figure>
+              <figure className="cast-hero cast-side">
+                <HeroPortrait heroId="star-smith" size="large" alt="星光鍛造師小星" />
+                <figcaption>小星・星光鍛造師</figcaption>
+              </figure>
+            </div>
+
+            <Link className="launch-button" href={nextRoute}>
+              <span className="launch-label">
+                {progress.profile ? "繼續冒險" : "出發"}
+              </span>
+              <ArrowRight aria-hidden="true" />
+            </Link>
+
             {ready && progress.profile ? (
               <p className={styles.welcomeBack}>
                 <HeroGlyph
@@ -83,35 +122,12 @@ export default function HomePage() {
                 </span>
               </p>
             ) : null}
-            <Link className="primary-button primary-link" href={nextRoute}>
-              {progress.profile ? "繼續我的冒險" : "開始冒險"}
-              <ArrowRight aria-hidden="true" />
-            </Link>
-            <p className="privacy-note">
+
+            <p className="privacy-note centered-note">
               <ShieldCheck aria-hidden="true" />
               自主練習只需暱稱與年級，不用真實姓名、電子郵件或照片。
             </p>
           </div>
-          <section className="island-preview" aria-label="英語英雄島任務預覽">
-            <Image
-              className="island-photo"
-              src="/art/island-key-visual.jpg"
-              alt="酒精潑染畫風的英語英雄島鳥瞰圖：藍衣男孩小浪、綠衣女孩小森與金衣男孩小星三位 Q 版小英雄站在島中央的石板路上，周圍有字母港、拼讀森林、字詞花園、對話小鎮、句型工坊與理解燈塔"
-              fill
-              sizes="(max-width: 900px) 100vw, 46vw"
-              priority
-            />
-            <div className="hero-party">
-              <HeroPortrait heroId="wave-scout" size="small" />
-              <HeroPortrait heroId="forest-keeper" size="small" />
-              <HeroPortrait heroId="star-smith" size="small" />
-            </div>
-            <div className="mission-ticket">
-              <span>今日任務</span>
-              <strong>修復一小段能力</strong>
-              <small>約 3–5 分鐘</small>
-            </div>
-          </section>
         </section>
 
         <section className="home-feature-grid" aria-labelledby="how-title">

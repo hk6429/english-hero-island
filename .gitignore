@@ -9,3 +9,7 @@ test-results/
 *.tsbuildinfo
 .vercel
 .env*
+
+# Local Netlify folder
+.netlify
+/out/

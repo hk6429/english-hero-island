@@ -51,6 +51,16 @@ body {
   overflow-x: hidden;
   font-size: 18px;
   line-height: 1.65;
+  /* 純色底 → axe 可正確計算文字對比；漸層移到 ::before 只做視覺 */
+  background-color: #eef7fe;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background:
     radial-gradient(circle at 9% 8%, rgba(255, 255, 255, 0.78) 0 5%, transparent 5.3%),
     radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.62) 0 7%, transparent 7.3%),
@@ -435,23 +445,189 @@ select:focus-visible,
   color: var(--muted);
 }
 
-/* Home */
-.hero-section {
-  display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+/* Home — 置中舞台版面（水墨潑染側欄＋夥伴登場＋出發圓鈕） */
+.hero-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-block: clamp(28px, 5vw, 60px);
+  overflow: hidden;
+}
+
+/* 潑染側欄為純裝飾 div（aria-hidden）。用 div 而非偽元素，axe 才會把文字對比
+   往上解析到 body 純色底；窄螢幕會與置中文字重疊，故 @media 下隱藏。 */
+.ink-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: clamp(70px, 15vw, 240px);
+  pointer-events: none;
+}
+
+.ink-left {
+  left: 0;
+  background:
+    radial-gradient(120% 34% at 0% 14%, rgba(11, 90, 122, 0.82), transparent 64%),
+    radial-gradient(115% 32% at 0% 46%, rgba(38, 104, 74, 0.72), transparent 66%),
+    radial-gradient(130% 40% at 0% 82%, rgba(11, 90, 122, 0.6), transparent 68%);
+  -webkit-mask-image: linear-gradient(90deg, #000 26%, transparent);
+  mask-image: linear-gradient(90deg, #000 26%, transparent);
+}
+
+.ink-right {
+  right: 0;
+  background:
+    radial-gradient(120% 34% at 100% 14%, rgba(163, 118, 10, 0.72), transparent 64%),
+    radial-gradient(115% 32% at 100% 48%, rgba(11, 90, 122, 0.62), transparent 66%),
+    radial-gradient(130% 40% at 100% 82%, rgba(38, 104, 74, 0.58), transparent 68%);
+  -webkit-mask-image: linear-gradient(270deg, #000 26%, transparent);
+  mask-image: linear-gradient(270deg, #000 26%, transparent);
+}
+
+.hero-stage-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: clamp(40px, 7vw, 92px);
-  min-height: 620px;
-  padding-block: clamp(34px, 6vw, 80px);
+  width: min(760px, 100%);
+  text-align: center;
 }
 
-.hero-copy h1 {
-  max-width: 12ch;
+.hero-stage-inner .eyebrow {
+  margin-bottom: 10px;
 }
 
-.hero-lead {
-  margin-bottom: 28px;
-  font-size: 1.12rem;
+.hero-title {
+  max-width: 20ch;
+  margin: 0 0 14px;
+  font-size: clamp(2rem, 6vw, 3.1rem);
+  line-height: 1.2;
+}
+
+/* 中文詞組不被腰斬：每個子句整段不斷行，只在子句之間換行 */
+.title-clause {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.hero-subtitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  align-items: baseline;
+  justify-content: center;
+  max-width: 44ch;
+  margin: 0 0 28px;
+  color: #33485c;
+  font-size: clamp(1rem, 2.4vw, 1.14rem);
+  font-weight: 700;
+}
+
+.subtitle-part {
+  white-space: nowrap;
+}
+
+.subtitle-dot {
+  color: var(--primary);
+}
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 clamp(26px, 5vw, 44px);
+  padding: 0;
+  list-style: none;
+}
+
+.stat-card {
+  display: flex;
+  flex: 1 1 150px;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 210px;
+  padding: 16px 14px;
+  background: var(--paper);
+  border: 2px solid var(--gold-border, #e1c665);
+  border-radius: 18px;
+  box-shadow: var(--shadow-soft);
+}
+
+.stat-card svg {
+  color: var(--primary);
+}
+
+.stat-card strong {
+  color: var(--ink);
+  font-size: 1.08rem;
+}
+
+.stat-card span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.hero-cast {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(14px, 5vw, 46px);
+  margin-bottom: 26px;
+}
+
+.cast-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+
+.cast-hero figcaption {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.cast-lead .hero-portrait {
+  width: 150px;
+  height: 150px;
+}
+
+.cast-side .hero-portrait {
+  width: 112px;
+  height: 112px;
+}
+
+.launch-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 18px 58px;
+  color: var(--white);
+  font-size: 1.42rem;
+  font-weight: 900;
+  text-decoration: none;
+  background: radial-gradient(circle at 50% 26%, #12a0d0, var(--primary));
+  border: 3px solid var(--white);
+  border-radius: 999px;
+  box-shadow: 0 12px 30px rgba(12, 103, 138, 0.44), 0 0 0 7px rgba(235, 184, 43, 0.34);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.launch-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px rgba(12, 103, 138, 0.5), 0 0 0 7px rgba(235, 184, 43, 0.5);
+}
+
+.launch-label {
+  text-decoration: none;
 }
 
 .privacy-note {
@@ -465,36 +641,6 @@ select:focus-visible,
 .privacy-note svg {
   flex: 0 0 auto;
   color: var(--forest);
-}
-
-.island-preview {
-  position: relative;
-  display: grid;
-  min-height: 430px;
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse at 50% 68%, #95ce77 0 23%, #5d9e6a 24% 31%, transparent 32%),
-    radial-gradient(ellipse at 50% 74%, #80c4dc 0 45%, #4a99bc 46% 56%, transparent 57%),
-    linear-gradient(180deg, #cfefff, #eefaff);
-  border: 2px solid #a8ccdc;
-  border-radius: 44% 56% 39% 61% / 47% 39% 61% 53%;
-  box-shadow: var(--shadow-card);
-  place-items: center;
-}
-
-.island-photo {
-  z-index: 0;
-  object-fit: cover;
-  object-position: 46% 74%;
-}
-
-.hero-party {
-  position: absolute;
-  z-index: 2;
-  top: 7%;
-  left: 8%;
-  display: flex;
-  gap: 10px;
 }
 
 .hero-glyph {
@@ -581,27 +727,6 @@ select:focus-visible,
 
 .hero-accent-gold {
   box-shadow: 0 0 0 7px rgba(235, 184, 43, 0.3), 0 8px 18px rgba(23, 50, 77, 0.22);
-}
-
-.mission-ticket {
-  position: absolute;
-  z-index: 2;
-  right: 8%;
-  bottom: 8%;
-  display: flex;
-  flex-direction: column;
-  width: min(84%, 300px);
-  padding: 18px 22px;
-  background: var(--paper);
-  border: 2px solid #e1c665;
-  border-radius: 18px;
-  box-shadow: var(--shadow-soft);
-  transform: rotate(-2deg);
-}
-
-.mission-ticket span,
-.mission-ticket small {
-  color: var(--muted);
 }
 
 .home-feature-grid {
@@ -4391,17 +4516,9 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
 }
 
 @media (max-width: 900px) {
-  .hero-section {
-    grid-template-columns: 1fr;
-    min-height: auto;
-  }
-
-  .hero-copy h1 {
-    max-width: 15ch;
-  }
-
-  .island-preview {
-    min-height: 390px;
+  /* 窄螢幕置中文字會落在潑染側欄上：隱藏純裝飾側欄，維持文字對比 */
+  .ink-panel {
+    display: none;
   }
 
   .mission-recommendation {
@@ -4535,16 +4652,44 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
     padding-top: 24px;
   }
 
-  .hero-section {
-    gap: 36px;
-    padding-top: 26px;
+  .hero-title {
+    font-size: clamp(1.9rem, 9vw, 2.6rem);
   }
 
-  .hero-copy h1 {
-    font-size: clamp(2.25rem, 13vw, 3.2rem);
+  .stat-row {
+    flex-direction: column;
+    align-items: center;
   }
 
-  .hero-copy .primary-button,
+  .stat-card {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 340px;
+  }
+
+  .hero-cast {
+    gap: 10px;
+  }
+
+  .cast-lead .hero-portrait {
+    width: 118px;
+    height: 118px;
+  }
+
+  .cast-side .hero-portrait {
+    width: 92px;
+    height: 92px;
+  }
+
+  .cast-hero figcaption {
+    font-size: 0.8rem;
+  }
+
+  .launch-button {
+    width: min(100%, 340px);
+    justify-content: center;
+  }
+
   .result-actions .primary-button,
   .result-actions .secondary-button,
   .training-actions .primary-button,
@@ -4552,17 +4697,9 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
     width: 100%;
   }
 
-  .island-preview {
-    min-height: 330px;
-  }
-
   .hero-glyph-large {
     width: 74px;
     height: 74px;
-  }
-
-  .hero-party {
-    gap: 2px;
   }
 
   .home-feature-grid,

@@ -28,15 +28,15 @@ describe("HomePage", () => {
     expect(
       screen.getByRole("heading", { name: "把不熟的地方，修成自己的能力島。" }),
     ).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: /開始冒險/ })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /出發/ })).toHaveAttribute(
       "href",
       "/start",
     );
 
     const trustChips = screen.getByRole("list", { name: "給家長與孩子的三個安心點" });
-    expect(trustChips).toHaveTextContent("一場任務約 3–5 分鐘");
-    expect(trustChips).toHaveTextContent("答錯有線索與救援");
-    expect(trustChips).toHaveTextContent("不公開成績與排名");
+    expect(trustChips).toHaveTextContent("3–5 分鐘");
+    expect(trustChips).toHaveTextContent("線索＋救援");
+    expect(trustChips).toHaveTextContent("不排名");
   });
 
   it("welcomes a returning hero back to where the adventure stopped", async () => {
@@ -46,7 +46,7 @@ describe("HomePage", () => {
       </AdventureProvider>,
     );
 
-    expect(await screen.findByRole("link", { name: /繼續我的冒險/ })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /繼續冒險/ })).toHaveAttribute(
       "href",
       "/mission",
     );
