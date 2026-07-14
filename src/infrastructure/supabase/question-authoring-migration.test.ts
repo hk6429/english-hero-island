@@ -118,6 +118,9 @@ describe("question authoring migration", () => {
     expect(body).toContain("security definer");
     expect(body).toContain("set search_path = ''");
     expect(body).toContain("profile.reviewer_role in ('content_editor', 'administrator')");
+    expect(body).toMatch(
+      /from public\.content_reviewer_profiles profile[\s\S]*?profile\.approval_status = 'approved'\s+for share;/,
+    );
     expect(body).toContain("question_record.status <> 'draft'");
     expect(body).toContain("for update");
     expect(body).toContain("status = 'in_review'");
@@ -140,6 +143,9 @@ describe("question authoring migration", () => {
     const guard = privateFunctionBody("prevent_question_version_content_mutation");
 
     expect(questionTable).toContain("review_snapshot jsonb");
+    expect(questionTable).toMatch(
+      /locked_at is not null\s+and review_snapshot is not null\s+and jsonb_typeof\(review_snapshot\) = 'object'/,
+    );
     expect(questionTable).toContain("content_sha256 text");
     expect(questionTable).toContain("content_hash_schema text");
     expect(questionTable).toContain("content_hashed_at timestamptz");

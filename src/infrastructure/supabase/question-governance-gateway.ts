@@ -27,8 +27,90 @@ const imageSchema = z.object({
   alt: z.string().min(1),
 });
 
-const reviewQueueRowsSchema = z.array(
-  z.object({
+const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
+
+const assetEvidenceBaseSchema = z.object({
+  assetKind: z.enum(["audio", "image"]),
+  assetLocator: z.string().min(1),
+  assetSha256: sha256Schema,
+  byteLength: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  mimeType: z.enum([
+    "audio/mpeg",
+    "audio/wav",
+    "audio/ogg",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+  ]),
+  rightsEvidenceLocator: z.string().min(1),
+  rightsEvidenceSha256: sha256Schema,
+  rightsEvidenceByteLength: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(Number.MAX_SAFE_INTEGER),
+  manifestSha256: sha256Schema,
+  questionBankSha256: sha256Schema,
+  verificationSchema: z.literal("question-asset-byte-receipt-v1"),
+  verifiedAt: z.string().datetime({ offset: true }),
+});
+
+const assetEvidenceSchema = z
+  .discriminatedUnion("rightsSourceKind", [
+    assetEvidenceBaseSchema.extend({
+      rightsSourceKind: z.literal("original"),
+      rightsUsageRights: z.literal("original-for-project"),
+    }),
+    assetEvidenceBaseSchema.extend({
+      rightsSourceKind: z.literal("licensed"),
+      rightsUsageRights: z.literal("licensed-for-publication"),
+    }),
+  ])
+  .superRefine((receipt, context) => {
+    const extensionByMime = {
+      "audio/mpeg": "mp3",
+      "audio/wav": "wav",
+      "audio/ogg": "ogg",
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+    } as const;
+    const expectedKind = receipt.mimeType.startsWith("audio/")
+      ? "audio"
+      : "image";
+    const expectedLocator =
+      `/assets/question-assets/${receipt.assetSha256}.` +
+      extensionByMime[receipt.mimeType];
+
+    if (receipt.assetKind !== expectedKind) {
+      context.addIssue({
+        code: "custom",
+        path: ["mimeType"],
+        message: "素材種類與 MIME 不一致。",
+      });
+    }
+    if (receipt.assetLocator !== expectedLocator) {
+      context.addIssue({
+        code: "custom",
+        path: ["assetLocator"],
+        message: "素材位置未綁定內容雜湊。",
+      });
+    }
+    if (
+      !new RegExp(
+        `(^|/)${receipt.rightsEvidenceSha256}\\.(md|txt|pdf)$`,
+      ).test(receipt.rightsEvidenceLocator)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["rightsEvidenceLocator"],
+        message: "授權證明位置未綁定內容雜湊。",
+      });
+    }
+  });
+
+const reviewQueueRowSchema = z
+  .object({
     question_id: z.string().min(1),
     question_version: z.coerce.number().int().positive(),
     question_status: z.literal("in_review"),
@@ -66,14 +148,58 @@ const reviewQueueRowsSchema = z.array(
     created_by: z.string().uuid().nullable(),
     supersedes_version: z.coerce.number().int().positive().nullable(),
     change_summary: z.string().min(4).nullable(),
-    content_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    content_sha256: sha256Schema,
     content_hash_schema: z.literal(
       "question-review-snapshot-pg-jsonb-text-v1",
     ),
+    asset_evidence: z.array(assetEvidenceSchema).max(1),
     locked_at: z.string().datetime(),
     created_at: z.string().datetime(),
-  }),
-);
+  })
+  .superRefine((row, context) => {
+    const [receipt] = row.asset_evidence;
+    const addAssetIssue = (message: string) =>
+      context.addIssue({
+        code: "custom",
+        path: ["asset_evidence"],
+        message,
+      });
+
+    if (row.modality === "text") {
+      if (row.audio !== null || row.image !== null || row.asset_evidence.length !== 0) {
+        addAssetIssue("文字題不可附帶音訊、圖片或正式素材收據。");
+      }
+      return;
+    }
+
+    if (row.asset_evidence.length !== 1 || !receipt) {
+      addAssetIssue("媒體題必須具備一份正式素材收據。");
+      return;
+    }
+
+    if (row.modality === "audio") {
+      if (
+        row.audio === null ||
+        row.image !== null ||
+        receipt.assetKind !== "audio" ||
+        receipt.assetLocator !== row.audio?.src
+      ) {
+        addAssetIssue("音訊題內容與正式素材收據不一致。");
+      }
+      return;
+    }
+
+    if (
+      row.image === null ||
+      row.audio !== null ||
+      receipt.assetKind !== "image" ||
+      receipt.assetLocator !== row.image?.src
+    ) {
+      addAssetIssue("圖片題內容與正式素材收據不一致。");
+    }
+  });
+
+const reviewQueueRowsSchema = z.array(reviewQueueRowSchema);
 
 const reviewResultRowsSchema = z
   .array(
@@ -179,6 +305,7 @@ export async function listQuestionReviewQueueWithSupabase(
     changeSummary: row.change_summary,
     contentSha256: row.content_sha256,
     contentHashSchema: row.content_hash_schema,
+    assetEvidence: row.asset_evidence,
     lockedAt: row.locked_at,
   }));
 }

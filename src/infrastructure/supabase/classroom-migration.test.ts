@@ -33,6 +33,7 @@ describe("classroom core migration", () => {
 
     const governedPrivateTables = [
       "question_versions",
+      "question_asset_evidence",
       "question_reviews",
       "question_status_events",
     ];
@@ -45,8 +46,10 @@ describe("classroom core migration", () => {
       expect(migration).toContain(
         `alter table private.${table} force row level security`,
       );
-      expect(migration).toContain(
-        `revoke all on private.${table} from public, anon, authenticated`,
+      expect(migration).toMatch(
+        new RegExp(
+          `revoke all on private\\.${table}\\s+from public, anon, authenticated, service_role`,
+        ),
       );
     }
 

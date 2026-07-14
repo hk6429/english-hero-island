@@ -26,6 +26,7 @@ export function renderDraftPrereviewPackFiles(
     "asset-blockers.csv",
     "draft-questions.json",
     "manifest.json",
+    "production-assets.manifest.template.json",
     "questions-for-review.csv",
     "teacher-01.responses.unsigned.csv",
     "teacher-02.responses.unsigned.csv",
@@ -52,6 +53,10 @@ export function renderDraftPrereviewPackFiles(
   files.set("README.md", renderReadme(pack, packId, normalizedGeneratedAt));
   files.set("manifest.json", prettyJson(manifest));
   files.set("draft-questions.json", prettyJson(pack.questions));
+  files.set(
+    "production-assets.manifest.template.json",
+    prettyJson(buildProductionAssetManifestTemplate(pack)),
+  );
   files.set(
     "questions-for-review.csv",
     renderQuestionsCsv(pack.questions, blockedQuestionIds),
@@ -120,7 +125,34 @@ function renderReadme(pack: DraftPrereviewPack, packId: string, generatedAt: str
 2. \`questions-for-review.csv\` 只供閱讀；\`draft-questions.json\` 與內容雜湊用於核對是否被改動。
 3. \`approved\` 必須七項皆為 true；\`changes_requested\` 必須至少一項為 false，並寫明原因。
 4. 完成正式素材、專用 Supabase 鎖版與登入後，仍須把每一題送入伺服器的 \`submit_question_review\`；CSV 本身不能直接計票或發布。
+5. production-assets.manifest.template.json 已列出 49 個待補素材槽位；空白 hash、長度、locator 與權利文件不得視為證據，必須由正式 ingest 實讀 bytes 後填入。
 `;
+}
+
+function buildProductionAssetManifestTemplate(pack: DraftPrereviewPack) {
+  return {
+    schemaVersion: 1,
+    evidenceClass: "production_question_asset_bundle",
+    questionBankSha256: pack.sourceImport.sha256,
+    assets: pack.assetBlockers.map((blocker) => {
+      return {
+        questionId: blocker.questionId,
+        assetKind: blocker.assetKind,
+        replacesPlaceholder: blocker.placeholderSrc,
+        publicLocator: "",
+        sha256: "",
+        byteLength: 0,
+        mimeType: blocker.assetKind === "audio" ? "audio/mpeg" : "image/webp",
+        rightsEvidence: {
+          sourceKind: "",
+          usageRights: "",
+          documentPath: "",
+          sha256: "",
+          byteLength: 0,
+        },
+      };
+    }),
+  };
 }
 
 function renderQuestionsCsv(

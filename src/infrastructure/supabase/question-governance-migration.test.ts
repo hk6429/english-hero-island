@@ -10,13 +10,119 @@ const migration = readFileSync(
   "utf8",
 ).toLowerCase();
 
-function functionBody(name: string): string | undefined {
+function functionBody(name: string, schema = "public"): string | undefined {
   return migration.match(
-    new RegExp(`create or replace function public\\.${name}[\\s\\S]*?\\$\\$;`),
+    new RegExp(`create or replace function ${schema}\\.${name}[\\s\\S]*?\\$\\$;`),
   )?.[0];
 }
 
 describe("question governance migration", () => {
+  it("stores immutable byte and rights receipts separately from question content", () => {
+    const assetEvidenceTable = migration.match(
+      /create table private\.question_asset_evidence[\s\S]*?\n\);/,
+    )?.[0];
+
+    expect(assetEvidenceTable).toBeDefined();
+    expect(assetEvidenceTable).toContain("question_id text not null");
+    expect(assetEvidenceTable).toContain("question_version integer not null");
+    expect(assetEvidenceTable).toContain("asset_kind text not null");
+    expect(assetEvidenceTable).toContain("asset_locator text not null");
+    expect(assetEvidenceTable).toContain("asset_sha256 text not null");
+    expect(assetEvidenceTable).toContain("byte_length bigint not null");
+    expect(assetEvidenceTable).toContain("mime_type text not null");
+    expect(assetEvidenceTable).toContain("rights_source_kind text not null");
+    expect(assetEvidenceTable).toContain("rights_usage_rights text not null");
+    expect(assetEvidenceTable).toContain("rights_evidence_sha256 text not null");
+    expect(assetEvidenceTable).toContain("manifest_sha256 text not null");
+    expect(assetEvidenceTable).toContain("question_bank_sha256 text not null");
+    expect(assetEvidenceTable).toContain(
+      "primary key (question_id, question_version, asset_kind)",
+    );
+    expect(migration).toContain(
+      "create trigger question_asset_evidence_immutable",
+    );
+    expect(migration).toContain(
+      "alter table private.question_asset_evidence force row level security",
+    );
+    expect(migration).toMatch(
+      /revoke all on private\.question_asset_evidence\s+from public, anon, authenticated, service_role/,
+    );
+    expect(migration).not.toContain(
+      "grant insert on private.question_asset_evidence to service_role",
+    );
+  });
+
+  it("registers byte evidence through one narrow trusted-worker RPC without direct governance DML", () => {
+    const body = functionBody("register_question_asset_evidence");
+
+    expect(body).toBeDefined();
+    expect(body).toContain("security definer");
+    expect(body).toContain("set search_path = ''");
+    expect(body).toContain("auth.jwt() ->> 'role'");
+    expect(body).toContain("'service_role'");
+    expect(body).toContain("from private.question_versions question");
+    expect(body).toContain("for update");
+    expect(body).toContain("question_record.status <> 'draft'");
+    expect(body).toContain("question_record.locked_at is not null");
+    expect(body).toContain("question_record.modality <> p_asset_kind");
+    expect(body).toContain("question_record.audio ->> 'src'");
+    expect(body).toContain("question_record.image ->> 'src'");
+    expect(body).toContain("insert into private.question_asset_evidence");
+    expect(migration).toMatch(
+      /revoke execute on function public\.register_question_asset_evidence\([\s\S]*?\)\s+from public, anon, authenticated/,
+    );
+    expect(migration).toMatch(
+      /grant execute on function public\.register_question_asset_evidence\([\s\S]*?\)\s+to service_role/,
+    );
+    expect(migration).not.toContain(
+      "grant select, insert, update on private.question_versions to service_role",
+    );
+    expect(migration).not.toContain(
+      "grant select, insert on private.question_status_events to service_role",
+    );
+  });
+
+  it("serializes shared locator registration and rejects conflicting global receipts", () => {
+    const body = functionBody(
+      "enforce_question_asset_receipt_consistency",
+      "private",
+    );
+
+    expect(body).toBeDefined();
+    expect(body).toContain("pg_catalog.pg_advisory_xact_lock");
+    expect(body).toContain("pg_catalog.hashtextextended");
+    expect(body).toContain("from private.question_asset_evidence existing");
+    expect(body).toContain("existing.asset_locator = new.asset_locator");
+    expect(body).toContain("existing.byte_length is distinct from new.byte_length");
+    expect(body).toContain("existing.mime_type is distinct from new.mime_type");
+    expect(body).toContain(
+      "existing.rights_evidence_locator = new.rights_evidence_locator",
+    );
+    expect(body).toMatch(
+      /existing\.rights_evidence_byte_length\s+is distinct from new\.rights_evidence_byte_length/,
+    );
+    expect(body).toContain("conflicting byte receipt already exists for asset locator");
+    expect(body).toContain("conflicting rights receipt already exists for locator");
+    expect(migration).toContain(
+      "create trigger question_asset_evidence_consistency",
+    );
+  });
+
+  it("blocks formal review until the required byte receipt is bound into the frozen snapshot", () => {
+    const submit = functionBody("submit_question_for_review");
+    const queue = functionBody("list_question_review_queue");
+
+    expect(submit).toContain("saved_asset_evidence jsonb");
+    expect(submit).toContain("from private.question_asset_evidence evidence");
+    expect(submit).toContain("question_record.modality in ('audio', 'image')");
+    expect(submit).toContain("question_record.modality = 'text'");
+    expect(submit).toContain("verified production asset evidence is required");
+    expect(submit).toContain("'assetevidence', saved_asset_evidence");
+    expect(submit).toContain("'asset_evidence', saved_asset_evidence");
+    expect(queue).toContain("asset_evidence jsonb");
+    expect(queue).toContain("question.review_snapshot -> 'assetevidence'");
+  });
+
   it("normalizes approved reviewer identities and immutable per-version reviews", () => {
     const questionTable = migration.match(
       /create table private\.question_versions[\s\S]*?\n\);/,
@@ -219,6 +325,46 @@ describe("question governance migration", () => {
       "create unique index question_versions_one_published_idx",
     );
     expect(migration).toContain("where status = 'published'");
+  });
+
+  it("fails publication closed when frozen byte receipts, rights, or media locators are invalid", () => {
+    const questionTable = migration.match(
+      /create table private\.question_versions[\s\S]*?\n\);/,
+    )?.[0];
+    const body = functionBody("publish_question_version");
+
+    expect(questionTable).toMatch(
+      /status <> 'published'[\s\S]*?coalesce\([\s\S]*?source ->> 'kind'[\s\S]*?false\s*\)/,
+    );
+    expect(body).toContain("current_asset_evidence jsonb");
+    expect(body).toContain("current_asset_evidence_count integer");
+    expect(body).toContain("question_record.review_snapshot -> 'assetevidence'");
+    expect(body).toContain("from private.question_asset_evidence evidence");
+    expect(body).toContain(
+      "current_asset_evidence is distinct from frozen_asset_evidence",
+    );
+    expect(body).toContain("question_record.modality in ('audio', 'image')");
+    expect(body).toContain("current_asset_evidence_count <> 1");
+    expect(body).toContain("question_record.modality = 'text'");
+    expect(body).toContain("current_asset_evidence_count <> 0");
+    expect(body).toContain("like 'tts:%'");
+    expect(body).toContain("like 'scene:%'");
+    expect(body).toContain("like 'data:%'");
+    expect(body).toMatch(
+      /if not coalesce\([\s\S]*?question_record\.source ->> 'kind'[\s\S]*?false\s*\)/,
+    );
+    expect(body).toContain("'asset_evidence', current_asset_evidence");
+  });
+
+  it("locks administrator and qualifying reviewer profiles through publication", () => {
+    const body = functionBody("publish_question_version");
+
+    expect(body).toMatch(
+      /from public\.content_reviewer_profiles profile[\s\S]*?profile\.approval_status = 'approved'\s+for share;/,
+    );
+    expect(body).toMatch(
+      /perform 1[\s\S]*?from public\.content_reviewer_profiles reviewer[\s\S]*?for share of reviewer;/,
+    );
   });
 
   it("supports dispute and retirement without deleting historical versions", () => {

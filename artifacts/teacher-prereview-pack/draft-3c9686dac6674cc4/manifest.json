@@ -3,7 +3,7 @@
   "packId": "draft-3c9686dac6674cc4",
   "evidenceClass": "draft_prereview_pack",
   "formalReviewEligible": false,
-  "generatedAt": "2026-07-14T09:53:55.056Z",
+  "generatedAt": "2026-07-14T11:14:49.493Z",
   "questionCount": 200,
   "gradeCounts": {
     "3": 50,
@@ -46,6 +46,7 @@
     "asset-blockers.csv",
     "draft-questions.json",
     "manifest.json",
+    "production-assets.manifest.template.json",
     "questions-for-review.csv",
     "teacher-01.responses.unsigned.csv",
     "teacher-02.responses.unsigned.csv",

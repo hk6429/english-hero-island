@@ -16,6 +16,41 @@ export const reviewCriteriaKeys = [
 export type ReviewCriterion = (typeof reviewCriteriaKeys)[number];
 export type ReviewCriteria = Readonly<Record<ReviewCriterion, boolean>>;
 
+type QuestionAssetEvidenceReceiptBase = Readonly<{
+  assetKind: "audio" | "image";
+  assetLocator: string;
+  assetSha256: string;
+  byteLength: number;
+  mimeType:
+    | "audio/mpeg"
+    | "audio/wav"
+    | "audio/ogg"
+    | "image/jpeg"
+    | "image/png"
+    | "image/webp";
+  rightsEvidenceLocator: string;
+  rightsEvidenceSha256: string;
+  rightsEvidenceByteLength: number;
+  manifestSha256: string;
+  questionBankSha256: string;
+  verificationSchema: "question-asset-byte-receipt-v1";
+  verifiedAt: string;
+}>;
+
+export type QuestionAssetEvidenceReceipt = Readonly<
+  QuestionAssetEvidenceReceiptBase &
+    (
+      | Readonly<{
+          rightsSourceKind: "original";
+          rightsUsageRights: "original-for-project";
+        }>
+      | Readonly<{
+          rightsSourceKind: "licensed";
+          rightsUsageRights: "licensed-for-publication";
+        }>
+    )
+>;
+
 export type QuestionReviewQueueItem = Readonly<{
   id: string;
   version: number;
@@ -39,6 +74,7 @@ export type QuestionReviewQueueItem = Readonly<{
   changeSummary: string | null;
   contentSha256: string;
   contentHashSchema: "question-review-snapshot-pg-jsonb-text-v1";
+  assetEvidence: ReadonlyArray<QuestionAssetEvidenceReceipt>;
   lockedAt: string;
 }>;
 
@@ -93,6 +129,15 @@ function formatLockedAt(value: string) {
     timeZone: "Asia/Taipei",
   }).format(new Date(value));
 }
+
+function formatByteLength(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+const assetKindLabels = {
+  audio: "音訊",
+  image: "圖片",
+} as const;
 
 export function QuestionReviewCard({ item, onSubmit }: Props) {
   const [criteria, setCriteria] = useState<Record<ReviewCriterion, boolean>>({
@@ -187,7 +232,7 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
       >
         <h3>凍結內容確認收據</h3>
         <p>
-          下列 SHA-256 對應目前凍結題目快照。它是內容確認依據，不是數位簽章，也不代表音訊或圖片檔案已完成位元組驗證。
+          下列 SHA-256 對應目前凍結題目快照。它是內容確認依據，不是數位簽章；使用正式媒體的題目還必須具備下方獨立的位元組與授權收據。
         </p>
         <p>
           <strong>SHA-256</strong>
@@ -198,6 +243,74 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
           <code>{item.contentHashSchema}</code>
         </p>
       </section>
+
+      {item.assetEvidence.length > 0 ? (
+        <section
+          aria-label="正式素材位元組收據"
+          className="question-asset-receipts"
+        >
+          <h3>正式素材位元組收據</h3>
+          <p className="question-asset-receipt-caveat">
+            這份收據由受信任匯入程序讀取實際檔案後登錄；資料庫保存並凍結證據，但不會自行讀取物件儲存的 bytes。它不是數位簽章或法律意見。
+          </p>
+          {item.assetEvidence.map((receipt) => (
+            <article
+              className="question-asset-receipt"
+              key={`${receipt.assetKind}-${receipt.assetSha256}`}
+            >
+              <h4>
+                {`${assetKindLabels[receipt.assetKind]}・${receipt.mimeType}・${formatByteLength(receipt.byteLength)} bytes`}
+              </h4>
+              <dl>
+                <div>
+                  <dt>素材 SHA-256</dt>
+                  <dd><code>{receipt.assetSha256}</code></dd>
+                </div>
+                <div>
+                  <dt>素材位置</dt>
+                  <dd><code>{receipt.assetLocator}</code></dd>
+                </div>
+                <div>
+                  <dt>素材授權</dt>
+                  <dd>{`${receipt.rightsSourceKind}・${receipt.rightsUsageRights}`}</dd>
+                </div>
+                <div>
+                  <dt>授權證明 SHA-256</dt>
+                  <dd><code>{receipt.rightsEvidenceSha256}</code></dd>
+                </div>
+                <div>
+                  <dt>授權證明位置</dt>
+                  <dd><code>{receipt.rightsEvidenceLocator}</code></dd>
+                </div>
+                <div>
+                  <dt>授權證明長度</dt>
+                  <dd>{`${formatByteLength(receipt.rightsEvidenceByteLength)} bytes`}</dd>
+                </div>
+                <div>
+                  <dt>匯入清單 SHA-256</dt>
+                  <dd><code>{receipt.manifestSha256}</code></dd>
+                </div>
+                <div>
+                  <dt>題庫 SHA-256</dt>
+                  <dd><code>{receipt.questionBankSha256}</code></dd>
+                </div>
+                <div>
+                  <dt>驗證規格</dt>
+                  <dd><code>{receipt.verificationSchema}</code></dd>
+                </div>
+                <div>
+                  <dt>驗證時間</dt>
+                  <dd>
+                    <time dateTime={receipt.verifiedAt}>
+                      {`驗證時間 ${formatLockedAt(receipt.verifiedAt)}`}
+                    </time>
+                  </dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </section>
+      ) : null}
 
       <section className="question-review-evidence" aria-label="題目內容證據">
         {item.audio || item.image ? (
@@ -351,6 +464,16 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
             <p>你將確認以下凍結內容收據：</p>
             <code>{item.contentSha256}</code>
             <code>{item.contentHashSchema}</code>
+            {item.assetEvidence.length > 0 ? (
+              <>
+                <p>同時確認以下正式素材 SHA-256：</p>
+                {item.assetEvidence.map((receipt) => (
+                  <code key={`${receipt.assetKind}-${receipt.assetSha256}`}>
+                    {receipt.assetSha256}
+                  </code>
+                ))}
+              </>
+            ) : null}
           </div>
           <div className="review-actions">
             <button

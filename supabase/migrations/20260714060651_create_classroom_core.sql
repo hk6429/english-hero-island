@@ -170,6 +170,7 @@ create table private.question_versions (
     )
     or (
       locked_at is not null
+      and review_snapshot is not null
       and jsonb_typeof(review_snapshot) = 'object'
       and content_sha256 is not null
       and content_hash_schema = 'question-review-snapshot-pg-jsonb-text-v1'
@@ -181,16 +182,140 @@ create table private.question_versions (
     or (
       reviewed_at is not null
       and published_at is not null
-      and (
-        (source ->> 'kind' = 'original' and source ->> 'usageRights' = 'original-for-project')
+      and coalesce(
+        (
+          source ->> 'kind' = 'original'
+          and source ->> 'usageRights' = 'original-for-project'
+        )
         or (
           source ->> 'kind' = 'licensed'
           and source ->> 'usageRights' = 'licensed-for-publication'
-        )
+        ),
+        false
       )
     )
   )
 );
+
+create table private.question_asset_evidence (
+  question_id text not null,
+  question_version integer not null,
+  asset_kind text not null check (asset_kind in ('audio', 'image')),
+  asset_locator text not null,
+  asset_sha256 text not null check (asset_sha256 ~ '^[0-9a-f]{64}$'),
+  byte_length bigint not null check (byte_length > 0),
+  mime_type text not null check (
+    (asset_kind = 'audio' and mime_type in ('audio/mpeg', 'audio/wav', 'audio/ogg'))
+    or
+    (asset_kind = 'image' and mime_type in ('image/jpeg', 'image/png', 'image/webp'))
+  ),
+  rights_source_kind text not null check (
+    rights_source_kind in ('original', 'licensed')
+  ),
+  rights_usage_rights text not null,
+  rights_evidence_locator text not null,
+  rights_evidence_sha256 text not null check (
+    rights_evidence_sha256 ~ '^[0-9a-f]{64}$'
+  ),
+  rights_evidence_byte_length bigint not null check (
+    rights_evidence_byte_length > 0
+  ),
+  manifest_sha256 text not null check (manifest_sha256 ~ '^[0-9a-f]{64}$'),
+  question_bank_sha256 text not null check (
+    question_bank_sha256 ~ '^[0-9a-f]{64}$'
+  ),
+  verification_schema text not null check (
+    verification_schema = 'question-asset-byte-receipt-v1'
+  ),
+  verified_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  primary key (question_id, question_version, asset_kind),
+  foreign key (question_id, question_version)
+    references private.question_versions(question_id, version) on delete restrict,
+  check (
+    (rights_source_kind = 'original' and rights_usage_rights = 'original-for-project')
+    or
+    (rights_source_kind = 'licensed' and rights_usage_rights = 'licensed-for-publication')
+  ),
+  check (
+    asset_locator =
+      '/assets/question-assets/' || asset_sha256 ||
+      case mime_type
+        when 'audio/mpeg' then '.mp3'
+        when 'audio/wav' then '.wav'
+        when 'audio/ogg' then '.ogg'
+        when 'image/jpeg' then '.jpg'
+        when 'image/png' then '.png'
+        when 'image/webp' then '.webp'
+      end
+  ),
+  check (
+    rights_evidence_locator ~
+      ('(^|/)' || rights_evidence_sha256 || '\.(md|txt|pdf)$')
+  )
+);
+
+create or replace function private.enforce_question_asset_receipt_consistency()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  asset_lock_key text := 'asset:' || new.asset_locator;
+  rights_lock_key text := 'rights:' || new.rights_evidence_locator;
+  first_lock_key text := least(asset_lock_key, rights_lock_key);
+  second_lock_key text := greatest(asset_lock_key, rights_lock_key);
+begin
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(first_lock_key, 0)
+  );
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(second_lock_key, 0)
+  );
+
+  if exists (
+    select 1
+    from private.question_asset_evidence existing
+    where existing.asset_locator = new.asset_locator
+      and (
+        existing.asset_sha256 is distinct from new.asset_sha256
+        or existing.byte_length is distinct from new.byte_length
+        or existing.mime_type is distinct from new.mime_type
+        or existing.asset_kind is distinct from new.asset_kind
+      )
+  ) then
+    raise exception 'conflicting byte receipt already exists for asset locator'
+      using errcode = '23505';
+  end if;
+
+  if exists (
+    select 1
+    from private.question_asset_evidence existing
+    where existing.rights_evidence_locator = new.rights_evidence_locator
+      and (
+        existing.rights_evidence_sha256
+          is distinct from new.rights_evidence_sha256
+        or existing.rights_evidence_byte_length
+          is distinct from new.rights_evidence_byte_length
+        or existing.rights_source_kind is distinct from new.rights_source_kind
+        or existing.rights_usage_rights is distinct from new.rights_usage_rights
+      )
+  ) then
+    raise exception 'conflicting rights receipt already exists for locator'
+      using errcode = '23505';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke execute on function private.enforce_question_asset_receipt_consistency()
+from public, anon, authenticated, service_role;
+
+create trigger question_asset_evidence_consistency
+before insert on private.question_asset_evidence
+for each row execute function private.enforce_question_asset_receipt_consistency();
 
 create table private.question_reviews (
   id uuid primary key default gen_random_uuid(),
@@ -361,6 +486,7 @@ alter table public.activity_responses enable row level security;
 alter table public.classroom_learning_events enable row level security;
 alter table public.classroom_story_progress enable row level security;
 alter table private.question_versions enable row level security;
+alter table private.question_asset_evidence enable row level security;
 alter table private.question_reviews enable row level security;
 alter table private.question_status_events enable row level security;
 alter table private.activity_join_attempts enable row level security;
@@ -377,6 +503,7 @@ alter table public.activity_responses force row level security;
 alter table public.classroom_learning_events force row level security;
 alter table public.classroom_story_progress force row level security;
 alter table private.question_versions force row level security;
+alter table private.question_asset_evidence force row level security;
 alter table private.question_reviews force row level security;
 alter table private.question_status_events force row level security;
 alter table private.activity_join_attempts force row level security;
@@ -393,9 +520,12 @@ revoke all on public.activity_responses from anon, authenticated;
 revoke all on public.classroom_learning_events from anon, authenticated;
 revoke all on public.classroom_story_progress from anon, authenticated;
 revoke all on schema private from public, anon, authenticated;
-revoke all on private.question_versions from public, anon, authenticated;
-revoke all on private.question_reviews from public, anon, authenticated;
-revoke all on private.question_status_events from public, anon, authenticated;
+revoke all on private.question_versions from public, anon, authenticated, service_role;
+revoke all on private.question_asset_evidence
+from public, anon, authenticated, service_role;
+revoke all on private.question_reviews from public, anon, authenticated, service_role;
+revoke all on private.question_status_events
+from public, anon, authenticated, service_role;
 revoke all on private.activity_join_attempts from public, anon, authenticated;
 
 grant usage on schema public to authenticated;
@@ -411,9 +541,9 @@ grant select on public.activity_questions to authenticated;
 grant select on public.classroom_story_progress to authenticated;
 
 grant usage on schema private to service_role;
-grant select, insert, update on private.question_versions to service_role;
+grant select on private.question_versions to service_role;
 grant select on private.question_reviews to service_role;
-grant select, insert on private.question_status_events to service_role;
+grant select on private.question_status_events to service_role;
 grant select, insert, delete on private.activity_join_attempts to service_role;
 
 create policy teacher_profiles_select_own
@@ -1079,7 +1209,8 @@ begin
   from public.content_reviewer_profiles profile
   where profile.user_id = auth.uid()
     and profile.reviewer_role in ('content_editor', 'administrator')
-    and profile.approval_status = 'approved';
+    and profile.approval_status = 'approved'
+  for share;
 
   if not found then
     raise exception 'approved content governor required' using errcode = '42501';
@@ -1643,6 +1774,191 @@ $$;
 revoke execute on function public.create_question_revision(text, integer, text, jsonb) from public, anon;
 grant execute on function public.create_question_revision(text, integer, text, jsonb) to authenticated;
 
+create or replace function public.register_question_asset_evidence(
+  p_question_id text,
+  p_question_version integer,
+  p_asset_kind text,
+  p_asset_locator text,
+  p_asset_sha256 text,
+  p_byte_length bigint,
+  p_mime_type text,
+  p_rights_source_kind text,
+  p_rights_usage_rights text,
+  p_rights_evidence_locator text,
+  p_rights_evidence_sha256 text,
+  p_rights_evidence_byte_length bigint,
+  p_manifest_sha256 text,
+  p_question_bank_sha256 text
+)
+returns table (
+  question_id text,
+  question_version integer,
+  asset_kind text,
+  asset_locator text,
+  asset_sha256 text,
+  byte_length bigint,
+  mime_type text,
+  rights_source_kind text,
+  rights_usage_rights text,
+  rights_evidence_locator text,
+  rights_evidence_sha256 text,
+  rights_evidence_byte_length bigint,
+  manifest_sha256 text,
+  question_bank_sha256 text,
+  verification_schema text,
+  verified_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  question_record private.question_versions%rowtype;
+  evidence_record private.question_asset_evidence%rowtype;
+  expected_locator text;
+  transition_at timestamptz := now();
+begin
+  if (auth.jwt() ->> 'role') is distinct from 'service_role' then
+    raise exception 'trusted production asset worker required'
+      using errcode = '42501';
+  end if;
+
+  select question.*
+  into question_record
+  from private.question_versions question
+  where question.question_id = trim(p_question_id)
+    and question.version = p_question_version
+  for update;
+
+  if not found then
+    raise exception 'question version not found' using errcode = 'P0002';
+  end if;
+
+  if question_record.status <> 'draft'
+    or question_record.locked_at is not null
+  then
+    raise exception 'asset evidence can only be registered for an unlocked draft'
+      using errcode = 'P0001';
+  end if;
+
+  if question_record.modality <> p_asset_kind
+    or p_asset_kind not in ('audio', 'image')
+  then
+    raise exception 'asset evidence kind does not match question modality'
+      using errcode = '22023';
+  end if;
+
+  expected_locator := case p_asset_kind
+    when 'audio' then question_record.audio ->> 'src'
+    when 'image' then question_record.image ->> 'src'
+  end;
+
+  if expected_locator is null
+    or expected_locator is distinct from trim(p_asset_locator)
+  then
+    raise exception 'asset evidence locator does not match question content'
+      using errcode = '22023';
+  end if;
+
+  select evidence.*
+  into evidence_record
+  from private.question_asset_evidence evidence
+  where evidence.question_id = question_record.question_id
+    and evidence.question_version = question_record.version
+    and evidence.asset_kind = p_asset_kind;
+
+  if found then
+    if evidence_record.asset_locator is distinct from trim(p_asset_locator)
+      or evidence_record.asset_sha256 is distinct from p_asset_sha256
+      or evidence_record.byte_length is distinct from p_byte_length
+      or evidence_record.mime_type is distinct from p_mime_type
+      or evidence_record.rights_source_kind is distinct from p_rights_source_kind
+      or evidence_record.rights_usage_rights is distinct from p_rights_usage_rights
+      or evidence_record.rights_evidence_locator
+        is distinct from trim(p_rights_evidence_locator)
+      or evidence_record.rights_evidence_sha256
+        is distinct from p_rights_evidence_sha256
+      or evidence_record.rights_evidence_byte_length
+        is distinct from p_rights_evidence_byte_length
+      or evidence_record.manifest_sha256 is distinct from p_manifest_sha256
+      or evidence_record.question_bank_sha256
+        is distinct from p_question_bank_sha256
+    then
+      raise exception 'conflicting asset evidence already exists for question version'
+        using errcode = '23505';
+    end if;
+  else
+    insert into private.question_asset_evidence (
+      question_id,
+      question_version,
+      asset_kind,
+      asset_locator,
+      asset_sha256,
+      byte_length,
+      mime_type,
+      rights_source_kind,
+      rights_usage_rights,
+      rights_evidence_locator,
+      rights_evidence_sha256,
+      rights_evidence_byte_length,
+      manifest_sha256,
+      question_bank_sha256,
+      verification_schema,
+      verified_at
+    )
+    values (
+      question_record.question_id,
+      question_record.version,
+      p_asset_kind,
+      trim(p_asset_locator),
+      p_asset_sha256,
+      p_byte_length,
+      p_mime_type,
+      p_rights_source_kind,
+      p_rights_usage_rights,
+      trim(p_rights_evidence_locator),
+      p_rights_evidence_sha256,
+      p_rights_evidence_byte_length,
+      p_manifest_sha256,
+      p_question_bank_sha256,
+      'question-asset-byte-receipt-v1',
+      transition_at
+    )
+    returning * into evidence_record;
+  end if;
+
+  return query
+  select
+    evidence_record.question_id,
+    evidence_record.question_version,
+    evidence_record.asset_kind,
+    evidence_record.asset_locator,
+    evidence_record.asset_sha256,
+    evidence_record.byte_length,
+    evidence_record.mime_type,
+    evidence_record.rights_source_kind,
+    evidence_record.rights_usage_rights,
+    evidence_record.rights_evidence_locator,
+    evidence_record.rights_evidence_sha256,
+    evidence_record.rights_evidence_byte_length,
+    evidence_record.manifest_sha256,
+    evidence_record.question_bank_sha256,
+    evidence_record.verification_schema,
+    evidence_record.verified_at;
+end;
+$$;
+
+revoke execute on function public.register_question_asset_evidence(
+  text, integer, text, text, text, bigint, text, text, text, text, text,
+  bigint, text, text
+)
+from public, anon, authenticated;
+grant execute on function public.register_question_asset_evidence(
+  text, integer, text, text, text, bigint, text, text, text, text, text,
+  bigint, text, text
+)
+to service_role;
+
 create or replace function public.submit_question_for_review(
   p_question_id text,
   p_question_version integer,
@@ -1666,6 +1982,8 @@ declare
   question_record private.question_versions%rowtype;
   transition_at timestamptz := now();
   saved_review_snapshot jsonb;
+  saved_asset_evidence jsonb;
+  saved_asset_evidence_count integer;
   saved_content_sha256 text;
   saved_content_hash_schema constant text := 'question-review-snapshot-pg-jsonb-text-v1';
 begin
@@ -1681,7 +1999,8 @@ begin
   from public.content_reviewer_profiles profile
   where profile.user_id = auth.uid()
     and profile.reviewer_role in ('content_editor', 'administrator')
-    and profile.approval_status = 'approved';
+    and profile.approval_status = 'approved'
+  for share;
 
   if not found then
     raise exception 'approved content editor or administrator required'
@@ -1709,6 +2028,59 @@ begin
       using errcode = 'P0001';
   end if;
 
+  select
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'assetKind', evidence.asset_kind,
+          'assetLocator', evidence.asset_locator,
+          'assetSha256', evidence.asset_sha256,
+          'byteLength', evidence.byte_length,
+          'mimeType', evidence.mime_type,
+          'rightsSourceKind', evidence.rights_source_kind,
+          'rightsUsageRights', evidence.rights_usage_rights,
+          'rightsEvidenceLocator', evidence.rights_evidence_locator,
+          'rightsEvidenceSha256', evidence.rights_evidence_sha256,
+          'rightsEvidenceByteLength', evidence.rights_evidence_byte_length,
+          'manifestSha256', evidence.manifest_sha256,
+          'questionBankSha256', evidence.question_bank_sha256,
+          'verificationSchema', evidence.verification_schema,
+          'verifiedAt', evidence.verified_at
+        )
+        order by evidence.asset_kind
+      ),
+      '[]'::jsonb
+    ),
+    count(*)::integer
+  into saved_asset_evidence, saved_asset_evidence_count
+  from private.question_asset_evidence evidence
+  where evidence.question_id = question_record.question_id
+    and evidence.question_version = question_record.version;
+
+  if question_record.modality in ('audio', 'image') then
+    if saved_asset_evidence_count <> 1
+      or not exists (
+        select 1
+        from private.question_asset_evidence evidence
+        where evidence.question_id = question_record.question_id
+          and evidence.question_version = question_record.version
+          and evidence.asset_kind = question_record.modality
+          and evidence.asset_locator = case question_record.modality
+            when 'audio' then question_record.audio ->> 'src'
+            when 'image' then question_record.image ->> 'src'
+          end
+      )
+    then
+      raise exception 'verified production asset evidence is required before review'
+        using errcode = 'P0001';
+    end if;
+  elsif question_record.modality = 'text'
+    and saved_asset_evidence_count <> 0
+  then
+    raise exception 'text questions cannot include production asset evidence'
+      using errcode = 'P0001';
+  end if;
+
   saved_review_snapshot := jsonb_build_object(
     'questionId', question_record.question_id,
     'version', question_record.version,
@@ -1732,7 +2104,8 @@ begin
     'variantGroup', question_record.variant_group,
     'source', question_record.source,
     'author', question_record.author,
-    'createdBy', question_record.created_by
+    'createdBy', question_record.created_by,
+    'assetEvidence', saved_asset_evidence
   );
   saved_content_sha256 := pg_catalog.encode(
     pg_catalog.sha256(
@@ -1776,7 +2149,8 @@ begin
       'locked_at', transition_at,
       'content_sha256', question_record.content_sha256,
       'content_hash_schema', question_record.content_hash_schema,
-      'content_hashed_at', question_record.content_hashed_at
+      'content_hashed_at', question_record.content_hashed_at,
+      'asset_evidence', saved_asset_evidence
     ),
     transition_at
   );
@@ -1920,6 +2294,10 @@ $$;
 revoke execute on function private.prevent_question_governance_mutation()
 from public, anon, authenticated;
 
+create trigger question_asset_evidence_immutable
+before update or delete on private.question_asset_evidence
+for each row execute function private.prevent_question_governance_mutation();
+
 create trigger question_reviews_immutable
 before update or delete on private.question_reviews
 for each row execute function private.prevent_question_governance_mutation();
@@ -1944,6 +2322,7 @@ returns table (
   prompt text,
   audio jsonb,
   image jsonb,
+  asset_evidence jsonb,
   options jsonb,
   correct_option_id text,
   explanation text,
@@ -1979,6 +2358,7 @@ as $$
     question.prompt,
     question.audio,
     question.image,
+    question.review_snapshot -> 'assetEvidence',
     question.options,
     question.correct_option_id,
     question.explanation,
@@ -2333,6 +2713,11 @@ declare
   profile_record public.content_reviewer_profiles%rowtype;
   question_record private.question_versions%rowtype;
   saved_approval_count integer;
+  frozen_asset_evidence jsonb;
+  current_asset_evidence jsonb;
+  current_asset_evidence_count integer;
+  current_content_sha256 text;
+  media_locator text;
   transition_at timestamptz := now();
 begin
   if auth.uid() is null
@@ -2347,7 +2732,8 @@ begin
   from public.content_reviewer_profiles profile
   where profile.user_id = auth.uid()
     and profile.reviewer_role = 'administrator'
-    and profile.approval_status = 'approved';
+    and profile.approval_status = 'approved'
+  for share;
 
   if not found then
     raise exception 'approved content administrator required' using errcode = '42501';
@@ -2372,6 +2758,112 @@ begin
     raise exception 'only a reviewed question version can be published' using errcode = 'P0001';
   end if;
 
+  current_content_sha256 := pg_catalog.encode(
+    pg_catalog.sha256(
+      pg_catalog.convert_to(question_record.review_snapshot::text, 'UTF8')
+    ),
+    'hex'
+  );
+  if current_content_sha256 is distinct from question_record.content_sha256 then
+    raise exception 'frozen content receipt no longer matches the review snapshot'
+      using errcode = 'P0001';
+  end if;
+
+  media_locator := case question_record.modality
+    when 'audio' then question_record.audio ->> 'src'
+    when 'image' then question_record.image ->> 'src'
+    else null
+  end;
+
+  if question_record.modality = 'audio'
+    and not coalesce(
+      media_locator ~ '^/assets/question-assets/[0-9a-f]{64}\.(mp3|wav|ogg)$',
+      false
+    )
+  then
+    raise exception 'opaque audio asset is required for publication'
+      using errcode = 'P0001';
+  end if;
+
+  if question_record.modality = 'image'
+    and not coalesce(
+      media_locator ~ '^/assets/question-assets/[0-9a-f]{64}\.(jpg|png|webp)$',
+      false
+    )
+  then
+    raise exception 'opaque image asset is required for publication'
+      using errcode = 'P0001';
+  end if;
+
+  if question_record.modality in ('audio', 'image')
+    and (
+      lower(trim(coalesce(media_locator, ''))) like 'tts:%'
+      or lower(trim(coalesce(media_locator, ''))) like 'scene:%'
+      or lower(trim(coalesce(media_locator, ''))) like 'data:%'
+    )
+  then
+    raise exception 'placeholder or embedded media cannot be published'
+      using errcode = 'P0001';
+  end if;
+
+  frozen_asset_evidence := question_record.review_snapshot -> 'assetEvidence';
+  select
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'assetKind', evidence.asset_kind,
+          'assetLocator', evidence.asset_locator,
+          'assetSha256', evidence.asset_sha256,
+          'byteLength', evidence.byte_length,
+          'mimeType', evidence.mime_type,
+          'rightsSourceKind', evidence.rights_source_kind,
+          'rightsUsageRights', evidence.rights_usage_rights,
+          'rightsEvidenceLocator', evidence.rights_evidence_locator,
+          'rightsEvidenceSha256', evidence.rights_evidence_sha256,
+          'rightsEvidenceByteLength', evidence.rights_evidence_byte_length,
+          'manifestSha256', evidence.manifest_sha256,
+          'questionBankSha256', evidence.question_bank_sha256,
+          'verificationSchema', evidence.verification_schema,
+          'verifiedAt', evidence.verified_at
+        )
+        order by evidence.asset_kind
+      ),
+      '[]'::jsonb
+    ),
+    count(*)::integer
+  into current_asset_evidence, current_asset_evidence_count
+  from private.question_asset_evidence evidence
+  where evidence.question_id = question_record.question_id
+    and evidence.question_version = question_record.version;
+
+  if jsonb_typeof(frozen_asset_evidence) is distinct from 'array'
+    or current_asset_evidence is distinct from frozen_asset_evidence
+  then
+    raise exception 'frozen production asset evidence no longer matches current evidence'
+      using errcode = 'P0001';
+  end if;
+
+  if question_record.modality in ('audio', 'image') then
+    if current_asset_evidence_count <> 1
+      or not exists (
+        select 1
+        from private.question_asset_evidence evidence
+        where evidence.question_id = question_record.question_id
+          and evidence.question_version = question_record.version
+          and evidence.asset_kind = question_record.modality
+          and evidence.asset_locator = media_locator
+      )
+    then
+      raise exception 'one matching production asset receipt is required for publication'
+        using errcode = 'P0001';
+    end if;
+  elsif question_record.modality = 'text'
+    and current_asset_evidence_count <> 0
+  then
+    raise exception 'text questions cannot publish with production asset evidence'
+      using errcode = 'P0001';
+  end if;
+
   if exists (
     select 1
     from private.question_versions published
@@ -2382,6 +2874,17 @@ begin
     raise exception 'another published version must be retired first'
       using errcode = 'P0001';
   end if;
+
+  perform 1
+  from public.content_reviewer_profiles reviewer
+  join private.question_reviews review
+    on review.reviewer_id = reviewer.user_id
+  where review.question_id = question_record.question_id
+    and review.question_version = question_record.version
+    and review.verdict = 'approved'
+    and reviewer.reviewer_role = 'english_teacher'
+    and reviewer.approval_status = 'approved'
+  for share of reviewer;
 
   select count(distinct review.reviewer_id)::integer
   into saved_approval_count
@@ -2399,7 +2902,7 @@ begin
       using errcode = 'P0001';
   end if;
 
-  if not (
+  if not coalesce(
     (
       question_record.source ->> 'kind' = 'original'
       and question_record.source ->> 'usageRights' = 'original-for-project'
@@ -2407,16 +2910,10 @@ begin
     or (
       question_record.source ->> 'kind' = 'licensed'
       and question_record.source ->> 'usageRights' = 'licensed-for-publication'
-    )
+    ),
+    false
   ) then
     raise exception 'question source rights do not permit publication' using errcode = '42501';
-  end if;
-
-  if question_record.modality = 'audio'
-    and lower(trim(coalesce(question_record.audio ->> 'src', ''))) like 'tts:%'
-  then
-    raise exception 'opaque audio asset is required for publication'
-      using errcode = 'P0001';
   end if;
 
   update private.question_versions as question
@@ -2446,7 +2943,12 @@ begin
     'reviewed',
     question_record.status,
     trim(p_note),
-    jsonb_build_object('approval_count', saved_approval_count),
+    jsonb_build_object(
+      'approval_count', saved_approval_count,
+      'content_sha256', question_record.content_sha256,
+      'content_hash_schema', question_record.content_hash_schema,
+      'asset_evidence', current_asset_evidence
+    ),
     transition_at
   );
 

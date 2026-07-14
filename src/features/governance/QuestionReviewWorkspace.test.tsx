@@ -41,6 +41,7 @@ function queueRow() {
     change_summary: "修正問句與解析",
     content_sha256: frozenContentSha256,
     content_hash_schema: "question-review-snapshot-pg-jsonb-text-v1",
+    asset_evidence: [],
     locked_at: "2026-07-14T07:00:00.000Z",
     created_at: "2026-07-14T06:00:00.000Z",
   };

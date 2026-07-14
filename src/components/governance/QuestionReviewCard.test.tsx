@@ -38,6 +38,7 @@ const queueItem: QuestionReviewQueueItem = {
   changeSummary: "修正問句與解析",
   contentSha256: "a".repeat(64),
   contentHashSchema: "question-review-snapshot-pg-jsonb-text-v1",
+  assetEvidence: [],
   lockedAt: "2026-07-14T07:00:00.000Z",
 };
 
@@ -105,6 +106,75 @@ describe("QuestionReviewCard", () => {
       "src",
       "/images/kite.webp",
     );
+  });
+
+  it("shows the frozen byte and rights receipt for a governed production asset", () => {
+    const assetSha256 = "b".repeat(64);
+    const rightsEvidenceSha256 = "c".repeat(64);
+    const manifestSha256 = "d".repeat(64);
+    const questionBankSha256 = "e".repeat(64);
+    const rightsEvidenceLocator = `licensed/${rightsEvidenceSha256}.md`;
+
+    render(
+      <QuestionReviewCard
+        item={{
+          ...queueItem,
+          modality: "audio",
+          audio: {
+            src: `/assets/question-assets/${assetSha256}.mp3`,
+            transcript: "Is this a kite?",
+          },
+          assetEvidence: [
+            {
+              assetKind: "audio",
+              assetLocator: `/assets/question-assets/${assetSha256}.mp3`,
+              assetSha256,
+              byteLength: 12_345,
+              mimeType: "audio/mpeg",
+              rightsSourceKind: "licensed",
+              rightsUsageRights: "licensed-for-publication",
+              rightsEvidenceLocator,
+              rightsEvidenceSha256,
+              rightsEvidenceByteLength: 456,
+              manifestSha256,
+              questionBankSha256,
+              verificationSchema: "question-asset-byte-receipt-v1",
+              verifiedAt: "2026-07-14T07:30:00.000Z",
+            },
+          ],
+        }}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    const receipt = screen.getByRole("region", { name: "正式素材位元組收據" });
+    expect(within(receipt).getByText("音訊・audio/mpeg・12,345 bytes")).toBeInTheDocument();
+    expect(within(receipt).getByText(assetSha256)).toBeInTheDocument();
+    expect(within(receipt).getByText("licensed・licensed-for-publication")).toBeInTheDocument();
+    expect(within(receipt).getByText(rightsEvidenceSha256)).toBeInTheDocument();
+    expect(within(receipt).getByText(rightsEvidenceLocator)).toBeInTheDocument();
+    expect(within(receipt).getByText("456 bytes")).toBeInTheDocument();
+    expect(within(receipt).getByText(manifestSha256)).toBeInTheDocument();
+    expect(within(receipt).getByText(questionBankSha256)).toBeInTheDocument();
+    expect(
+      within(receipt).getByText("question-asset-byte-receipt-v1"),
+    ).toBeInTheDocument();
+    expect(
+      within(receipt).getByText(/^驗證時間 /).closest("time"),
+    ).toHaveAttribute("datetime", "2026-07-14T07:30:00.000Z");
+    expect(
+      within(receipt).getByText(/受信任匯入程序讀取實際檔案後登錄/),
+    ).toBeInTheDocument();
+
+    for (const checkbox of screen.getAllByRole("checkbox")) {
+      fireEvent.click(checkbox);
+    }
+    fireEvent.change(screen.getByLabelText("複核意見"), {
+      target: { value: "素材內容與授權證據皆已核對" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "通過複核" }));
+    const dialog = screen.getByRole("alertdialog", { name: "確認通過複核" });
+    expect(within(dialog).getByText(assetSha256)).toBeInTheDocument();
   });
 
   it("shows the exact frozen receipt before and during irreversible confirmation", () => {

@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "test:a11y": "playwright test e2e/accessibility.spec.ts",
     "export:review-candidates": "tsx scripts/export-review-candidates.ts",
-    "export:teacher-prereview": "tsx scripts/export-teacher-prereview-pack.ts"
+    "export:teacher-prereview": "tsx scripts/export-teacher-prereview-pack.ts",
+    "ingest:production-assets": "tsx scripts/ingest-production-assets.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.3",

@@ -2,7 +2,7 @@
 
 包號：`draft-3c9686dac6674cc4`
 
-產生時間：`2026-07-14T09:53:55.056Z`
+產生時間：`2026-07-14T11:14:49.493Z`
 
 這不是正式複核包，也不是已通過的正式題庫。本包用來讓兩位英語教師先閱讀、標記問題與提出修正建議；任何空白欄位都不能由系統代替真人填寫。
 
@@ -26,3 +26,4 @@
 2. `questions-for-review.csv` 只供閱讀；`draft-questions.json` 與內容雜湊用於核對是否被改動。
 3. `approved` 必須七項皆為 true；`changes_requested` 必須至少一項為 false，並寫明原因。
 4. 完成正式素材、專用 Supabase 鎖版與登入後，仍須把每一題送入伺服器的 `submit_question_review`；CSV 本身不能直接計票或發布。
+5. production-assets.manifest.template.json 已列出 49 個待補素材槽位；空白 hash、長度、locator 與權利文件不得視為證據，必須由正式 ingest 實讀 bytes 後填入。

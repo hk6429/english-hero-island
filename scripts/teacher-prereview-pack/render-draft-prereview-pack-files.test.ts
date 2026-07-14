@@ -17,6 +17,7 @@ describe("renderDraftPrereviewPackFiles", () => {
       "asset-blockers.csv",
       "draft-questions.json",
       "manifest.json",
+      "production-assets.manifest.template.json",
       "questions-for-review.csv",
       "teacher-01.responses.unsigned.csv",
       "teacher-02.responses.unsigned.csv",
@@ -84,5 +85,54 @@ describe("renderDraftPrereviewPackFiles", () => {
         formalReviewEligible: false,
       }),
     );
+  });
+
+  it("renders a 49-row production asset manifest intake without fabricating receipts", () => {
+    const intake = JSON.parse(
+      rendered.get("production-assets.manifest.template.json") ?? "null",
+    ) as {
+      schemaVersion: number;
+      evidenceClass: string;
+      questionBankSha256: string;
+      assets: Array<{
+        questionId: string;
+        assetKind: string;
+        replacesPlaceholder: string;
+        publicLocator: string;
+        sha256: string;
+        byteLength: number;
+        rightsEvidence: {
+          sourceKind: string;
+          usageRights: string;
+          documentPath: string;
+          sha256: string;
+          byteLength: number;
+        };
+      }>;
+    };
+
+    expect(intake).toMatchObject({
+      schemaVersion: 1,
+      evidenceClass: "production_question_asset_bundle",
+      questionBankSha256: pack.sourceImport.sha256,
+    });
+    expect(intake.assets).toHaveLength(49);
+    expect(intake.assets.filter(({ assetKind }) => assetKind === "audio")).toHaveLength(24);
+    expect(intake.assets.filter(({ assetKind }) => assetKind === "image")).toHaveLength(25);
+    expect(new Set(intake.assets.map(({ questionId }) => questionId))).toHaveLength(49);
+    expect(
+      intake.assets.every(
+        (asset) =>
+          /^(tts|scene):/.test(asset.replacesPlaceholder) &&
+          asset.publicLocator === "" &&
+          asset.sha256 === "" &&
+          asset.byteLength === 0 &&
+          asset.rightsEvidence.sourceKind === "" &&
+          asset.rightsEvidence.usageRights === "" &&
+          asset.rightsEvidence.documentPath === "" &&
+          asset.rightsEvidence.sha256 === "" &&
+          asset.rightsEvidence.byteLength === 0,
+      ),
+    ).toBe(true);
   });
 });
