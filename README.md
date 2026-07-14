@@ -64,10 +64,10 @@ npm run build
 
 ## 文件
 
-- 設計規格：`../../docs/superpowers/specs/2026-07-14-english-hero-island-design.md`
-- 實作計畫：`../../docs/superpowers/plans/2026-07-14-english-hero-island-plan.md`
 - Octalysis 實作稽核：`docs/octalysis-audit.md`
 - 視覺規範：`design-system/MASTER.md`
+
+完整產品設計規格與分階段實作計畫目前由母工作區管理；公開 repository 只放可獨立理解、能直接驗證的專案文件。
 
 ## 已驗證品質
 
@@ -80,4 +80,4 @@ npm run build
 
 ## 授權與內容
 
-程式碼授權將於公開 repository 建立前定案。題庫內容、圖片、音訊與外部研究來源各自記錄來源及使用權利；未明確授權的公開考古題只作能力與題型研究，不直接重製。
+此 repository 目前公開供檢視與協作，尚未授予程式碼或題庫的再利用授權。題庫內容、圖片、音訊與外部研究來源各自記錄來源及使用權利；未明確授權的公開考古題只作能力與題型研究，不直接重製。
