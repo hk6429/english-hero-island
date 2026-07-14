@@ -68,6 +68,8 @@ describe("question governance migration", () => {
     expect(body).toContain("question.status = 'in_review'");
     expect(body).toContain("question.created_by is distinct from auth.uid()");
     expect(body).toContain("review.reviewer_id = auth.uid()");
+    expect(body).not.toContain("approval_count");
+    expect(body).not.toContain("change_request_count");
     expect(migration).toContain(
       "grant execute on function public.list_question_review_queue() to authenticated",
     );

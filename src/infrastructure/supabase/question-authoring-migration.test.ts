@@ -132,6 +132,37 @@ describe("question authoring migration", () => {
     );
   });
 
+  it("creates and locks a server-side content receipt in the review transaction", () => {
+    const questionTable = migration.match(
+      /create table private\.question_versions[\s\S]*?\n\);/,
+    )?.[0];
+    const body = functionBody("submit_question_for_review");
+    const guard = privateFunctionBody("prevent_question_version_content_mutation");
+
+    expect(questionTable).toContain("review_snapshot jsonb");
+    expect(questionTable).toContain("content_sha256 text");
+    expect(questionTable).toContain("content_hash_schema text");
+    expect(questionTable).toContain("content_hashed_at timestamptz");
+    expect(questionTable).toContain("^[0-9a-f]{64}$");
+    expect(questionTable).toContain(
+      "question-review-snapshot-pg-jsonb-text-v1",
+    );
+    expect(body).toContain("saved_review_snapshot := jsonb_build_object(");
+    expect(body).toContain("'questionid', question_record.question_id");
+    expect(body).toContain("pg_catalog.sha256(");
+    expect(body).toContain("saved_review_snapshot::text");
+    expect(body).toContain("review_snapshot = saved_review_snapshot");
+    expect(body).toContain("content_sha256 = saved_content_sha256");
+    expect(body).toContain("content_hash_schema = saved_content_hash_schema");
+    expect(body).toContain("content_hashed_at = transition_at");
+    expect(body).toContain("content_sha256 text");
+    expect(body).toContain("content_hash_schema text");
+    expect(body).toContain("content_hashed_at timestamptz");
+    expect(body).toContain("'content_sha256', question_record.content_sha256");
+    expect(guard).toContain("old.review_snapshot");
+    expect(guard).toContain("new.content_sha256");
+  });
+
   it("prevents deletion of any version and content changes after a version is frozen", () => {
     const guard = privateFunctionBody("prevent_question_version_content_mutation");
 

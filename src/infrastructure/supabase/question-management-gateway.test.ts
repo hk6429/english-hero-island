@@ -12,6 +12,8 @@ import {
   submitQuestionForReviewWithSupabase,
 } from "./question-management-gateway";
 
+const frozenContentSha256 = "a".repeat(64);
+
 const draft: QuestionDraftInput = {
   id: "g4-yes-no-practice-11",
   grade: 4,
@@ -267,6 +269,9 @@ describe("question management gateway", () => {
             question_version: 1,
             question_status: "in_review",
             locked_at: "2026-07-14T08:30:00.000Z",
+            content_sha256: frozenContentSha256,
+            content_hash_schema: "question-review-snapshot-pg-jsonb-text-v1",
+            content_hashed_at: "2026-07-14T08:30:00.000Z",
           },
         ],
         error: null,
@@ -285,6 +290,9 @@ describe("question management gateway", () => {
       version: 1,
       status: "in_review",
       lockedAt: "2026-07-14T08:30:00.000Z",
+      contentSha256: frozenContentSha256,
+      contentHashSchema: "question-review-snapshot-pg-jsonb-text-v1",
+      contentHashedAt: "2026-07-14T08:30:00.000Z",
     });
     expect(client.rpc).toHaveBeenCalledWith("submit_question_for_review", {
       p_question_id: draft.id,

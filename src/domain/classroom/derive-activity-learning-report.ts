@@ -8,6 +8,8 @@ export type ActivityQuestionEvidence = Readonly<{
   questionId: string;
   responseCount: number;
   independentCorrectCount: number;
+  assistedCorrectCount: number;
+  rescuedCount: number;
   pendingSupportCount: number;
 }>;
 
@@ -33,8 +35,11 @@ export type ActivityReportVerdict =
 export type CommonWeakness = Readonly<{
   position: number;
   responseCount: number;
+  assistedCorrectCount: number;
+  rescuedCount: number;
   pendingSupportCount: number;
-  pendingSupportPercent: number;
+  supportUseCount: number;
+  supportUsePercent: number;
 }>;
 
 export type ActivityLearningReport = Readonly<{
@@ -45,6 +50,8 @@ export type ActivityLearningReport = Readonly<{
     observedResponses: number;
     responseCoveragePercent: number;
     independentCorrectPercent: number;
+    assistedCorrectPercent: number;
+    rescuedPercent: number;
     pendingSupportPercent: number;
   }>;
   evidenceReasons: ReadonlyArray<string>;
@@ -126,6 +133,14 @@ export function deriveActivityLearningReport(
     (sum, question) => sum + question.independentCorrectCount,
     0,
   );
+  const assistedCorrect = evidence.questions.reduce(
+    (sum, question) => sum + question.assistedCorrectCount,
+    0,
+  );
+  const rescued = evidence.questions.reduce(
+    (sum, question) => sum + question.rescuedCount,
+    0,
+  );
   const pendingSupport = evidence.questions.reduce(
     (sum, question) => sum + question.pendingSupportCount,
     0,
@@ -136,6 +151,8 @@ export function deriveActivityLearningReport(
     observedResponses,
     responseCoveragePercent: percentage(observedResponses, expectedResponses),
     independentCorrectPercent: percentage(independentCorrect, observedResponses),
+    assistedCorrectPercent: percentage(assistedCorrect, observedResponses),
+    rescuedPercent: percentage(rescued, observedResponses),
     pendingSupportPercent: percentage(pendingSupport, observedResponses),
   };
 
@@ -181,20 +198,32 @@ export function deriveActivityLearningReport(
     .filter(
       (question) =>
         question.responseCount >= 3 &&
-        question.pendingSupportCount / question.responseCount >= 0.4,
+        (question.assistedCorrectCount +
+          question.rescuedCount +
+          question.pendingSupportCount) /
+          question.responseCount >=
+          0.4,
     )
     .map((question) => ({
       position: question.position,
       responseCount: question.responseCount,
+      assistedCorrectCount: question.assistedCorrectCount,
+      rescuedCount: question.rescuedCount,
       pendingSupportCount: question.pendingSupportCount,
-      pendingSupportPercent: percentage(
+      supportUseCount:
+        question.assistedCorrectCount +
+        question.rescuedCount +
         question.pendingSupportCount,
+      supportUsePercent: percentage(
+        question.assistedCorrectCount +
+          question.rescuedCount +
+          question.pendingSupportCount,
         question.responseCount,
       ),
     }))
     .sort(
       (left, right) =>
-        right.pendingSupportPercent - left.pendingSupportPercent ||
+        right.supportUsePercent - left.supportUsePercent ||
         left.position - right.position,
     )
     .slice(0, 2);

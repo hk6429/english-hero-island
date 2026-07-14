@@ -110,6 +110,8 @@ const activityLearningEvidenceRowsSchema = z
       question_id: z.string().min(1),
       response_count: z.coerce.number().int().nonnegative(),
       independent_correct_count: z.coerce.number().int().nonnegative(),
+      assisted_correct_count: z.coerce.number().int().nonnegative(),
+      rescued_count: z.coerce.number().int().nonnegative(),
       pending_support_count: z.coerce.number().int().nonnegative(),
     }),
   )
@@ -274,6 +276,7 @@ export type SubmitClassroomResponseRequest = Readonly<{
   questionId: string;
   questionVersion: number;
   selectedOptionId: string;
+  hintsUsed: number;
   deviceEventId: string;
 }>;
 
@@ -297,6 +300,7 @@ export async function submitClassroomResponseWithSupabase(
     p_question_id: request.questionId,
     p_question_version: request.questionVersion,
     p_selected_option_id: request.selectedOptionId,
+    p_hints_used: request.hintsUsed,
     p_device_event_id: request.deviceEventId,
   });
   if (error) {
@@ -509,7 +513,22 @@ export async function getActivityLearningEvidenceWithSupabase(
       row.completed_participant_count === first.completed_participant_count,
   );
   const positions = new Set(parsed.data.map((row) => row.question_position));
-  if (!metadataIsConsistent || positions.size !== parsed.data.length) {
+  const countsAreConsistent = parsed.data.every(
+    (row) =>
+      row.completed_participant_count <= row.responding_participant_count &&
+      row.responding_participant_count <= row.participant_count &&
+      row.response_count <= row.participant_count &&
+      row.independent_correct_count +
+        row.assisted_correct_count +
+        row.rescued_count +
+        row.pending_support_count <=
+        row.response_count,
+  );
+  if (
+    !metadataIsConsistent ||
+    !countsAreConsistent ||
+    positions.size !== parsed.data.length
+  ) {
     throw new Error("課後學習證據彼此矛盾，請聯絡系統管理者。");
   }
 
@@ -529,6 +548,8 @@ export async function getActivityLearningEvidenceWithSupabase(
         questionId: row.question_id,
         responseCount: row.response_count,
         independentCorrectCount: row.independent_correct_count,
+        assistedCorrectCount: row.assisted_correct_count,
+        rescuedCount: row.rescued_count,
         pendingSupportCount: row.pending_support_count,
       }))
       .sort((left, right) => left.position - right.position),

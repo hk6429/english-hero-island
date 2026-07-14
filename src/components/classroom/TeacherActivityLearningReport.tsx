@@ -81,6 +81,8 @@ export function TeacherActivityLearningReport({ client, activityId }: Props) {
       <div className="activity-report-metrics" role="group" aria-label="課後學習證據摘要">
         <strong>作答覆蓋 {report.metrics.responseCoveragePercent}%</strong>
         <strong>獨立答對 {report.metrics.independentCorrectPercent}%</strong>
+        <strong>提示後答對 {report.metrics.assistedCorrectPercent}%</strong>
+        <strong>救援後完成 {report.metrics.rescuedPercent}%</strong>
         <strong>需要支援 {report.metrics.pendingSupportPercent}%</strong>
       </div>
 
@@ -107,8 +109,9 @@ export function TeacherActivityLearningReport({ client, activityId }: Props) {
           <ul>
             {report.commonWeaknesses.map((weakness) => (
               <li key={weakness.position}>
-                第 {weakness.position} 題：{weakness.pendingSupportCount}／
-                {weakness.responseCount} 份需要支援（{weakness.pendingSupportPercent}%）
+                第 {weakness.position} 題：{weakness.supportUseCount}／
+                {weakness.responseCount} 份曾使用或仍需要支援（
+                {weakness.supportUsePercent}%）
               </li>
             ))}
           </ul>

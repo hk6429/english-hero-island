@@ -8,6 +8,7 @@ const pending: PendingClassroomSubmission = {
   activityId: "33333333-3333-4333-8333-333333333333",
   participantId: "44444444-4444-4444-8444-444444444444",
   selectedOptionId: "a",
+  hintsUsed: 1,
   queuedAt: "2026-07-14T10:00:00.000Z",
   question: {
     position: 1,

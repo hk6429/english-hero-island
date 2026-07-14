@@ -30,8 +30,6 @@ const queueItem: QuestionReviewQueueItem = {
   authorName: "內容編輯 A",
   changeSummary: "修正問句與解析",
   lockedAt: "2026-07-14T07:00:00.000Z",
-  approvalCount: 1,
-  changeRequestCount: 0,
 };
 
 describe("QuestionReviewCard", () => {

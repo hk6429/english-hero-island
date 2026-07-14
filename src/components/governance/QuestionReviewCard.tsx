@@ -38,8 +38,6 @@ export type QuestionReviewQueueItem = Readonly<{
   authorName: string;
   changeSummary: string | null;
   lockedAt: string;
-  approvalCount: number;
-  changeRequestCount: number;
 }>;
 
 export type QuestionReviewSubmission = Readonly<{
@@ -350,11 +348,6 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
         </section>
       ) : null}
 
-      {item.changeRequestCount > 0 ? (
-        <p className="inline-form-alert" role="status">
-          此版本已有 {item.changeRequestCount} 份退回意見，內容編輯者需建立新版本修正。
-        </p>
-      ) : null}
       {error ? (
         <p className="inline-form-alert" role="alert">
           {error}

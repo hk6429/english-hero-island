@@ -132,6 +132,15 @@ create table private.question_versions (
   source jsonb not null,
   author jsonb not null,
   created_by uuid references auth.users(id) on delete set null,
+  review_snapshot jsonb,
+  content_sha256 text check (
+    content_sha256 is null or content_sha256 ~ '^[0-9a-f]{64}$'
+  ),
+  content_hash_schema text check (
+    content_hash_schema is null
+    or content_hash_schema = 'question-review-snapshot-pg-jsonb-text-v1'
+  ),
+  content_hashed_at timestamptz,
   locked_at timestamptz,
   reviewed_at timestamptz,
   published_at timestamptz,
@@ -149,6 +158,22 @@ create table private.question_versions (
   check (
     (version = 1 and supersedes_version is null)
     or (version > 1 and supersedes_version = version - 1 and change_summary is not null)
+  ),
+  check (
+    (
+      locked_at is null
+      and review_snapshot is null
+      and content_sha256 is null
+      and content_hash_schema is null
+      and content_hashed_at is null
+    )
+    or (
+      locked_at is not null
+      and jsonb_typeof(review_snapshot) = 'object'
+      and content_sha256 is not null
+      and content_hash_schema = 'question-review-snapshot-pg-jsonb-text-v1'
+      and content_hashed_at = locked_at
+    )
   ),
   check (
     status <> 'published'
@@ -1612,7 +1637,10 @@ returns table (
   question_id text,
   question_version integer,
   question_status text,
-  locked_at timestamptz
+  locked_at timestamptz,
+  content_sha256 text,
+  content_hash_schema text,
+  content_hashed_at timestamptz
 )
 language plpgsql
 security definer
@@ -1622,6 +1650,9 @@ declare
   profile_record public.content_reviewer_profiles%rowtype;
   question_record private.question_versions%rowtype;
   transition_at timestamptz := now();
+  saved_review_snapshot jsonb;
+  saved_content_sha256 text;
+  saved_content_hash_schema constant text := 'question-review-snapshot-pg-jsonb-text-v1';
 begin
   if auth.uid() is null
     or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
@@ -1663,9 +1694,45 @@ begin
       using errcode = 'P0001';
   end if;
 
+  saved_review_snapshot := jsonb_build_object(
+    'questionId', question_record.question_id,
+    'version', question_record.version,
+    'supersedesVersion', question_record.supersedes_version,
+    'changeSummary', question_record.change_summary,
+    'grade', question_record.grade,
+    'skill', question_record.skill,
+    'indicator', question_record.indicator,
+    'microSkill', question_record.micro_skill,
+    'difficulty', question_record.difficulty,
+    'modality', question_record.modality,
+    'questionType', question_record.question_type,
+    'purpose', question_record.purpose,
+    'prompt', question_record.prompt,
+    'audio', question_record.audio,
+    'image', question_record.image,
+    'options', question_record.options,
+    'correctOptionId', question_record.correct_option_id,
+    'explanation', question_record.explanation,
+    'hints', question_record.hints,
+    'variantGroup', question_record.variant_group,
+    'source', question_record.source,
+    'author', question_record.author,
+    'createdBy', question_record.created_by
+  );
+  saved_content_sha256 := pg_catalog.encode(
+    pg_catalog.sha256(
+      pg_catalog.convert_to(saved_review_snapshot::text, 'UTF8')
+    ),
+    'hex'
+  );
+
   update private.question_versions as question
   set
     status = 'in_review',
+    review_snapshot = saved_review_snapshot,
+    content_sha256 = saved_content_sha256,
+    content_hash_schema = saved_content_hash_schema,
+    content_hashed_at = transition_at,
     locked_at = transition_at
   where question.question_id = question_record.question_id
     and question.version = question_record.version
@@ -1690,7 +1757,12 @@ begin
     'draft',
     question_record.status,
     trim(p_note),
-    jsonb_build_object('locked_at', transition_at),
+    jsonb_build_object(
+      'locked_at', transition_at,
+      'content_sha256', question_record.content_sha256,
+      'content_hash_schema', question_record.content_hash_schema,
+      'content_hashed_at', question_record.content_hashed_at
+    ),
     transition_at
   );
 
@@ -1699,7 +1771,10 @@ begin
     question_record.question_id,
     question_record.version,
     question_record.status,
-    question_record.locked_at;
+    question_record.locked_at,
+    question_record.content_sha256,
+    question_record.content_hash_schema,
+    question_record.content_hashed_at;
 end;
 $$;
 
@@ -1782,6 +1857,23 @@ begin
       using errcode = '55000';
   end if;
 
+  if old.locked_at is not null
+    and row(
+      old.review_snapshot,
+      old.content_sha256,
+      old.content_hash_schema,
+      old.content_hashed_at
+    ) is distinct from row(
+      new.review_snapshot,
+      new.content_sha256,
+      new.content_hash_schema,
+      new.content_hashed_at
+    )
+  then
+    raise exception 'a frozen question review receipt is immutable'
+      using errcode = '55000';
+  end if;
+
   if new.status in ('in_review', 'reviewed', 'published', 'disputed')
     and new.locked_at is null
   then
@@ -1848,9 +1940,7 @@ returns table (
   supersedes_version integer,
   change_summary text,
   locked_at timestamptz,
-  created_at timestamptz,
-  approval_count integer,
-  change_request_count integer
+  created_at timestamptz
 )
 language sql
 stable
@@ -1883,24 +1973,9 @@ as $$
     question.supersedes_version,
     question.change_summary,
     question.locked_at,
-    question.created_at,
-    coalesce(review_counts.approval_count, 0),
-    coalesce(review_counts.change_request_count, 0)
+    question.created_at
   from public.content_reviewer_profiles profile
   cross join private.question_versions question
-  left join lateral (
-    select
-      count(*) filter (where review.verdict = 'approved')::integer as approval_count,
-      count(*) filter (where review.verdict = 'changes_requested')::integer
-        as change_request_count
-    from private.question_reviews review
-    join public.content_reviewer_profiles reviewer
-      on reviewer.user_id = review.reviewer_id
-    where review.question_id = question.question_id
-      and review.question_version = question.version
-      and reviewer.reviewer_role = 'english_teacher'
-      and reviewer.approval_status = 'approved'
-  ) review_counts on true
   where profile.user_id = auth.uid()
     and profile.reviewer_role = 'english_teacher'
     and profile.approval_status = 'approved'
@@ -2786,6 +2861,7 @@ create or replace function public.submit_classroom_response(
   p_question_id text,
   p_question_version integer,
   p_selected_option_id text,
+  p_hints_used integer,
   p_device_event_id uuid
 )
 returns table (
@@ -2820,18 +2896,20 @@ begin
     raise exception 'authenticated participant required' using errcode = '42501';
   end if;
 
+  if p_hints_used is null or p_hints_used not between 0 and 1 then
+    raise exception 'hints used must be either zero or one' using errcode = '22023';
+  end if;
+
   select participant.*
   into participant_record
   from public.activity_participants participant
-  join public.classroom_activities activity on activity.id = participant.activity_id
   where participant.id = p_participant_id
     and participant.activity_id = p_activity_id
     and participant.auth_user_id = auth.uid()
-    and activity.status = 'active'
-  for update of participant;
+  for update;
 
   if not found then
-    raise exception 'active participant required' using errcode = '42501';
+    raise exception 'participant ownership required' using errcode = '42501';
   end if;
 
   select activity.*
@@ -2872,6 +2950,7 @@ begin
       or existing_response.question_id <> p_question_id
       or existing_response.question_version <> p_question_version
       or existing_response.selected_option_id <> p_selected_option_id
+      or existing_response.hints_used <> p_hints_used
     then
       raise exception 'device event id already belongs to another response'
         using errcode = '23505';
@@ -2899,6 +2978,10 @@ begin
     return;
   end if;
 
+  if activity_record.status <> 'active' then
+    raise exception 'active activity required' using errcode = '42501';
+  end if;
+
   select response.*
   into existing_response
   from public.activity_responses response
@@ -2908,6 +2991,13 @@ begin
     and response.question_version = p_question_version;
 
   if found then
+    if existing_response.selected_option_id <> p_selected_option_id
+      or existing_response.hints_used <> p_hints_used
+    then
+      raise exception 'assigned question already has a different response'
+        using errcode = '23505';
+    end if;
+
     select event.outcome
     into saved_outcome
     from public.classroom_learning_events event
@@ -2933,7 +3023,8 @@ begin
   is_correct := p_selected_option_id = question_record.correct_option_id;
   repaired_increment := case when is_correct then 1 else 0 end;
   saved_outcome := case
-    when is_correct then 'independent_correct'
+    when is_correct and p_hints_used = 0 then 'independent_correct'
+    when is_correct then 'assisted_correct'
     else 'pending_support'
   end;
 
@@ -2955,7 +3046,7 @@ begin
     p_question_id,
     p_question_version,
     p_selected_option_id,
-    0,
+    p_hints_used,
     false,
     p_device_event_id,
     'judged',
@@ -3042,8 +3133,8 @@ begin
 end;
 $$;
 
-revoke execute on function public.submit_classroom_response(uuid, uuid, text, integer, text, uuid) from public, anon;
-grant execute on function public.submit_classroom_response(uuid, uuid, text, integer, text, uuid) to authenticated;
+revoke execute on function public.submit_classroom_response(uuid, uuid, text, integer, text, integer, uuid) from public, anon;
+grant execute on function public.submit_classroom_response(uuid, uuid, text, integer, text, integer, uuid) to authenticated;
 
 create or replace function public.list_activity_participant_status(p_activity_id uuid)
 returns table (
@@ -3836,6 +3927,8 @@ returns table (
   question_id text,
   response_count bigint,
   independent_correct_count bigint,
+  assisted_correct_count bigint,
+  rescued_count bigint,
   pending_support_count bigint
 )
 language sql
@@ -3890,6 +3983,12 @@ as $$
         where event.outcome = 'independent_correct'
       ) as independent_correct_count,
       count(event.id) filter (
+        where event.outcome = 'assisted_correct'
+      ) as assisted_correct_count,
+      count(event.id) filter (
+        where event.outcome = 'rescued'
+      ) as rescued_count,
+      count(event.id) filter (
         where event.outcome = 'pending_support'
       ) as pending_support_count
     from owned_activity activity
@@ -3914,6 +4013,8 @@ as $$
     question.question_id,
     question.response_count,
     question.independent_correct_count,
+    question.assisted_correct_count,
+    question.rescued_count,
     question.pending_support_count
   from owned_activity activity
   cross join participant_summary participant

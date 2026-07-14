@@ -68,8 +68,6 @@ const reviewQueueRowsSchema = z.array(
     change_summary: z.string().min(4).nullable(),
     locked_at: z.string().datetime(),
     created_at: z.string().datetime(),
-    approval_count: z.coerce.number().int().nonnegative(),
-    change_request_count: z.coerce.number().int().nonnegative(),
   }),
 );
 
@@ -168,8 +166,6 @@ export async function listQuestionReviewQueueWithSupabase(
     authorName: row.author.displayName,
     changeSummary: row.change_summary,
     lockedAt: row.locked_at,
-    approvalCount: row.approval_count,
-    changeRequestCount: row.change_request_count,
   }));
 }
 

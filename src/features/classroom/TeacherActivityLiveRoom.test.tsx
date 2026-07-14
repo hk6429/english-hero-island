@@ -105,6 +105,8 @@ describe("TeacherActivityLiveRoom", () => {
             question_id: `g4-yes-no-practice-0${position}`,
             response_count: 0,
             independent_correct_count: 0,
+            assisted_correct_count: 0,
+            rescued_count: 0,
             pending_support_count: 0,
           })),
           error: null,

@@ -5,6 +5,7 @@ export type PendingClassroomSubmission = Readonly<{
   activityId: string;
   participantId: string;
   selectedOptionId: string;
+  hintsUsed: number;
   queuedAt: string;
   question: ClassroomStudentQuestion;
 }>;

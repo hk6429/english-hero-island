@@ -355,7 +355,7 @@ describe("classroom core migration", () => {
     expect(submitResponseFunction).toBeDefined();
     expect(submitResponseFunction).toContain("security definer");
     expect(submitResponseFunction).toContain("participant.auth_user_id = auth.uid()");
-    expect(submitResponseFunction).toContain("activity.status = 'active'");
+    expect(submitResponseFunction).toContain("activity_record.status <> 'active'");
     expect(submitResponseFunction).toContain("question_record.correct_option_id");
     expect(submitResponseFunction).toContain("insert into public.activity_responses");
     expect(submitResponseFunction).toContain("judgment_status");
@@ -371,7 +371,53 @@ describe("classroom core migration", () => {
       "grant select, insert on public.activity_responses to authenticated",
     );
     expect(migration).toContain(
-      "grant execute on function public.submit_classroom_response(uuid, uuid, text, integer, text, uuid) to authenticated",
+      "grant execute on function public.submit_classroom_response(uuid, uuid, text, integer, text, integer, uuid) to authenticated",
+    );
+  });
+
+  it("records revealed classroom support without counting it as independent evidence", () => {
+    const submitResponseFunction = migration.match(
+      /create or replace function public\.submit_classroom_response[\s\S]*?\$\$;/,
+    )?.[0];
+
+    expect(submitResponseFunction).toContain("p_hints_used integer");
+    expect(submitResponseFunction).toContain(
+      "p_hints_used is null or p_hints_used not between 0 and 1",
+    );
+    expect(submitResponseFunction).toContain(
+      "existing_response.hints_used <> p_hints_used",
+    );
+    expect(submitResponseFunction).toContain(
+      "when is_correct and p_hints_used = 0 then 'independent_correct'",
+    );
+    expect(submitResponseFunction).toContain(
+      "when is_correct then 'assisted_correct'",
+    );
+    expect(submitResponseFunction).toContain("p_hints_used,");
+    expect(migration).toContain(
+      "grant execute on function public.submit_classroom_response(uuid, uuid, text, integer, text, integer, uuid) to authenticated",
+    );
+  });
+
+  it("replays an exact committed device event after closure and rejects conflicting retries", () => {
+    const submitResponseFunction = migration.match(
+      /create or replace function public\.submit_classroom_response[\s\S]*?\$\$;/,
+    )?.[0];
+
+    expect(submitResponseFunction).toBeDefined();
+    expect(
+      submitResponseFunction?.match(
+        /existing_response\.selected_option_id <> p_selected_option_id/g,
+      ),
+    ).toHaveLength(2);
+    expect(
+      submitResponseFunction?.match(/existing_response\.hints_used <> p_hints_used/g),
+    ).toHaveLength(2);
+    expect(
+      submitResponseFunction?.indexOf("where response.device_event_id = p_device_event_id"),
+    ).toBeLessThan(
+      submitResponseFunction?.indexOf("if activity_record.status <> 'active' then") ??
+        -1,
     );
   });
 
@@ -505,6 +551,10 @@ describe("classroom core migration", () => {
     expect(evidenceFunction).toContain("public.classroom_learning_events event");
     expect(evidenceFunction).toContain("count(distinct participant.id)");
     expect(evidenceFunction).toContain("independent_correct_count");
+    expect(evidenceFunction).toContain("assisted_correct_count");
+    expect(evidenceFunction).toContain("where event.outcome = 'assisted_correct'");
+    expect(evidenceFunction).toContain("rescued_count");
+    expect(evidenceFunction).toContain("where event.outcome = 'rescued'");
     expect(evidenceFunction).toContain("pending_support_count");
     expect(evidenceFunction).not.toMatch(/nickname|auth_user_id|selected_option_id/);
     expect(evidenceFunction).not.toMatch(/correct_option_id|explanation|prompt/);

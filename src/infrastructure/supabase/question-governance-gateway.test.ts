@@ -51,8 +51,6 @@ describe("question governance gateway", () => {
             change_summary: "修正問句與解析",
             locked_at: "2026-07-14T07:00:00.000Z",
             created_at: "2026-07-14T06:00:00.000Z",
-            approval_count: 1,
-            change_request_count: 0,
           },
         ],
         error: null,
@@ -74,8 +72,6 @@ describe("question governance gateway", () => {
         correctOptionId: "yes",
         authorName: "內容編輯 A",
         lockedAt: "2026-07-14T07:00:00.000Z",
-        approvalCount: 1,
-        changeRequestCount: 0,
       }),
     ]);
     expect(client.rpc).toHaveBeenCalledWith("list_question_review_queue");

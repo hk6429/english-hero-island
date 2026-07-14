@@ -5,7 +5,7 @@ import { TeacherActivityLearningReport } from "./TeacherActivityLearningReport";
 
 const activityId = "33333333-3333-4333-8333-333333333333";
 
-function row(position: number, correct: number, support: number) {
+function row(position: number, correct: number, assisted: number, support: number) {
   return {
     activity_id: activityId,
     activity_title: "Yes／No 快速救援",
@@ -20,6 +20,8 @@ function row(position: number, correct: number, support: number) {
     question_id: `g4-yes-no-practice-0${position}`,
     response_count: position === 3 ? 7 : 8,
     independent_correct_count: correct,
+    assisted_correct_count: assisted,
+    rescued_count: 0,
     pending_support_count: support,
   };
 }
@@ -30,7 +32,7 @@ describe("TeacherActivityLearningReport", () => {
   it("shows anonymous evidence, a possible common weak point, and an actionable follow-up", async () => {
     const client = {
       rpc: vi.fn().mockResolvedValue({
-        data: [row(1, 7, 1), row(2, 4, 4), row(3, 6, 1)],
+        data: [row(1, 6, 1, 1), row(2, 4, 0, 4), row(3, 5, 1, 1)],
         error: null,
       }),
     } as unknown as SupabaseClient;
@@ -44,9 +46,11 @@ describe("TeacherActivityLearningReport", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("可能的共通卡點")).toBeInTheDocument();
     expect(screen.getByText("作答覆蓋 96%")).toBeInTheDocument();
-    expect(screen.getByText("獨立答對 74%")).toBeInTheDocument();
+    expect(screen.getByText("獨立答對 65%")).toBeInTheDocument();
+    expect(screen.getByText("提示後答對 9%")).toBeInTheDocument();
+    expect(screen.getByText("救援後完成 0%")).toBeInTheDocument();
     expect(
-      screen.getByText("第 2 題：4／8 份需要支援（50%）"),
+      screen.getByText("第 2 題：4／8 份曾使用或仍需要支援（50%）"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("先處理「Yes／No 問句」的共通卡點"),
@@ -57,7 +61,7 @@ describe("TeacherActivityLearningReport", () => {
 
   it("labels sparse evidence instead of presenting it as a class weakness", async () => {
     const sparseRows = [1, 2, 3].map((position) => ({
-      ...row(position, 1, 1),
+      ...row(position, 1, 0, 1),
       participant_count: 2,
       responding_participant_count: 2,
       completed_participant_count: 2,

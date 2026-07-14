@@ -422,7 +422,9 @@ describe("getActivityLearningEvidenceWithSupabase", () => {
             question_position: 1,
             question_id: "g4-yes-no-practice-01",
             response_count: 8,
-            independent_correct_count: 7,
+            independent_correct_count: 6,
+            assisted_correct_count: 1,
+            rescued_count: 0,
             pending_support_count: 1,
           },
           {
@@ -439,6 +441,8 @@ describe("getActivityLearningEvidenceWithSupabase", () => {
             question_id: "g4-yes-no-practice-02",
             response_count: 8,
             independent_correct_count: 4,
+            assisted_correct_count: 0,
+            rescued_count: 0,
             pending_support_count: 4,
           },
           {
@@ -454,7 +458,9 @@ describe("getActivityLearningEvidenceWithSupabase", () => {
             question_position: 3,
             question_id: "g4-yes-no-practice-03",
             response_count: 7,
-            independent_correct_count: 6,
+            independent_correct_count: 5,
+            assisted_correct_count: 1,
+            rescued_count: 0,
             pending_support_count: 1,
           },
         ],
@@ -482,7 +488,9 @@ describe("getActivityLearningEvidenceWithSupabase", () => {
           position: 1,
           questionId: "g4-yes-no-practice-01",
           responseCount: 8,
-          independentCorrectCount: 7,
+          independentCorrectCount: 6,
+          assistedCorrectCount: 1,
+          rescuedCount: 0,
           pendingSupportCount: 1,
         },
         {
@@ -490,13 +498,17 @@ describe("getActivityLearningEvidenceWithSupabase", () => {
           questionId: "g4-yes-no-practice-02",
           responseCount: 8,
           independentCorrectCount: 4,
+          assistedCorrectCount: 0,
+          rescuedCount: 0,
           pendingSupportCount: 4,
         },
         {
           position: 3,
           questionId: "g4-yes-no-practice-03",
           responseCount: 7,
-          independentCorrectCount: 6,
+          independentCorrectCount: 5,
+          assistedCorrectCount: 1,
+          rescuedCount: 0,
           pendingSupportCount: 1,
         },
       ],
@@ -504,6 +516,41 @@ describe("getActivityLearningEvidenceWithSupabase", () => {
     expect(client.rpc).toHaveBeenCalledWith("get_activity_learning_evidence", {
       p_activity_id: "33333333-3333-4333-8333-333333333333",
     });
+  });
+
+  it("rejects outcome totals that exceed the observed responses", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          {
+            activity_id: "33333333-3333-4333-8333-333333333333",
+            activity_title: "Yes／No 快速救援",
+            activity_status: "ended",
+            audience: "whole_class",
+            micro_skill: "yes-no-questions",
+            question_count: 3,
+            participant_count: 8,
+            responding_participant_count: 8,
+            completed_participant_count: 7,
+            question_position: 1,
+            question_id: "g4-yes-no-practice-01",
+            response_count: 8,
+            independent_correct_count: 6,
+            assisted_correct_count: 3,
+            rescued_count: 0,
+            pending_support_count: 1,
+          },
+        ],
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      getActivityLearningEvidenceWithSupabase(
+        client,
+        "33333333-3333-4333-8333-333333333333",
+      ),
+    ).rejects.toThrow("課後學習證據彼此矛盾");
   });
 });
 
@@ -704,7 +751,7 @@ describe("submitClassroomResponseWithSupabase", () => {
         data: [
           {
             submitted_response_id: "66666666-6666-4666-8666-666666666666",
-            learning_outcome: "independent_correct",
+            learning_outcome: "assisted_correct",
             answer_explanation: "this 代表單數物品，使用 it 回答。",
             answer_correct_option_id: "a",
             shared_repaired_points: 3,
@@ -722,6 +769,7 @@ describe("submitClassroomResponseWithSupabase", () => {
       questionId: "g4-yes-no-practice-01",
       questionVersion: 1,
       selectedOptionId: "a",
+      hintsUsed: 1,
       deviceEventId: "77777777-7777-4777-8777-777777777777",
     });
 
@@ -731,11 +779,12 @@ describe("submitClassroomResponseWithSupabase", () => {
       p_question_id: "g4-yes-no-practice-01",
       p_question_version: 1,
       p_selected_option_id: "a",
+      p_hints_used: 1,
       p_device_event_id: "77777777-7777-4777-8777-777777777777",
     });
     expect(result).toEqual({
       responseId: "66666666-6666-4666-8666-666666666666",
-      outcome: "independent_correct",
+      outcome: "assisted_correct",
       explanation: "this 代表單數物品，使用 it 回答。",
       correctOptionId: "a",
       sharedRepairedPoints: 3,

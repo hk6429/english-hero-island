@@ -3,6 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { QuestionManagementWorkspace } from "./QuestionManagementWorkspace";
 
+const frozenContentSha256 = "b".repeat(64);
+
 function searchRow(overrides: Record<string, unknown> = {}) {
   return {
     question_id: "g4-yes-no-practice-01",
@@ -118,6 +120,9 @@ function managementClient(row = searchRow()) {
               question_version: row.question_version,
               question_status: "in_review",
               locked_at: "2026-07-14T10:00:00.000Z",
+              content_sha256: frozenContentSha256,
+              content_hash_schema: "question-review-snapshot-pg-jsonb-text-v1",
+              content_hashed_at: "2026-07-14T10:00:00.000Z",
             },
           ],
           error: null,
@@ -263,7 +268,13 @@ describe("QuestionManagementWorkspace", () => {
         p_note: "完成內容與授權自檢",
       }),
     );
-    expect(await screen.findByText("第 1 版已送交複核。" )).toBeInTheDocument();
+    expect(
+      await screen.findByText(new RegExp(frozenContentSha256)),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/question-review-snapshot-pg-jsonb-text-v1/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/2026-07-14T10:00:00.000Z/)).toBeInTheDocument();
   });
 
   it("lets only an administrator confirm a reviewed version publication", async () => {

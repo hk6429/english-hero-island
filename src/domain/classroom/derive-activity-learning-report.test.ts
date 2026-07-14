@@ -23,6 +23,8 @@ function evidence(
         questionId: "q1",
         responseCount: 8,
         independentCorrectCount: 7,
+        assistedCorrectCount: 0,
+        rescuedCount: 0,
         pendingSupportCount: 1,
       },
       {
@@ -30,6 +32,8 @@ function evidence(
         questionId: "q2",
         responseCount: 8,
         independentCorrectCount: 4,
+        assistedCorrectCount: 0,
+        rescuedCount: 0,
         pendingSupportCount: 4,
       },
       {
@@ -37,6 +41,8 @@ function evidence(
         questionId: "q3",
         responseCount: 7,
         independentCorrectCount: 6,
+        assistedCorrectCount: 0,
+        rescuedCount: 0,
         pendingSupportCount: 1,
       },
     ],
@@ -45,6 +51,103 @@ function evidence(
 }
 
 describe("deriveActivityLearningReport", () => {
+  it("separates assisted completion from independent evidence", () => {
+    const report = deriveActivityLearningReport({
+      ...evidence(),
+      completedParticipantCount: 8,
+      questions: [1, 2, 3].map((position) => ({
+        position,
+        questionId: `q${position}`,
+        responseCount: 8,
+        independentCorrectCount: 4,
+        assistedCorrectCount: 3,
+        rescuedCount: 0,
+        pendingSupportCount: 1,
+      })),
+    } as unknown as ActivityLearningEvidence);
+
+    expect(report.metrics).toMatchObject({
+      independentCorrectPercent: 50,
+      assistedCorrectPercent: 38,
+      pendingSupportPercent: 13,
+    });
+    expect(report.verdict).toBe("common_weakness");
+  });
+
+  it("treats widespread assisted completion as a common support signal", () => {
+    const report = deriveActivityLearningReport(
+      evidence({
+        completedParticipantCount: 8,
+        questions: [
+          {
+            position: 1,
+            questionId: "q1",
+            responseCount: 8,
+            independentCorrectCount: 7,
+            assistedCorrectCount: 0,
+            rescuedCount: 0,
+            pendingSupportCount: 1,
+          },
+          {
+            position: 2,
+            questionId: "q2",
+            responseCount: 8,
+            independentCorrectCount: 4,
+            assistedCorrectCount: 4,
+            rescuedCount: 0,
+            pendingSupportCount: 0,
+          },
+          {
+            position: 3,
+            questionId: "q3",
+            responseCount: 8,
+            independentCorrectCount: 7,
+            assistedCorrectCount: 0,
+            rescuedCount: 0,
+            pendingSupportCount: 1,
+          },
+        ],
+      }),
+    );
+
+    expect(report.verdict).toBe("common_weakness");
+    expect(report.commonWeaknesses).toContainEqual({
+      position: 2,
+      responseCount: 8,
+      assistedCorrectCount: 4,
+      rescuedCount: 0,
+      pendingSupportCount: 0,
+      supportUseCount: 4,
+      supportUsePercent: 50,
+    });
+  });
+
+  it("keeps rescued completions out of independent evidence and in support use", () => {
+    const report = deriveActivityLearningReport({
+      ...evidence(),
+      completedParticipantCount: 8,
+      questions: [1, 2, 3].map((position) => ({
+        position,
+        questionId: `q${position}`,
+        responseCount: 8,
+        independentCorrectCount: 4,
+        assistedCorrectCount: 0,
+        rescuedCount: 3,
+        pendingSupportCount: 1,
+      })),
+    } as unknown as ActivityLearningEvidence);
+
+    expect(report.metrics).toMatchObject({
+      independentCorrectPercent: 50,
+      rescuedPercent: 38,
+    });
+    expect(report.commonWeaknesses[0]).toMatchObject({
+      rescuedCount: 3,
+      supportUseCount: 4,
+      supportUsePercent: 50,
+    });
+  });
+
   it("refuses to infer a common weakness from fewer than five participants", () => {
     const report = deriveActivityLearningReport(
       evidence({
@@ -58,6 +161,8 @@ describe("deriveActivityLearningReport", () => {
             questionId: "q1",
             responseCount: 4,
             independentCorrectCount: 1,
+            assistedCorrectCount: 0,
+            rescuedCount: 0,
             pendingSupportCount: 3,
           },
           {
@@ -65,6 +170,8 @@ describe("deriveActivityLearningReport", () => {
             questionId: "q2",
             responseCount: 4,
             independentCorrectCount: 1,
+            assistedCorrectCount: 0,
+            rescuedCount: 0,
             pendingSupportCount: 3,
           },
           {
@@ -72,6 +179,8 @@ describe("deriveActivityLearningReport", () => {
             questionId: "q3",
             responseCount: 4,
             independentCorrectCount: 2,
+            assistedCorrectCount: 0,
+            rescuedCount: 0,
             pendingSupportCount: 2,
           },
         ],
@@ -93,14 +202,19 @@ describe("deriveActivityLearningReport", () => {
       observedResponses: 23,
       responseCoveragePercent: 96,
       independentCorrectPercent: 74,
+      assistedCorrectPercent: 0,
+      rescuedPercent: 0,
       pendingSupportPercent: 26,
     });
     expect(report.commonWeaknesses).toEqual([
       {
         position: 2,
         responseCount: 8,
+        assistedCorrectCount: 0,
+        rescuedCount: 0,
         pendingSupportCount: 4,
-        pendingSupportPercent: 50,
+        supportUseCount: 4,
+        supportUsePercent: 50,
       },
     ]);
     expect(report.recommendation.title).toContain("Yes／No 問句");
@@ -117,6 +231,8 @@ describe("deriveActivityLearningReport", () => {
           questionId: `q${position}`,
           responseCount: 8,
           independentCorrectCount: 7,
+          assistedCorrectCount: 0,
+          rescuedCount: 0,
           pendingSupportCount: 1,
         })),
       }),

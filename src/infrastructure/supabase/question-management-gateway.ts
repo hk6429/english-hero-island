@@ -35,12 +35,21 @@ const createdRevisionRowsSchema = z
   .length(1);
 const submittedReviewRowsSchema = z
   .array(
-    z.object({
-      question_id: z.string().min(1),
-      question_version: z.coerce.number().int().positive(),
-      question_status: z.literal("in_review"),
-      locked_at: z.string().datetime(),
-    }),
+    z
+      .object({
+        question_id: z.string().min(1),
+        question_version: z.coerce.number().int().positive(),
+        question_status: z.literal("in_review"),
+        locked_at: z.string().datetime(),
+        content_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+        content_hash_schema: z.literal(
+          "question-review-snapshot-pg-jsonb-text-v1",
+        ),
+        content_hashed_at: z.string().datetime(),
+      })
+      .refine((row) => row.content_hashed_at === row.locked_at, {
+        message: "content hash timestamp must match the lock timestamp",
+      }),
   )
   .length(1);
 const governanceProfileRowsSchema = z
@@ -513,6 +522,9 @@ export type SubmittedQuestionForReview = Readonly<{
   version: number;
   status: "in_review";
   lockedAt: string;
+  contentSha256: string;
+  contentHashSchema: "question-review-snapshot-pg-jsonb-text-v1";
+  contentHashedAt: string;
 }>;
 
 export async function submitQuestionForReviewWithSupabase(
@@ -534,5 +546,8 @@ export async function submitQuestionForReviewWithSupabase(
     version: row.question_version,
     status: row.question_status,
     lockedAt: row.locked_at,
+    contentSha256: row.content_sha256,
+    contentHashSchema: row.content_hash_schema,
+    contentHashedAt: row.content_hashed_at,
   };
 }

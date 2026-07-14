@@ -3,6 +3,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryPendingSubmissionStore } from "@/infrastructure/classroom/MemoryPendingSubmissionStore";
+import { MemoryClassroomSupportEvidenceStore } from "@/infrastructure/classroom/MemoryClassroomSupportEvidenceStore";
 import type { PendingClassroomSubmission } from "@/infrastructure/classroom/PendingClassroomSubmissionStore";
 import type { ClassroomStudentQuestion } from "@/infrastructure/supabase/classroom-gateway";
 import { ClassroomMissionSession } from "./ClassroomMissionSession";
@@ -106,6 +107,7 @@ describe("ClassroomMissionSession", () => {
       p_question_id: question.id,
       p_question_version: question.version,
       p_selected_option_id: "a",
+      p_hints_used: 0,
       p_device_event_id: deviceEventId,
     });
     expect(await screen.findByRole("heading", { name: "你修復了一格能力島！" })).toBeInTheDocument();
@@ -117,6 +119,143 @@ describe("ClassroomMissionSession", () => {
     expect(
       screen.getByRole("heading", { name: "你完成了這次合作貢獻" }),
     ).toBeInTheDocument();
+  });
+
+  it("submits a revealed listening transcript as assisted classroom evidence", async () => {
+    const user = userEvent.setup();
+    const audioQuestionRow = {
+      ...questionRow,
+      question_id: "g4-listening-letter-b-01",
+      modality: "audio" as const,
+      question_type: "listening_choice" as const,
+      prompt: "Listen. Which letter do you hear?",
+      options: [
+        { id: "a", text: "B" },
+        { id: "b", text: "D" },
+      ],
+      audio_src: "tts:B",
+    };
+    const rpc = vi.fn().mockImplementation(async (name: string) => {
+      if (name === "get_student_activity_questions") {
+        return { data: [audioQuestionRow], error: null };
+      }
+      return {
+        ...successfulResponse,
+        data: [
+          {
+            ...successfulResponse.data[0],
+            learning_outcome: "assisted_correct",
+            answer_correct_option_id: "a",
+          },
+        ],
+      };
+    });
+    const client = { rpc } as unknown as SupabaseClient;
+
+    render(
+      <ClassroomMissionSession
+        activityId={activityId}
+        client={client}
+        participantId={participantId}
+        pendingStore={new MemoryPendingSubmissionStore()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "顯示文字輔助" }));
+    await user.click(screen.getByRole("button", { name: /^B$/ }));
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("submit_classroom_response", {
+        p_activity_id: activityId,
+        p_participant_id: participantId,
+        p_question_id: audioQuestionRow.question_id,
+        p_question_version: question.version,
+        p_selected_option_id: "a",
+        p_hints_used: 1,
+        p_device_event_id: deviceEventId,
+      }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "你用文字輔助完成了這題" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("這題的正確答案是：B")).not.toBeInTheDocument();
+  });
+
+  it("keeps revealed transcript evidence assisted after reload before answer", async () => {
+    const user = userEvent.setup();
+    const supportStore = new MemoryClassroomSupportEvidenceStore();
+    const audioQuestionRow = {
+      ...questionRow,
+      question_id: "g4-listening-letter-b-01",
+      modality: "audio" as const,
+      question_type: "listening_choice" as const,
+      prompt: "Listen. Which letter do you hear?",
+      options: [
+        { id: "a", text: "B" },
+        { id: "b", text: "D" },
+      ],
+      audio_src: "tts:B",
+    };
+    const rpc = vi.fn().mockImplementation(async (name: string) => {
+      if (name === "get_student_activity_questions") {
+        return { data: [audioQuestionRow], error: null };
+      }
+      return {
+        ...successfulResponse,
+        data: [
+          {
+            ...successfulResponse.data[0],
+            learning_outcome: "assisted_correct",
+          },
+        ],
+      };
+    });
+    const client = { rpc } as unknown as SupabaseClient;
+    const firstPage = render(
+      <ClassroomMissionSession
+        activityId={activityId}
+        client={client}
+        participantId={participantId}
+        pendingStore={new MemoryPendingSubmissionStore()}
+        supportStore={supportStore}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "顯示文字輔助" }));
+    await waitFor(() =>
+      expect(
+        supportStore.get({
+          activityId,
+          participantId,
+          questionId: audioQuestionRow.question_id,
+          questionVersion: audioQuestionRow.question_version,
+        }),
+      ).resolves.toBe(1),
+    );
+    firstPage.unmount();
+
+    render(
+      <ClassroomMissionSession
+        activityId={activityId}
+        client={client}
+        participantId={participantId}
+        pendingStore={new MemoryPendingSubmissionStore()}
+        supportStore={supportStore}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: /^B$/ }));
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("submit_classroom_response", {
+        p_activity_id: activityId,
+        p_participant_id: participantId,
+        p_question_id: audioQuestionRow.question_id,
+        p_question_version: audioQuestionRow.question_version,
+        p_selected_option_id: "a",
+        p_hints_used: 1,
+        p_device_event_id: deviceEventId,
+      }),
+    );
   });
 
   it("stores an offline answer locally and retries it automatically when online", async () => {
@@ -171,6 +310,7 @@ describe("ClassroomMissionSession", () => {
       participantId,
       deviceEventId,
       selectedOptionId: "a",
+      hintsUsed: 0,
       queuedAt: "2026-07-14T10:00:00.000Z",
       question,
     };
@@ -195,9 +335,70 @@ describe("ClassroomMissionSession", () => {
         p_question_id: question.id,
         p_question_version: question.version,
         p_selected_option_id: "a",
+        p_hints_used: 0,
         p_device_event_id: deviceEventId,
       }),
     );
     expect(await pendingStore.list(activityId, participantId)).toEqual([]);
+  });
+
+  it("treats a legacy audio queue without support metadata conservatively", async () => {
+    const pendingStore = new MemoryPendingSubmissionStore();
+    const audioQuestion: ClassroomStudentQuestion = {
+      ...question,
+      id: "g4-listening-letter-b-01",
+      modality: "audio",
+      questionType: "listening_choice",
+      prompt: "Listen. Which letter do you hear?",
+      options: [
+        { id: "a", text: "B" },
+        { id: "b", text: "D" },
+      ],
+      audio: { src: "https://assets.example.test/letter-b.mp3" },
+    };
+    await pendingStore.put({
+      activityId,
+      participantId,
+      deviceEventId,
+      selectedOptionId: "a",
+      queuedAt: "2026-07-14T10:00:00.000Z",
+      question: audioQuestion,
+    } as unknown as PendingClassroomSubmission);
+    const rpc = vi.fn().mockImplementation(async (name: string) => {
+      if (name === "get_student_activity_questions") {
+        return { data: [], error: null };
+      }
+      return {
+        ...successfulResponse,
+        data: [
+          {
+            ...successfulResponse.data[0],
+            learning_outcome: "assisted_correct",
+          },
+        ],
+      };
+    });
+    const client = { rpc } as unknown as SupabaseClient;
+
+    render(
+      <ClassroomMissionSession
+        activityId={activityId}
+        client={client}
+        participantId={participantId}
+        pendingStore={pendingStore}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("submit_classroom_response", {
+        p_activity_id: activityId,
+        p_participant_id: participantId,
+        p_question_id: audioQuestion.id,
+        p_question_version: audioQuestion.version,
+        p_selected_option_id: "a",
+        p_hints_used: 1,
+        p_device_event_id: deviceEventId,
+      }),
+    );
   });
 });

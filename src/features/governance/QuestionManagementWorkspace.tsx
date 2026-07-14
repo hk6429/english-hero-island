@@ -291,13 +291,15 @@ export function QuestionManagementWorkspace({
     setActionError(null);
     try {
       if (pendingAction.type === "submit_for_review") {
-        await submitQuestionForReviewWithSupabase(
+        const receipt = await submitQuestionForReviewWithSupabase(
           client,
           pendingAction.questionId,
           pendingAction.questionVersion,
           actionNote,
         );
-        setActionMessage(`第 ${pendingAction.questionVersion} 版已送交複核。`);
+        setActionMessage(
+          `第 ${pendingAction.questionVersion} 版已送交複核。伺服器凍結 SHA-256：${receipt.contentSha256}；規格：${receipt.contentHashSchema}；凍結時間：${receipt.contentHashedAt}。`,
+        );
       } else if (pendingAction.type === "publish") {
         await publishQuestionVersionWithSupabase(
           client,

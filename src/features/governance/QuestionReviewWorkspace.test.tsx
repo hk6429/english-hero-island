@@ -40,8 +40,6 @@ function queueRow() {
     change_summary: "修正問句與解析",
     locked_at: "2026-07-14T07:00:00.000Z",
     created_at: "2026-07-14T06:00:00.000Z",
-    approval_count: 1,
-    change_request_count: 0,
   };
 }
 
