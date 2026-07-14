@@ -15,6 +15,7 @@ const event: LearningEvent = Object.freeze({
   firstSelectedOptionId: "a",
   hintsUsed: 0,
   rescueVariantCorrect: false,
+  toolUsed: null,
   occurredAt: "2026-07-14T10:00:00.000Z",
   studyDate: "2026-07-14",
 });

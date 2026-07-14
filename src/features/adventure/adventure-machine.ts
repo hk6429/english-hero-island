@@ -22,6 +22,7 @@ export type AdventureAction =
       outcome: LearningOutcome;
       nextSession: ActiveSession;
     }>
+  | Readonly<{ type: "apply_rescue_support"; nextSession: ActiveSession }>
   | Readonly<{ type: "complete_session" }>
   | Readonly<{ type: "record_discovery"; discoveryId: string }>
   | Readonly<{ type: "record_partner_encouragement"; card: PartnerEncouragement }>
@@ -62,6 +63,13 @@ export function reduceAdventure(
       ...progress,
       events: [...progress.events, action.event],
       xp: progress.xp + action.xp,
+      activeSession: action.nextSession,
+    };
+  }
+
+  if (action.type === "apply_rescue_support" && progress.activeSession) {
+    return {
+      ...progress,
       activeSession: action.nextSession,
     };
   }

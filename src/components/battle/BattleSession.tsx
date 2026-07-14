@@ -17,7 +17,9 @@ import { createLearningEvent } from "@/domain/learning/create-learning-event";
 import type { LearningOutcome } from "@/domain/learning/types";
 import type { Question } from "@/domain/questions/question-schema";
 import { calculateXp } from "@/domain/rewards/calculate-xp";
+import { buildRescue } from "@/domain/session-builder/build-rescue";
 import { deriveBossMove } from "@/domain/story/derive-boss-move";
+import { seededIndex } from "@/domain/story/seeded-pick";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { HINT_TOOLS } from "@/features/adventure/content-map";
 import { AudioControls } from "@/components/question/AudioControls";
@@ -50,7 +52,7 @@ function outcomeMessage(outcome: LearningOutcome): string {
     case "assisted_correct":
       return "線索有幫上忙：你已經把方法接起來了。";
     case "rescued":
-      return "夥伴協力成功：完成救援後的再次嘗試。";
+      return "夥伴協力成功：救援任務完成，專注護盾回到 1 格。";
     case "pending_support":
       return "這一小段先放進修煉佇列，下次會換一個更清楚的線索。";
   }
@@ -63,7 +65,7 @@ function growthNote(outcome: LearningOutcome): string {
     case "assisted_correct":
       return "成長紀錄：會挑線索、會用線索，這本身就是能力。";
     case "rescued":
-      return "成長紀錄：救援後自己走完最後一步，方法已經留在你身上。";
+      return "成長紀錄：夥伴陪你把方法接回來，最後一步是你自己完成的。";
     case "pending_support":
       return "成長紀錄：先把位置記下來，下次用更清楚的線索再走一次。";
   }
@@ -78,17 +80,31 @@ const storyTrailMoments = [
   "路線在終點交會，你用自己的方式走完了同一份能力。",
 ] as const;
 
-function routeMoment(route: MissionRoute, index: number): Readonly<{ title: string; detail: string }> {
+const steadyBridgeMoments = [
+  "橋頭的木牌寫著出發口訣：先圈出題目要找什麼，再開始看選項。",
+  "第二塊橋板掛著小燈籠：把關鍵字唸一次，聽聽哪個選項接得最順。",
+  "橋中央的望遠鏡幫你放大：一次只核對一個條件，符合了才往前走。",
+  "海風吹過橋面：先刪掉明顯不合的選項，再從剩下的慢慢挑。",
+  "接近對岸的繩結提醒你：回頭再檢查一次，確定條件全部都符合。",
+  "踏上對岸的石階：把這一路用過的方法說給自己聽，帶進最後的挑戰。",
+] as const;
+
+function routeMoment(
+  route: MissionRoute,
+  index: number,
+  sessionSeed: string,
+): Readonly<{ title: string; detail: string }> {
   const step = index + 1;
   if (route === "story-trail") {
+    const offset = seededIndex(sessionSeed, storyTrailMoments.length);
     return {
       title: `探索徑・故事線索 ${step}`,
-      detail: storyTrailMoments[index % storyTrailMoments.length],
+      detail: storyTrailMoments[(offset + index) % storyTrailMoments.length],
     };
   }
   return {
     title: `穩步橋・方法步驟 ${step}`,
-    detail: "先圈出關鍵字，再比較選項；需要時使用你選的提示工具。",
+    detail: steadyBridgeMoments[index % steadyBridgeMoments.length],
   };
 }
 
@@ -111,6 +127,9 @@ export function BattleSession({
   const [hintVisible, setHintVisible] = useState(false);
   const [hintToolOverride, setHintToolOverride] = useState<HintTool | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [rescueStep, setRescueStep] = useState<"teach" | "quiz">("teach");
+  const [rescueFirstTryId, setRescueFirstTryId] = useState<string | null>(null);
+  const [rescueTriedIds, setRescueTriedIds] = useState<readonly string[]>([]);
   const hintRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLElement>(null);
 
@@ -140,7 +159,9 @@ export function BattleSession({
   const activeHintTool = hintToolOverride ?? session.selectedTool ?? "word-bridge";
   const selectedTool = HINT_TOOLS.find((tool) => tool.id === activeHintTool);
   const selectedRoute = session.selectedRoute ?? null;
-  const route = selectedRoute ? routeMoment(selectedRoute, session.currentIndex) : null;
+  const route = selectedRoute
+    ? routeMoment(selectedRoute, session.currentIndex, session.id)
+    : null;
 
   if (feedback) {
     const FeedbackIcon =
@@ -187,6 +208,9 @@ export function BattleSession({
             setHintsUsed(0);
             setHintVisible(false);
             setHintToolOverride(null);
+            setRescueStep("teach");
+            setRescueFirstTryId(null);
+            setRescueTriedIds([]);
             setFeedback(null);
           }}
         >
@@ -207,7 +231,7 @@ export function BattleSession({
   }
 
   const isBoss = question.purpose === "boss";
-  const bossMove = isBoss ? deriveBossMove(question.id) : null;
+  const bossMove = isBoss ? deriveBossMove(`${session.id}:${question.id}`) : null;
   const hintScaffold = buildHintScaffold(question, activeHintTool);
 
   function showHint() {
@@ -217,7 +241,7 @@ export function BattleSession({
     }
   }
 
-  function finishAnswer(selectedOptionId: string, rescueVariantCorrect: boolean) {
+  function finishAnswer(selectedOptionId: string) {
     if (!session || !question || !progress.profile) return;
 
     const now = new Date();
@@ -236,18 +260,14 @@ export function BattleSession({
       },
       response: {
         firstSelectedOptionId: firstWrongOptionId ?? selectedOptionId,
+        finalSelectedOptionId: selectedOptionId,
         hintsUsed,
-        rescueVariantCorrect,
+        toolUsed: hintVisible ? activeHintTool : null,
+        rescueVariantCorrect: false,
       },
     });
     const award = calculateXp(event, progress.events);
-    const battleBeforeProjection = firstWrongOptionId && event.outcome === "rescued"
-      ? {
-          ...session.battle,
-          shields: Math.max(0, session.battle.shields - 1),
-        }
-      : session.battle;
-    const projected = projectBattle(battleBeforeProjection, event);
+    const projected = projectBattle(session.battle, event);
     const nextIndex = session.currentIndex + 1;
     const nextQuestion = questionById.get(session.questionIds[nextIndex]);
     const nextSession = {
@@ -292,7 +312,7 @@ export function BattleSession({
     const correct = optionId === question.correctOptionId;
 
     if (correct) {
-      finishAnswer(optionId, firstWrongOptionId !== null);
+      finishAnswer(optionId);
       return;
     }
 
@@ -303,7 +323,202 @@ export function BattleSession({
       return;
     }
 
-    finishAnswer(optionId, false);
+    finishAnswer(optionId);
+  }
+
+  function finishRescue(selectedOptionId: string, rescueQuestion: Question, rescueFeedback: string) {
+    if (!session || !progress.profile) return;
+
+    const now = new Date();
+    const event = createLearningEvent({
+      eventId: crypto.randomUUID(),
+      studentId: `local-grade-${progress.profile.grade}`,
+      sessionId: session.id,
+      occurredAt: now.toISOString(),
+      studyDate: taipeiStudyDate(now),
+      question: {
+        id: rescueQuestion.id,
+        version: rescueQuestion.version,
+        microSkill: rescueQuestion.microSkill,
+        variantGroup: rescueQuestion.variantGroup,
+        correctOptionId: rescueQuestion.correctOptionId,
+      },
+      response: {
+        firstSelectedOptionId: rescueFirstTryId ?? selectedOptionId,
+        finalSelectedOptionId: selectedOptionId,
+        hintsUsed: 1 + rescueTriedIds.length,
+        toolUsed: activeHintTool,
+        rescueVariantCorrect: true,
+      },
+    });
+    const award = calculateXp(event, progress.events);
+    const nextSession = {
+      ...session,
+      battle: {
+        ...session.battle,
+        shields: 1,
+        rescueActive: false,
+      },
+    };
+
+    dispatch({
+      type: "record_question",
+      event,
+      xp: award.total,
+      outcome: event.outcome,
+      nextSession,
+    });
+    setRescueStep("teach");
+    setRescueFirstTryId(null);
+    setRescueTriedIds([]);
+    setFeedback({
+      outcome: event.outcome,
+      message: outcomeMessage(event.outcome),
+      explanation: `${rescueQuestion.explanation} ${rescueFeedback}`,
+      xp: award.total,
+      complete: false,
+    });
+  }
+
+  function selectRescueOption(optionId: string, rescueQuestion: Question, rescueFeedback: string) {
+    if (optionId === rescueQuestion.correctOptionId) {
+      finishRescue(optionId, rescueQuestion, rescueFeedback);
+      return;
+    }
+
+    setRescueFirstTryId((current) => current ?? optionId);
+    setRescueTriedIds((tried) => (tried.includes(optionId) ? tried : [...tried, optionId]));
+  }
+
+  function applyRescueTeachingOnly() {
+    if (!session) return;
+
+    dispatch({
+      type: "apply_rescue_support",
+      nextSession: {
+        ...session,
+        battle: {
+          ...session.battle,
+          shields: 1,
+          rescueActive: false,
+        },
+      },
+    });
+    setRescueStep("teach");
+    setRescueFirstTryId(null);
+    setRescueTriedIds([]);
+  }
+
+  if (session.battle.rescueActive) {
+    const previousQuestion =
+      session.currentIndex > 0
+        ? questionById.get(session.questionIds[session.currentIndex - 1])
+        : undefined;
+    const rescueSkill = session.microSkill ?? previousQuestion?.microSkill ?? question.microSkill;
+    const rescueQuestion = buildRescue({
+      grade: progress.profile.grade,
+      microSkill: rescueSkill,
+      bank,
+      contentMode: "pilot",
+      excludeQuestionIds: session.questionIds,
+      seed: session.id,
+    });
+    const rescueScaffold = buildHintScaffold(rescueQuestion ?? question, activeHintTool);
+
+    return (
+      <section className="battle-layout" aria-labelledby="rescue-title">
+        <div className="battle-topline">
+          <div className="battle-stat">
+            <span className={styles.pips} aria-hidden="true">
+              {[0, 1, 2].map((slot) => (
+                <Shield key={slot} className={styles.pipOff} />
+              ))}
+            </span>
+            <span>護盾 0／3</span>
+          </div>
+          <div className="battle-stat">
+            <HandHeart aria-hidden="true" />
+            <span>夥伴救援中</span>
+          </div>
+        </div>
+
+        <div className="question-card rescue-card">
+          <p className="eyebrow">夥伴救援教學</p>
+          <h1 id="rescue-title">夥伴來了，陪你把方法接回來</h1>
+          <p className={styles.bossCalm}>
+            夥伴陪跑不計時，也不會拿走任何收穫。先看夥伴示範方法，再一起把專注護盾接回來。
+          </p>
+
+          <div aria-label="夥伴示範" className="hint-card" role="status">
+            <Lightbulb aria-hidden="true" />
+            <div>
+              <strong>{selectedTool?.name ?? "提示工具"}</strong>
+              {selectedTool ? <p className="hint-strategy">{selectedTool.description}</p> : null}
+              <p>{rescueScaffold.clue}</p>
+            </div>
+          </div>
+
+          {rescueStep === "teach" ? (
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => {
+                if (rescueQuestion) {
+                  setRescueStep("quiz");
+                  return;
+                }
+                applyRescueTeachingOnly();
+              }}
+            >
+              {rescueQuestion ? "我準備好了，開始救援任務" : "把方法帶回挑戰"}
+              <ArrowRight aria-hidden="true" />
+            </button>
+          ) : rescueQuestion ? (
+            <>
+              {rescueQuestion.audio ? (
+                <AudioControls
+                  transcript={rescueQuestion.audio.transcript}
+                  onRevealTranscript={() => undefined}
+                />
+              ) : null}
+              {rescueQuestion.image ? (
+                <QuestionScene src={rescueQuestion.image.src} alt={rescueQuestion.image.alt} />
+              ) : null}
+
+              <h2 className="question-prompt">{rescueQuestion.prompt}</h2>
+
+              {rescueTriedIds.length > 0 ? (
+                <div className="support-callout" role="status">
+                  <Shield aria-hidden="true" />
+                  <div>
+                    <strong>換一個線索再試，夥伴就在旁邊陪你。</strong>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="option-grid" role="group" aria-label="救援題選項">
+                {rescueQuestion.options.map((option) => (
+                  <button
+                    className={`answer-option ${rescueTriedIds.includes(option.id) ? "option-tried" : ""}`}
+                    type="button"
+                    key={option.id}
+                    disabled={rescueTriedIds.includes(option.id)}
+                    onClick={() =>
+                      selectRescueOption(option.id, rescueQuestion, rescueScaffold.feedback)
+                    }
+                  >
+                    <span className="option-letter" aria-hidden="true">
+                      {option.id.toUpperCase()}
+                    </span>
+                    <span>{option.text}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -411,7 +626,9 @@ export function BattleSession({
             <Shield aria-hidden="true" />
             <div>
               <strong>護盾擋住了這一下，再用一個線索試試看。</strong>
-              {visibleShields === 0 ? <p>專注護盾歸零，夥伴已啟動救援教學；進度不會消失。</p> : null}
+              {visibleShields === 0 ? (
+                <p>如果這一題還差一步，夥伴會啟動救援教學；進度不會消失。</p>
+              ) : null}
             </div>
           </div>
         ) : null}

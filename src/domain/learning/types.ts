@@ -4,6 +4,8 @@ export type LearningOutcome =
   | "rescued"
   | "pending_support";
 
+export type HintToolUsed = "sound-lens" | "word-bridge" | "example-card";
+
 export type LearningEvent = Readonly<{
   id: string;
   type: "question_completed";
@@ -16,6 +18,7 @@ export type LearningEvent = Readonly<{
   variantGroup: string;
   firstSelectedOptionId: string;
   hintsUsed: number;
+  toolUsed: HintToolUsed | null;
   rescueVariantCorrect: boolean;
   occurredAt: string;
   studyDate: string;
@@ -36,7 +39,9 @@ export type CreateLearningEventInput = Readonly<{
   }>;
   response: Readonly<{
     firstSelectedOptionId: string;
+    finalSelectedOptionId: string;
     hintsUsed: number;
+    toolUsed: HintToolUsed | null;
     rescueVariantCorrect: boolean;
   }>;
 }>;

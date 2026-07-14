@@ -1,3 +1,5 @@
+import { seededIndex } from "./seeded-pick";
+
 export type BossMove = Readonly<{
   id: "mirror-mist" | "echo-decoy" | "shape-shift";
   name: string;
@@ -27,9 +29,5 @@ const moves: ReadonlyArray<BossMove> = [
 ];
 
 export function deriveBossMove(seed: string): BossMove {
-  const index = Array.from(seed).reduce(
-    (total, character) => total + character.charCodeAt(0),
-    0,
-  ) % moves.length;
-  return moves[index];
+  return moves[seededIndex(seed, moves.length)];
 }

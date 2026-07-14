@@ -16,6 +16,7 @@ function learningEvent(overrides: Partial<LearningEvent> = {}): LearningEvent {
     firstSelectedOptionId: "a",
     hintsUsed: 1,
     rescueVariantCorrect: false,
+  toolUsed: null,
     occurredAt: "2026-07-14T10:00:00.000Z",
     studyDate: "2026-07-14",
     ...overrides,

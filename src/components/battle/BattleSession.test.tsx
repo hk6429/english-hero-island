@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pilotQuestionBank } from "@/content/pilot";
+import { buildRescue } from "@/domain/session-builder/build-rescue";
 import { AdventureProvider } from "@/features/adventure/AdventureProvider";
 import { MemoryProgressStore } from "@/infrastructure/progress/MemoryProgressStore";
 import { createEmptyProgress } from "@/infrastructure/progress/progress-types";
@@ -88,8 +89,18 @@ describe("BattleSession", () => {
 
     await user.click(screen.getByRole("button", { name: "g" }));
     expect(
-      screen.getByText("成長紀錄：救援後自己走完最後一步，方法已經留在你身上。"),
+      screen.getByText("成長紀錄：會挑線索、會用線索，這本身就是能力。"),
     ).toBeInTheDocument();
+    await waitFor(async () => {
+      expect((await store.load()).events[0]).toMatchObject({
+        outcome: "assisted_correct",
+        rescueVariantCorrect: false,
+        toolUsed: "word-bridge",
+      });
+    });
+    await waitFor(async () => {
+      expect((await store.load()).activeSession?.battle.shields).toBe(3);
+    });
   });
 
   it("records a correct answer after revealing the text alternative as assisted learning", async () => {
@@ -273,5 +284,136 @@ describe("BattleSession", () => {
       screen.getByText(/你最後使用「例句卡」：先在不同例子練一次同樣規則，幫你把方法遷移回本題。/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/你最後使用「拆字橋」/)).not.toBeInTheDocument();
+    await waitFor(async () => {
+      expect((await store.load()).events[0]).toMatchObject({
+        outcome: "assisted_correct",
+        toolUsed: "example-card",
+      });
+    });
+  });
+
+  it("runs the partner rescue teaching and rescue question when shields reach zero", async () => {
+    const sessionId = "rescue-session-test";
+    const rescueQuestion = buildRescue({
+      grade: 3,
+      microSkill: "cvc-decoding",
+      bank: pilotQuestionBank,
+      contentMode: "pilot",
+      excludeQuestionIds: ["g3-cvc-practice-04"],
+      seed: sessionId,
+    });
+    if (!rescueQuestion) throw new Error("rescue question missing from pilot bank");
+    const wrongOption = rescueQuestion.options.find(
+      (option) => option.id !== rescueQuestion.correctOptionId,
+    );
+    const correctOption = rescueQuestion.options.find(
+      (option) => option.id === rescueQuestion.correctOptionId,
+    );
+    if (!wrongOption || !correctOption) throw new Error("rescue options missing");
+
+    const store = new MemoryProgressStore();
+    await store.save({
+      ...createEmptyProgress(),
+      profile: { nickname: "小星", grade: 3, heroId: "star-smith" },
+      stage: "battle",
+      activeSession: {
+        id: sessionId,
+        kind: "mission",
+        microSkill: "cvc-decoding",
+        questionIds: ["g3-cvc-practice-04"],
+        currentIndex: 0,
+        phase: "practice",
+        hintsUsed: 0,
+        selectedTool: "word-bridge",
+        selectedRoute: "steady-bridge",
+        battle: { armor: 1, shields: 0, combo: 0, rescueActive: true },
+        outcomes: ["pending_support"],
+      },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <AdventureProvider store={store}>
+        <BattleSession bank={pilotQuestionBank} onComplete={vi.fn()} />
+      </AdventureProvider>,
+    );
+
+    await screen.findByText("夥伴來了，陪你把方法接回來");
+    expect(screen.getByText("夥伴救援教學")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/失敗|太慢|你不會|Game Over|倒數/i);
+
+    await user.click(screen.getByRole("button", { name: /我準備好了，開始救援任務/ }));
+    await screen.findByText(rescueQuestion.prompt);
+
+    await user.click(screen.getByRole("button", { name: wrongOption.text }));
+    expect(screen.getByText("換一個線索再試，夥伴就在旁邊陪你。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: wrongOption.text })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: correctOption.text }));
+    expect(
+      screen.getByText("夥伴協力成功：救援任務完成，專注護盾回到 1 格。"),
+    ).toBeInTheDocument();
+
+    await waitFor(async () => {
+      const saved = await store.load();
+      expect(saved.events).toHaveLength(1);
+      expect(saved.events[0]).toMatchObject({
+        outcome: "rescued",
+        questionId: rescueQuestion.id,
+        rescueVariantCorrect: true,
+        toolUsed: "word-bridge",
+      });
+      expect(saved.activeSession?.battle).toMatchObject({
+        shields: 1,
+        rescueActive: false,
+      });
+      expect(saved.activeSession?.currentIndex).toBe(0);
+    });
+
+    await user.click(screen.getByRole("button", { name: /前往下一題/ }));
+    await screen.findByText("Which word ends with /t/?");
+    expect(screen.getByText("護盾 1／3")).toBeInTheDocument();
+  });
+
+  it("falls back to teaching-only rescue and restores one shield when no rescue question exists", async () => {
+    const store = new MemoryProgressStore();
+    await store.save({
+      ...createEmptyProgress(),
+      profile: { nickname: "小浪", grade: 3, heroId: "wave-scout" },
+      stage: "diagnostic",
+      activeSession: {
+        id: "rescue-fallback-test",
+        kind: "diagnostic",
+        microSkill: null,
+        questionIds: ["g3-diagnostic-letter-writing-01"],
+        currentIndex: 0,
+        phase: "diagnostic",
+        hintsUsed: 0,
+        selectedTool: null,
+        battle: { armor: 1, shields: 0, combo: 0, rescueActive: true },
+        outcomes: ["pending_support"],
+      },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <AdventureProvider store={store}>
+        <BattleSession bank={pilotQuestionBank} onComplete={vi.fn()} />
+      </AdventureProvider>,
+    );
+
+    await screen.findByText("夥伴來了，陪你把方法接回來");
+    await user.click(screen.getByRole("button", { name: /把方法帶回挑戰/ }));
+
+    await screen.findByText("Which capital letter is the correct match for b?");
+    expect(screen.getByText("護盾 1／3")).toBeInTheDocument();
+    await waitFor(async () => {
+      const saved = await store.load();
+      expect(saved.events).toHaveLength(0);
+      expect(saved.activeSession?.battle).toMatchObject({
+        shields: 1,
+        rescueActive: false,
+      });
+    });
   });
 });

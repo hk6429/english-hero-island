@@ -76,6 +76,7 @@ describe("adventure state machine", () => {
       firstSelectedOptionId: "a",
       hintsUsed: 0,
       rescueVariantCorrect: false,
+  toolUsed: null,
       occurredAt: "2026-07-14T10:00:00.000Z",
       studyDate: "2026-07-14",
     });
@@ -175,6 +176,7 @@ describe("adventure state machine", () => {
       firstSelectedOptionId: "a",
       hintsUsed: 0,
       rescueVariantCorrect: false,
+  toolUsed: null,
       occurredAt: "2026-07-14T10:00:00.000Z",
       studyDate: "2026-07-14",
     });
@@ -228,6 +230,7 @@ describe("adventure state machine", () => {
         firstSelectedOptionId: "a",
         hintsUsed: 0,
         rescueVariantCorrect: false,
+  toolUsed: null,
         occurredAt: `${studyDate}T10:00:00.000Z`,
         studyDate,
       });
@@ -323,5 +326,44 @@ describe("adventure state machine", () => {
 
     expect(received.partnerEncouragements).toEqual([card]);
     expect(repeated.partnerEncouragements).toEqual([card]);
+  });
+
+  it("applies partner rescue support by updating only the active session", () => {
+    const base = {
+      ...createEmptyProgress(),
+      profile: { nickname: "小浪", grade: 3 as const, heroId: "wave-scout" as const },
+      stage: "battle" as const,
+      activeSession: {
+        id: "mission-01",
+        kind: "mission" as const,
+        microSkill: "cvc-decoding",
+        questionIds: ["q1", "q2"],
+        currentIndex: 1,
+        phase: "practice" as const,
+        hintsUsed: 0,
+        selectedTool: null,
+        battle: { armor: 2, shields: 0, combo: 0, rescueActive: true },
+        outcomes: ["pending_support" as const],
+      },
+    };
+
+    const next = reduceAdventure(base, {
+      type: "apply_rescue_support",
+      nextSession: {
+        ...base.activeSession,
+        battle: { ...base.activeSession.battle, shields: 1, rescueActive: false },
+      },
+    });
+
+    expect(next.activeSession?.battle).toEqual({
+      armor: 2,
+      shields: 1,
+      combo: 0,
+      rescueActive: false,
+    });
+    expect(next.activeSession?.currentIndex).toBe(1);
+    expect(next.events).toHaveLength(0);
+    expect(next.xp).toBe(0);
+    expect(next.stage).toBe("battle");
   });
 });

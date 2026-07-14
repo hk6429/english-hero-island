@@ -15,4 +15,20 @@ describe("deriveBossMove", () => {
       expect(move.strategy.length).toBeGreaterThan(0);
     }
   });
+
+  it("keeps one move per session but varies across sessions for the same boss question", () => {
+    const questionId = "g3-cvc-boss-01";
+    const seedFor = (sessionId: string) => `${sessionId}:${questionId}`;
+
+    expect(deriveBossMove(seedFor("session-alpha"))).toEqual(
+      deriveBossMove(seedFor("session-alpha")),
+    );
+
+    const moveIds = new Set(
+      ["s1", "s2", "s3", "s4", "s5", "s6", "s7"].map(
+        (sessionId) => deriveBossMove(seedFor(sessionId)).id,
+      ),
+    );
+    expect(moveIds.size).toBeGreaterThan(1);
+  });
 });

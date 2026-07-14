@@ -20,6 +20,7 @@ function event(
     firstSelectedOptionId: "a",
     hintsUsed: outcome === "independent_correct" ? 0 : 1,
     rescueVariantCorrect: outcome === "rescued",
+    toolUsed: null,
     occurredAt: `2026-07-14T10:0${index}:00.000Z`,
     studyDate: "2026-07-14",
   });
