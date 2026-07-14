@@ -14,8 +14,10 @@ import {
   Timer,
   UsersRound,
 } from "lucide-react";
+import Image from "next/image";
 import { AppShell } from "@/components/layout/AppShell";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
+import { HeroPortrait } from "@/components/adventure/HeroPortrait";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import type { AdventureStage } from "@/infrastructure/progress/progress-types";
 import styles from "./page.module.css";
@@ -91,12 +93,18 @@ export default function HomePage() {
             </p>
           </div>
           <section className="island-preview" aria-label="英語英雄島任務預覽">
-            <div className="island-orbit orbit-one" aria-hidden="true" />
-            <div className="island-orbit orbit-two" aria-hidden="true" />
+            <Image
+              className="island-photo"
+              src="/art/island-key-visual.jpg"
+              alt="水彩酒精潑染畫風的英語英雄島鳥瞰圖：三位 Q 版小英雄站在島中央的石板路上，周圍有字母港、拼讀森林、字詞花園、對話小鎮、句型工坊與理解燈塔"
+              fill
+              sizes="(max-width: 900px) 100vw, 46vw"
+              priority
+            />
             <div className="hero-party">
-              <HeroGlyph heroId="wave-scout" size="large" />
-              <HeroGlyph heroId="forest-keeper" size="large" />
-              <HeroGlyph heroId="star-smith" size="large" />
+              <HeroPortrait heroId="wave-scout" size="small" />
+              <HeroPortrait heroId="forest-keeper" size="small" />
+              <HeroPortrait heroId="star-smith" size="small" />
             </div>
             <div className="mission-ticket">
               <span>今日任務</span>

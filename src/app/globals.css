@@ -482,30 +482,19 @@ select:focus-visible,
   place-items: center;
 }
 
-.island-orbit {
-  position: absolute;
-  border: 2px dashed rgba(12, 103, 138, 0.3);
-  border-radius: 50%;
-}
-
-.orbit-one {
-  width: 74%;
-  height: 34%;
-  transform: rotate(-8deg);
-}
-
-.orbit-two {
-  width: 90%;
-  height: 54%;
-  transform: rotate(11deg);
+.island-photo {
+  z-index: 0;
+  object-fit: cover;
+  object-position: 46% 78%;
 }
 
 .hero-party {
-  position: relative;
-  z-index: 1;
+  position: absolute;
+  z-index: 2;
+  top: 7%;
+  left: 8%;
   display: flex;
   gap: 10px;
-  margin-bottom: 96px;
 }
 
 .hero-glyph {
@@ -536,6 +525,38 @@ select:focus-visible,
 .hero-glyph-large svg {
   width: 42px;
   height: 42px;
+}
+
+.hero-portrait {
+  display: inline-grid;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: var(--white);
+  border: 3px solid var(--white);
+  border-radius: 46% 54% 48% 52%;
+  box-shadow: 0 8px 18px rgba(23, 50, 77, 0.22);
+  place-items: center;
+}
+
+.hero-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-portrait-small {
+  width: 56px;
+  height: 56px;
+}
+
+.hero-portrait-medium {
+  width: 88px;
+  height: 88px;
+}
+
+.hero-portrait-large {
+  width: 132px;
+  height: 132px;
 }
 
 .hero-wave-scout {
@@ -4462,7 +4483,8 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
     text-align: left;
   }
 
-  .hero-choice .hero-glyph {
+  .hero-choice .hero-glyph,
+  .hero-choice .hero-portrait {
     grid-row: 1 / 5;
   }
 

@@ -3,7 +3,7 @@
 import { ArrowRight, Palette, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
-import { HeroGlyph } from "@/components/adventure/HeroGlyph";
+import { HeroPortrait } from "@/components/adventure/HeroPortrait";
 import { AppShell } from "@/components/layout/AppShell";
 import type { Grade } from "@/domain/questions/question-schema";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
@@ -64,7 +64,7 @@ export default function StartPage() {
           <form className="profile-form" onSubmit={beginAdventure} noValidate>
             <div className={styles.previewCard} aria-hidden="true">
               <span className={styles.previewGlyph}>
-                <HeroGlyph heroId={heroId} accent={accent} size="large" />
+                <HeroPortrait heroId={heroId} accent={accent} size="large" />
               </span>
               <p className={styles.previewTitle}>你的英雄卡（跟著你的選擇即時更新）</p>
               <p className={styles.previewName}>
@@ -105,9 +105,9 @@ export default function StartPage() {
                       checked={heroId === hero.id}
                       onChange={() => setHeroId(hero.id)}
                     />
-                    <HeroGlyph
+                    <HeroPortrait
                       heroId={hero.id}
-                      accent={heroId === hero.id ? accent : "ocean"}
+                      accent={heroId === hero.id ? accent : undefined}
                       size="large"
                     />
                     <strong>{hero.name}</strong>
