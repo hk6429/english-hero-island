@@ -74,6 +74,15 @@ export const questionSchema = z
     publishedAt: z.string().datetime().optional(),
   })
   .superRefine((question, context) => {
+    const optionIds = question.options.map((option) => option.id);
+    if (new Set(optionIds).size !== optionIds.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["options"],
+        message: "選項識別碼不可重複",
+      });
+    }
+
     const optionTexts = question.options.map((option) => option.text.trim().toLocaleLowerCase());
     if (new Set(optionTexts).size !== optionTexts.length) {
       context.addIssue({
@@ -99,7 +108,31 @@ export const questionSchema = z
       });
     }
 
+    if (question.modality === "image" && !question.image) {
+      context.addIssue({
+        code: "custom",
+        path: ["image"],
+        message: "圖片題必須提供圖片與不洩題的替代文字",
+      });
+    }
+
     if (question.status === "published") {
+      if (!question.reviewedAt) {
+        context.addIssue({
+          code: "custom",
+          path: ["reviewedAt"],
+          message: "已發布題目必須記錄複核完成時間",
+        });
+      }
+
+      if (!question.publishedAt) {
+        context.addIssue({
+          code: "custom",
+          path: ["publishedAt"],
+          message: "已發布題目必須記錄發布時間",
+        });
+      }
+
       const decision = canPublishQuestion({
         status: question.status,
         sourceKind: question.source.kind,

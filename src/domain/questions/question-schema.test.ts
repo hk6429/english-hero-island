@@ -74,6 +74,73 @@ describe("question schema", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("requires an image and safe alt text for an image question", () => {
+    const result = questionSchema.safeParse({
+      ...validDraftQuestion,
+      modality: "image",
+      questionType: "image_choice",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects duplicate option identifiers", () => {
+    const result = questionSchema.safeParse({
+      ...validDraftQuestion,
+      options: [
+        { id: "a", text: "cat" },
+        { id: "a", text: "cap" },
+        { id: "c", text: "can" },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("requires review and publication timestamps for a published question", () => {
+    const result = questionSchema.safeParse({
+      ...validDraftQuestion,
+      status: "published",
+      reviewers: [
+        {
+          id: "teacher-a",
+          role: "english_teacher",
+          reviewedAt: "2026-07-14T08:00:00.000Z",
+        },
+        {
+          id: "teacher-b",
+          role: "english_teacher",
+          reviewedAt: "2026-07-14T09:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a fully reviewed original question for publication", () => {
+    const result = questionSchema.safeParse({
+      ...validDraftQuestion,
+      status: "published",
+      reviewedAt: "2026-07-14T09:00:00.000Z",
+      publishedAt: "2026-07-14T10:00:00.000Z",
+      reviewers: [
+        {
+          id: "teacher-a",
+          role: "english_teacher",
+          reviewedAt: "2026-07-14T08:00:00.000Z",
+        },
+        {
+          id: "teacher-b",
+          role: "english_teacher",
+          reviewedAt: "2026-07-14T09:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
 });
 
 export { validDraftQuestion };

@@ -96,4 +96,29 @@ describe("question publishing gate", () => {
       reasons: ["授權範圍不允許公開發布"],
     });
   });
+
+  it("rejects original content whose project publication rights are missing", () => {
+    const result = canPublishQuestion({
+      status: "reviewed",
+      sourceKind: "original",
+      usageRights: "research-only",
+      reviewers: [
+        {
+          id: "teacher-a",
+          role: "english_teacher",
+          reviewedAt: "2026-07-14T08:00:00.000Z",
+        },
+        {
+          id: "teacher-b",
+          role: "english_teacher",
+          reviewedAt: "2026-07-14T09:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      allowed: false,
+      reasons: ["原創題必須明確授權本專案發布"],
+    });
+  });
 });

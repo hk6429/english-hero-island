@@ -53,5 +53,15 @@ export function canPublishQuestion(candidate: PublishingCandidate): PublishingDe
     };
   }
 
+  if (
+    candidate.sourceKind === "original" &&
+    candidate.usageRights !== "original-for-project"
+  ) {
+    return {
+      allowed: false,
+      reasons: ["原創題必須明確授權本專案發布"],
+    };
+  }
+
   return { allowed: true, reasons: [] };
 }
