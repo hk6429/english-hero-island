@@ -137,6 +137,7 @@ npm run build
 
 ## 文件
 
+- Claude Code 接手紀錄：`docs/claude-code-handoff.md`
 - Octalysis 實作稽核：`docs/octalysis-audit.md`
 - 課堂版安全架構：`docs/classroom-security.md`
 - 弱網路作答保護：`docs/weak-network-submission.md`
