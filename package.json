@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "export:review-candidates": "tsx scripts/export-review-candidates.ts"
+    "test:a11y": "playwright test e2e/accessibility.spec.ts",
+    "export:review-candidates": "tsx scripts/export-review-candidates.ts",
+    "export:teacher-prereview": "tsx scripts/export-teacher-prereview-pack.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.3",
@@ -23,6 +25,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

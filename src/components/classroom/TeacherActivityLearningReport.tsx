@@ -78,7 +78,7 @@ export function TeacherActivityLearningReport({ client, activityId }: Props) {
         <BarChart3 aria-hidden="true" />
       </header>
 
-      <div className="activity-report-metrics" aria-label="課後學習證據摘要">
+      <div className="activity-report-metrics" role="group" aria-label="課後學習證據摘要">
         <strong>作答覆蓋 {report.metrics.responseCoveragePercent}%</strong>
         <strong>獨立答對 {report.metrics.independentCorrectPercent}%</strong>
         <strong>需要支援 {report.metrics.pendingSupportPercent}%</strong>

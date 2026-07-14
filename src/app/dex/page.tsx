@@ -44,7 +44,7 @@ export default function DexPage() {
   if (!ready || !profile) {
     return (
       <AppShell>
-        <main id="main-content" className="page-main">
+        <main id="main-content" className="page-main" tabIndex={-1}>
           <p className="loading-state">正在翻開能力圖鑑……</p>
         </main>
       </AppShell>
@@ -57,7 +57,7 @@ export default function DexPage() {
 
   return (
     <AppShell pageClassName="dex-page">
-      <main id="main-content" className="page-main narrow-main">
+      <main id="main-content" className="page-main narrow-main" tabIndex={-1}>
         <button
           className="back-link back-button"
           type="button"

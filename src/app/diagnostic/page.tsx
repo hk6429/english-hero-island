@@ -33,7 +33,7 @@ export default function DiagnosticPage() {
 
   return (
     <AppShell pageClassName="diagnostic-page">
-      <main id="main-content" className="page-main battle-main">
+      <main id="main-content" className="page-main battle-main" tabIndex={-1}>
         <div className="journey-intro compact-intro">
           <span className="intro-icon" aria-hidden="true">
             <Compass />

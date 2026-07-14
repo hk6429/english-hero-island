@@ -69,7 +69,7 @@ export function PairEncouragementRelay({
           <p className="eyebrow">上一位學伴留下的方法</p>
           <h2 id="received-strategy-title">{strategyName}</h2>
           <p>{strategyMessage}</p>
-          <div className="relay-response" aria-labelledby="relay-response-title">
+          <div className="relay-response" role="group" aria-labelledby="relay-response-title">
             <h3 id="relay-response-title">我會怎麼使用這個方法？</h3>
             <p>選一個下一題真的做得到的小行動，回傳給上一位學伴。</p>
             <div className="relay-response-options">

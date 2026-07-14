@@ -28,7 +28,7 @@ export function AppShell({
           <span>英語英雄島</span>
         </Link>
         {progress.profile ? (
-          <div className="hero-status" aria-label="英雄狀態">
+          <div className="hero-status" role="group" aria-label="英雄狀態">
             <span>{progress.profile.grade} 年級</span>
             <strong>{progress.profile.nickname}</strong>
             <span className="xp-chip">

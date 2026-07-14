@@ -14,6 +14,7 @@ import {
   microSkillLabel,
 } from "@/features/adventure/content-map";
 import { createMissionSession } from "@/features/adventure/session-factory";
+import { MissionRadioGroup } from "./MissionRadioGroup";
 
 export default function MissionPage() {
   const router = useRouter();
@@ -60,7 +61,7 @@ export default function MissionPage() {
   if (!ready || !profile) {
     return (
       <AppShell>
-        <main id="main-content" className="page-main">
+        <main id="main-content" className="page-main" tabIndex={-1}>
           <p className="loading-state">正在載入任務卷軸……</p>
         </main>
       </AppShell>
@@ -72,7 +73,7 @@ export default function MissionPage() {
 
   return (
     <AppShell pageClassName="mission-page">
-      <main id="main-content" className="page-main narrow-main">
+      <main id="main-content" className="page-main narrow-main" tabIndex={-1}>
         <section className="mission-brief" aria-labelledby="brief-title">
           <p className="eyebrow">{mission.place}・任務準備</p>
           <h1 id="brief-title">{mission.title}</h1>
@@ -97,28 +98,26 @@ export default function MissionPage() {
                 <h2 id="route-title">同一份能力，想怎麼走？</h2>
                 <p>兩條路使用相同題目、提示與 XP 規則，只改變你看見的探索方式。</p>
               </div>
-              <div className="route-grid" role="radiogroup" aria-label="練功路線">
-                {MISSION_ROUTES.map((route) => {
-                  const selected = session?.selectedRoute === route.id;
-                  return (
-                    <button
-                      className={`route-card ${selected ? "selected" : ""}`}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      key={route.id}
-                      onClick={() => dispatch({ type: "choose_route", route: route.id })}
-                    >
-                      <MapPinned aria-hidden="true" />
-                      <span>
-                        <strong>{route.name}</strong>
-                        <small>{route.description}</small>
-                        <em>{route.effect}</em>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <MissionRadioGroup
+                className="route-grid"
+                ariaLabel="練功路線"
+                options={MISSION_ROUTES}
+                selectedId={session?.selectedRoute}
+                onSelect={(route) => dispatch({ type: "choose_route", route })}
+                optionClassName={(_, selected) =>
+                  `route-card ${selected ? "selected" : ""}`
+                }
+                renderOption={(route) => (
+                  <>
+                    <MapPinned aria-hidden="true" />
+                    <span>
+                      <strong>{route.name}</strong>
+                      <small>{route.description}</small>
+                      <em>{route.effect}</em>
+                    </span>
+                  </>
+                )}
+              />
             </section>
 
             <section className="tool-section" aria-labelledby="tool-title">
@@ -127,27 +126,25 @@ export default function MissionPage() {
                 <h2 id="tool-title">這次想帶哪一個提示工具？</h2>
                 <p>工具不是作弊；知道何時求助，也是一種學習能力。</p>
               </div>
-              <div className="tool-grid" role="radiogroup" aria-label="提示工具">
-                {HINT_TOOLS.map((tool) => {
-                  const selected = session?.selectedTool === tool.id;
-                  return (
-                    <button
-                      className={`tool-card ${selected ? "selected" : ""}`}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      key={tool.id}
-                      onClick={() => dispatch({ type: "choose_tool", tool: tool.id })}
-                    >
-                      <span className="tool-icon" aria-hidden="true">
-                        {selected ? <Check /> : <Sparkles />}
-                      </span>
-                      <strong>{tool.name}</strong>
-                      <span>{tool.description}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <MissionRadioGroup
+                className="tool-grid"
+                ariaLabel="提示工具"
+                options={HINT_TOOLS}
+                selectedId={session?.selectedTool}
+                onSelect={(tool) => dispatch({ type: "choose_tool", tool })}
+                optionClassName={(_, selected) =>
+                  `tool-card ${selected ? "selected" : ""}`
+                }
+                renderOption={(tool, selected) => (
+                  <>
+                    <span className="tool-icon" aria-hidden="true">
+                      {selected ? <Check /> : <Sparkles />}
+                    </span>
+                    <strong>{tool.name}</strong>
+                    <span>{tool.description}</span>
+                  </>
+                )}
+              />
             </section>
 
             <label className={`hero-contract ${contractAccepted ? "accepted" : ""}`}>

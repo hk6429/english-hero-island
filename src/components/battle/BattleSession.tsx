@@ -10,7 +10,7 @@ import {
   Shield,
   Swords,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { projectBattle } from "@/domain/battle/project-battle";
 import { buildHintScaffold } from "@/domain/hints/build-hint-scaffold";
 import { createLearningEvent } from "@/domain/learning/create-learning-event";
@@ -97,6 +97,16 @@ export function BattleSession({
   const [hintVisible, setHintVisible] = useState(false);
   const [hintToolOverride, setHintToolOverride] = useState<HintTool | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const hintRef = useRef<HTMLDivElement>(null);
+  const feedbackRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (feedback) {
+      feedbackRef.current?.focus();
+      return;
+    }
+    if (hintVisible) hintRef.current?.focus();
+  }, [feedback, hintVisible]);
 
   if (!ready) {
     return <p className="loading-state">正在找回英雄進度……</p>;
@@ -133,7 +143,13 @@ export function BattleSession({
           : "查看任務結果";
 
     return (
-      <section className="feedback-card" aria-live="polite" aria-labelledby="feedback-title">
+      <section
+        aria-live="polite"
+        aria-labelledby="feedback-title"
+        className="feedback-card"
+        ref={feedbackRef}
+        tabIndex={-1}
+      >
         <span className={`feedback-icon feedback-${feedback.outcome}`} aria-hidden="true">
           <FeedbackIcon />
         </span>
@@ -278,11 +294,11 @@ export function BattleSession({
   return (
     <section className="battle-layout" aria-labelledby="question-title">
       <div className="battle-topline">
-        <div className="battle-stat" aria-label={`還有 ${visibleShields} 格專注護盾`}>
+        <div className="battle-stat">
           <Shield aria-hidden="true" />
           <span>護盾 {visibleShields}／3</span>
         </div>
-        <div className="battle-stat" aria-label={`目前連擊 ${session.battle.combo}`}>
+        <div className="battle-stat">
           <Flame aria-hidden="true" />
           <span>連擊 {session.battle.combo}／3</span>
         </div>
@@ -319,7 +335,12 @@ export function BattleSession({
           ) : null}
         </div>
 
-        {question.audio ? <AudioControls transcript={question.audio.transcript} /> : null}
+        {question.audio ? (
+          <AudioControls
+            transcript={question.audio.transcript}
+            onRevealTranscript={() => setHintsUsed((count) => Math.max(1, count))}
+          />
+        ) : null}
         {question.image ? <QuestionScene src={question.image.src} alt={question.image.alt} /> : null}
 
         {bossMove ? (
@@ -349,7 +370,13 @@ export function BattleSession({
         ) : null}
 
         {hintVisible ? (
-          <div className="hint-card" role="status" aria-label="提示內容">
+          <div
+            aria-label="提示內容"
+            className="hint-card"
+            ref={hintRef}
+            role="status"
+            tabIndex={-1}
+          >
             <Lightbulb aria-hidden="true" />
             <div>
               <strong>{selectedTool?.name ?? "提示工具"}</strong>
@@ -375,7 +402,7 @@ export function BattleSession({
           </div>
         ) : null}
 
-        <div className="option-grid" aria-label="答案選項">
+        <div className="option-grid" role="group" aria-label="答案選項">
           {question.options.map((option) => (
             <button
               className={`answer-option ${firstWrongOptionId === option.id ? "option-tried" : ""}`}

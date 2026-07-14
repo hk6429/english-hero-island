@@ -309,7 +309,7 @@ p {
   font-weight: 850;
   border-radius: var(--radius-control);
   cursor: pointer;
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
 .primary-button {
@@ -358,7 +358,21 @@ p {
 .primary-button:disabled,
 .secondary-button:disabled {
   cursor: not-allowed;
-  opacity: 0.62;
+  opacity: 1;
+}
+
+.primary-button:disabled {
+  color: var(--white);
+  background: var(--muted);
+  border-color: var(--muted);
+  box-shadow: 0 4px 0 #354a5b;
+}
+
+.secondary-button:disabled {
+  color: var(--muted);
+  background: #f3f6f7;
+  border-color: var(--border);
+  box-shadow: 0 3px 0 #c4d2da;
 }
 
 .primary-button:focus-visible,

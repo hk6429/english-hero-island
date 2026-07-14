@@ -51,6 +51,48 @@ describe("BattleSession", () => {
     expect(onComplete).toHaveBeenCalledOnce();
   });
 
+  it("records a correct answer after revealing the text alternative as assisted learning", async () => {
+    const store = new MemoryProgressStore();
+    await store.save({
+      ...createEmptyProgress(),
+      profile: { nickname: "小浪", grade: 3, heroId: "wave-scout" },
+      stage: "battle",
+      activeSession: {
+        id: "audio-support-test",
+        kind: "diagnostic",
+        microSkill: null,
+        questionIds: ["g3-diagnostic-letter-listening-01"],
+        currentIndex: 0,
+        phase: "diagnostic",
+        hintsUsed: 0,
+        selectedTool: null,
+        battle: { armor: 1, shields: 3, combo: 0, rescueActive: false },
+        outcomes: [],
+      },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <AdventureProvider store={store}>
+        <BattleSession bank={pilotQuestionBank} onComplete={vi.fn()} />
+      </AdventureProvider>,
+    );
+
+    await screen.findByText("Listen. Which letter do you hear?");
+    expect(screen.queryByText("B", { selector: "p" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "顯示文字輔助" }));
+    await user.click(screen.getByRole("button", { name: "B" }));
+
+    expect(screen.getByText("線索有幫上忙：你已經把方法接起來了。")).toBeInTheDocument();
+    await waitFor(async () => {
+      expect((await store.load()).events[0]).toMatchObject({
+        outcome: "assisted_correct",
+        hintsUsed: 1,
+      });
+    });
+  });
+
   it("turns word-bridge into a step-by-step clue instead of repeating the stored hint", async () => {
     const store = new MemoryProgressStore();
     await store.save({

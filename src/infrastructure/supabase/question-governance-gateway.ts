@@ -66,7 +66,7 @@ const reviewQueueRowsSchema = z.array(
     created_by: z.string().uuid().nullable(),
     supersedes_version: z.coerce.number().int().positive().nullable(),
     change_summary: z.string().min(4).nullable(),
-    locked_at: z.string().datetime().nullable(),
+    locked_at: z.string().datetime(),
     created_at: z.string().datetime(),
     approval_count: z.coerce.number().int().nonnegative(),
     change_request_count: z.coerce.number().int().nonnegative(),
@@ -167,6 +167,7 @@ export async function listQuestionReviewQueueWithSupabase(
     source: row.source,
     authorName: row.author.displayName,
     changeSummary: row.change_summary,
+    lockedAt: row.locked_at,
     approvalCount: row.approval_count,
     changeRequestCount: row.change_request_count,
   }));

@@ -39,7 +39,7 @@ export default function TrainingPage() {
   if (!ready || !profile || !focus) {
     return (
       <AppShell>
-        <main id="main-content" className="page-main">
+        <main id="main-content" className="page-main" tabIndex={-1}>
           <p className="loading-state">正在整理修煉日程……</p>
         </main>
       </AppShell>
@@ -69,7 +69,7 @@ export default function TrainingPage() {
 
   return (
     <AppShell pageClassName="training-page">
-      <main id="main-content" className="page-main narrow-main">
+      <main id="main-content" className="page-main narrow-main" tabIndex={-1}>
         <section className="training-hero">
           <span className="calendar-glyph" aria-hidden="true">
             <CalendarClock />

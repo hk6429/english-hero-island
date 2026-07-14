@@ -29,7 +29,7 @@ export default function ResultPage() {
   if (!ready || !profile || !session) {
     return (
       <AppShell>
-        <main id="main-content" className="page-main">
+        <main id="main-content" className="page-main" tabIndex={-1}>
           <p className="loading-state">正在整理冒險紀錄……</p>
         </main>
       </AppShell>
@@ -52,7 +52,7 @@ export default function ResultPage() {
 
   return (
     <AppShell pageClassName="result-page">
-      <main id="main-content" className="page-main narrow-main">
+      <main id="main-content" className="page-main narrow-main" tabIndex={-1}>
         <section className="result-hero">
           <HeroGlyph heroId={profile.heroId} accent={profile.accent} size="large" />
           <span className="result-spark" aria-hidden="true">

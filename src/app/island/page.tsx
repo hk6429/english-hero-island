@@ -59,7 +59,7 @@ export default function IslandPage() {
   if (!ready || !profile) {
     return (
       <AppShell>
-        <main id="main-content" className="page-main">
+        <main id="main-content" className="page-main" tabIndex={-1}>
           <p className="loading-state">正在展開能力地圖……</p>
         </main>
       </AppShell>
@@ -76,7 +76,7 @@ export default function IslandPage() {
 
   return (
     <AppShell pageClassName="island-page">
-      <main id="main-content" className="page-main">
+      <main id="main-content" className="page-main" tabIndex={-1}>
         <section className="island-welcome">
           <HeroGlyph heroId={profile.heroId} accent={profile.accent} size="large" />
           <div>

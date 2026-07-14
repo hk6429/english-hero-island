@@ -29,6 +29,7 @@ const queueItem: QuestionReviewQueueItem = {
   },
   authorName: "內容編輯 A",
   changeSummary: "修正問句與解析",
+  lockedAt: "2026-07-14T07:00:00.000Z",
   approvalCount: 1,
   changeRequestCount: 0,
 };
@@ -43,7 +44,14 @@ describe("QuestionReviewCard", () => {
       screen.getByRole("heading", { name: "Is this a kite?" }),
     ).toBeInTheDocument();
     expect(screen.getByText("第 2 版")).toBeInTheDocument();
-    expect(screen.getByText("目前 1／2 位複核通過")).toBeInTheDocument();
+    expect(screen.queryByText("目前 1／2 位複核通過")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("獨立複核中：送出前不顯示其他教師的判斷"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/凍結時間/).closest("time")).toHaveAttribute(
+      "datetime",
+      queueItem.lockedAt,
+    );
     expect(screen.getByText("正解：Yes, it is.")).toBeInTheDocument();
     expect(
       screen.getByText("看到單數物品，要用 Yes, it is. 回答。"),
@@ -106,6 +114,7 @@ describe("QuestionReviewCard", () => {
       target: { value: "內容正確" },
     });
     expect(approveButton).toBeEnabled();
+    expect(screen.getByRole("button", { name: "退回修正" })).toBeDisabled();
 
     fireEvent.click(approveButton);
     expect(onSubmit).not.toHaveBeenCalled();

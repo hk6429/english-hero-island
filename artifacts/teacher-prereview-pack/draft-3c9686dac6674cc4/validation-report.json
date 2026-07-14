@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "packId": "draft-3c9686dac6674cc4",
+  "status": "draft_only_blocked_from_formal_review",
+  "formalReviewEligible": false,
+  "questionCount": 200,
+  "gradeCounts": {
+    "3": 50,
+    "4": 50,
+    "5": 50,
+    "6": 50
+  },
+  "sourceImportSha256": "3c9686dac6674cc45dd713abe7b2c3455182d75a17fc04dcbaa4e28617dfd619",
+  "hashedQuestionCount": 200,
+  "blockedAssetCount": 49,
+  "placeholderAudioCount": 24,
+  "placeholderImageCount": 25,
+  "checks": {
+    "questionQuota": "passed",
+    "perQuestionContentHash": "passed",
+    "productionAssetIntegrity": "blocked",
+    "databaseVersionLock": "not_run",
+    "humanTeacherReview": "not_run"
+  },
+  "limitations": {
+    "databaseVersionLock": "not_included",
+    "externalCanonicalizationStandard": "not_claimed",
+    "humanTeacherDecisions": "not_included",
+    "productionAssetIntegrity": "placeholder_assets_blocked"
+  }
+}

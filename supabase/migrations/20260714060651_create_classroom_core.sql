@@ -1982,6 +1982,28 @@ begin
     raise exception 'review criteria must be an object' using errcode = '22023';
   end if;
 
+  if (select count(*) from jsonb_object_keys(p_criteria)) <> 7
+    or not (
+      p_criteria ?& array[
+        'english_correct',
+        'answer_unique',
+        'explanation_correct',
+        'hint_safe',
+        'asset_consistent',
+        'rights_clear',
+        'age_appropriate'
+      ]
+    )
+    or exists (
+      select 1
+      from jsonb_each(p_criteria) as criterion
+      where jsonb_typeof(criterion.value) <> 'boolean'
+    )
+  then
+    raise exception 'review criteria must contain exactly seven boolean fields'
+      using errcode = '22023';
+  end if;
+
   if p_verdict = 'approved'
     and not p_criteria @> '{
       "english_correct": true,
@@ -1994,6 +2016,18 @@ begin
     }'::jsonb
   then
     raise exception 'every review criterion must pass before approval'
+      using errcode = '22023';
+  end if;
+
+  if p_verdict = 'changes_requested'
+    and not exists (
+      select 1
+      from jsonb_each(p_criteria) as criterion
+      where jsonb_typeof(criterion.value) = 'boolean'
+        and criterion.value = 'false'::jsonb
+    )
+  then
+    raise exception 'change requests must fail at least one review criterion'
       using errcode = '22023';
   end if;
 

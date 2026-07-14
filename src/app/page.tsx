@@ -31,7 +31,7 @@ export default function HomePage() {
 
   return (
     <AppShell pageClassName="home-page">
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section className="hero-section">
           <div className="hero-copy">
             <p className="eyebrow">國小三至六年級英語冒險</p>
@@ -48,7 +48,7 @@ export default function HomePage() {
               自主練習只需暱稱與年級，不用真實姓名、電子郵件或照片。
             </p>
           </div>
-          <div className="island-preview" aria-label="英語英雄島任務預覽">
+          <section className="island-preview" aria-label="英語英雄島任務預覽">
             <div className="island-orbit orbit-one" aria-hidden="true" />
             <div className="island-orbit orbit-two" aria-hidden="true" />
             <div className="hero-party">
@@ -61,7 +61,7 @@ export default function HomePage() {
               <strong>修復一小段能力</strong>
               <small>約 3–5 分鐘</small>
             </div>
-          </div>
+          </section>
         </section>
 
         <section className="home-feature-grid" aria-labelledby="how-title">

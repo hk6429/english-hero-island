@@ -37,6 +37,7 @@ export type QuestionReviewQueueItem = Readonly<{
   }>;
   authorName: string;
   changeSummary: string | null;
+  lockedAt: string;
   approvalCount: number;
   changeRequestCount: number;
 }>;
@@ -83,6 +84,14 @@ function playTts(text: string) {
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
 
+function formatLockedAt(value: string) {
+  return new Intl.DateTimeFormat("zh-TW", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Taipei",
+  }).format(new Date(value));
+}
+
 export function QuestionReviewCard({ item, onSubmit }: Props) {
   const [criteria, setCriteria] = useState<Record<ReviewCriterion, boolean>>({
     ...emptyCriteria,
@@ -102,10 +111,17 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
   const allCriteriaPassed = reviewCriteriaKeys.every(
     (criterion) => criteria[criterion],
   );
+  const hasFailedCriteria = reviewCriteriaKeys.some(
+    (criterion) => !criteria[criterion],
+  );
   const audioTtsText = item.audio ? ttsText(item.audio.src) : null;
 
   function requestSubmit(verdict: QuestionReviewSubmission["verdict"]) {
-    if (!hasMeaningfulNote || (verdict === "approved" && !allCriteriaPassed)) {
+    if (
+      !hasMeaningfulNote ||
+      (verdict === "approved" && !allCriteriaPassed) ||
+      (verdict === "changes_requested" && !hasFailedCriteria)
+    ) {
       return;
     }
     setPendingVerdict(verdict);
@@ -144,11 +160,12 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
             <span>{`題號 ${item.id}`}</span>
             <span>{`第 ${item.version} 版`}</span>
             <span>{`作者 ${item.authorName}`}</span>
+            <time dateTime={item.lockedAt}>{`凍結時間 ${formatLockedAt(item.lockedAt)}`}</time>
           </p>
         </div>
-        <div className="review-count" aria-label="複核進度">
+        <div className="review-count" role="group" aria-label="複核進度">
           <ShieldCheck aria-hidden="true" />
-          <strong>{`目前 ${item.approvalCount}／2 位複核通過`}</strong>
+          <strong>獨立複核中：送出前不顯示其他教師的判斷</strong>
         </div>
       </header>
 
@@ -278,7 +295,7 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
           <div className="review-actions">
             <button
               className="secondary-button"
-              disabled={!hasMeaningfulNote || submitting}
+              disabled={!hasMeaningfulNote || !hasFailedCriteria || submitting}
               onClick={() => requestSubmit("changes_requested")}
               type="button"
             >

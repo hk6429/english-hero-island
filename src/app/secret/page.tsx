@@ -126,7 +126,7 @@ export default function SecretPage() {
   if (!ready || !profile) {
     return (
       <AppShell>
-        <main id="main-content" className="page-main">
+        <main id="main-content" className="page-main" tabIndex={-1}>
           <p className="loading-state">正在尋找秘境入口……</p>
         </main>
       </AppShell>
@@ -142,7 +142,7 @@ export default function SecretPage() {
 
   return (
     <AppShell pageClassName="secret-page">
-      <main id="main-content" className="page-main narrow-main">
+      <main id="main-content" className="page-main narrow-main" tabIndex={-1}>
         <Link className="back-link" href="/island">
           <ArrowLeft aria-hidden="true" /> 回能力島
         </Link>
@@ -167,10 +167,10 @@ export default function SecretPage() {
                   每個不同學習日完成主線，最多獲得 1 把不會過期或歸零的星鑰。每把揭露一顆，持續學習就能全部收藏；沒有付費或倒數。
                 </p>
               </div>
-              <div className="secret-inventory" aria-label="星光秘境收藏狀態">
+              <section className="secret-inventory" aria-label="星光秘境收藏狀態">
                 <span className="starlight-key-count">可用星鑰 {starlightKeys} 把</span>
                 <span className="discovery-count">已收藏 {collectedIds.length}</span>
-              </div>
+              </section>
             </section>
 
             <section className="discovery-grid" aria-label="星光探索選擇">

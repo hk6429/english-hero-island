@@ -23,7 +23,7 @@ export default function BattlePage() {
 
   return (
     <AppShell pageClassName="battle-page">
-      <main id="main-content" className="page-main battle-main">
+      <main id="main-content" className="page-main battle-main" tabIndex={-1}>
         <BattleSession
           bank={pilotQuestionBank}
           onComplete={() => {

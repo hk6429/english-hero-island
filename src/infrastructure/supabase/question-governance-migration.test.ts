@@ -87,6 +87,18 @@ describe("question governance migration", () => {
     expect(body).toContain("insert into private.question_status_events");
   });
 
+  it("accepts exactly seven boolean criteria and requires a failed item for change requests", () => {
+    const body = functionBody("submit_question_review");
+
+    expect(body).toContain("jsonb_object_keys(p_criteria)");
+    expect(body).toContain("jsonb_typeof(criterion.value) <> 'boolean'");
+    expect(body).toContain("jsonb_each(p_criteria) as criterion");
+    expect(body).toContain("p_criteria ?& array[");
+    expect(body).toContain("jsonb_typeof(criterion.value) = 'boolean'");
+    expect(body).toContain("criterion.value = 'false'::jsonb");
+    expect(body).toContain("change requests must fail at least one review criterion");
+  });
+
   it("publishes only through a separate administrator action with two current approvals", () => {
     const body = functionBody("publish_question_version");
 

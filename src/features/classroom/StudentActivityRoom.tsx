@@ -93,7 +93,7 @@ export function StudentActivityRoom({ client, activityId, participantId }: Props
           <p>
             你的每一題都已安全保存。需要再確認的能力會由老師協助，不會變成公開排名。
           </p>
-          <div className="shared-story-stats" aria-label="完成時的全班共同進度">
+          <div className="shared-story-stats" role="group" aria-label="完成時的全班共同進度">
             <strong>全班已修復 {activity.repairedPoints} 格</strong>
             <span>Boss 護甲 {activity.bossArmor}</span>
           </div>
@@ -110,7 +110,7 @@ export function StudentActivityRoom({ client, activityId, participantId }: Props
           <p className="eyebrow">{activity.grade} 年級・{activity.questionCount} 題合作任務</p>
           <h2>全班合作關卡已啟動</h2>
           <p>{activity.activityTitle}</p>
-          <div className="shared-story-stats" aria-label="全班共同進度">
+          <div className="shared-story-stats" role="group" aria-label="全班共同進度">
             <span>全班已完成 {activity.contributionCount} 次貢獻</span>
             <strong>全班已修復 {activity.repairedPoints} 格</strong>
             <span>Boss 護甲 {activity.bossArmor}</span>

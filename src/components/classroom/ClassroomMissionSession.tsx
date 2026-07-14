@@ -286,7 +286,7 @@ export function ClassroomMissionSession({
           <strong>作答後解析</strong>
           <p>{feedback.explanation}</p>
         </div>
-        <div className="shared-story-stats" aria-label="更新後的全班共同進度">
+        <div className="shared-story-stats" role="group" aria-label="更新後的全班共同進度">
           <strong>全班已修復 {feedback.sharedRepairedPoints} 格</strong>
           <span>Boss 護甲 {feedback.sharedBossArmor}</span>
         </div>

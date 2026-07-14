@@ -6,7 +6,7 @@ import { QuestionReviewWorkspace } from "@/features/governance/QuestionReviewWor
 export default function QuestionGovernancePage() {
   return (
     <AppShell pageClassName="governance-page">
-      <main className="page-main governance-main" id="main-content">
+      <main className="page-main governance-main" id="main-content" tabIndex={-1}>
         <Link className="back-link" href="/">
           <ArrowLeft aria-hidden="true" />回首頁
         </Link>

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "packId": "draft-3c9686dac6674cc4",
+  "evidenceClass": "draft_prereview_pack",
+  "formalReviewEligible": false,
+  "generatedAt": "2026-07-14T09:53:55.056Z",
+  "questionCount": 200,
+  "gradeCounts": {
+    "3": 50,
+    "4": 50,
+    "5": 50,
+    "6": 50
+  },
+  "requiredReviewerCount": 2,
+  "criteriaKeys": [
+    "english_correct",
+    "answer_unique",
+    "explanation_correct",
+    "hint_safe",
+    "asset_consistent",
+    "rights_clear",
+    "age_appropriate"
+  ],
+  "sourceImport": {
+    "byteLength": 225613,
+    "sha256": "3c9686dac6674cc45dd713abe7b2c3455182d75a17fc04dcbaa4e28617dfd619"
+  },
+  "questionContentHashing": {
+    "algorithm": "sha256",
+    "serialization": "stable-json-key-sort-v1"
+  },
+  "assetReadiness": {
+    "readyQuestionCount": 151,
+    "blockedQuestionCount": 49,
+    "placeholderAudioCount": 24,
+    "placeholderImageCount": 25
+  },
+  "evidenceLimitations": {
+    "databaseVersionLock": "not_included",
+    "externalCanonicalizationStandard": "not_claimed",
+    "humanTeacherDecisions": "not_included",
+    "productionAssetIntegrity": "placeholder_assets_blocked"
+  },
+  "files": [
+    "README.md",
+    "asset-blockers.csv",
+    "draft-questions.json",
+    "manifest.json",
+    "questions-for-review.csv",
+    "teacher-01.responses.unsigned.csv",
+    "teacher-02.responses.unsigned.csv",
+    "validation-report.json"
+  ],
+  "cryptographicSignature": null
+}

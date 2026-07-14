@@ -44,7 +44,7 @@ export default function StartPage() {
 
   return (
     <AppShell pageClassName="start-page">
-      <main id="main-content" className="page-main narrow-main">
+      <main id="main-content" className="page-main narrow-main" tabIndex={-1}>
         <div className="section-heading centered-heading">
           <p className="eyebrow">建立你的冒險檔案</p>
           <h1>選一位英雄，找到今天最適合的起點。</h1>

@@ -73,6 +73,7 @@ describe("question governance gateway", () => {
         }),
         correctOptionId: "yes",
         authorName: "內容編輯 A",
+        lockedAt: "2026-07-14T07:00:00.000Z",
         approvalCount: 1,
         changeRequestCount: 0,
       }),
