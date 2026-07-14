@@ -17,6 +17,16 @@ const optionSchema = z.object({
   text: z.string().min(1),
 });
 
+const audioSchema = z.object({
+  src: z.string().min(1),
+  transcript: z.string().min(1),
+});
+
+const imageSchema = z.object({
+  src: z.string().min(1),
+  alt: z.string().min(1),
+});
+
 const reviewQueueRowsSchema = z.array(
   z.object({
     question_id: z.string().min(1),
@@ -36,8 +46,8 @@ const reviewQueueRowsSchema = z.array(
     ]),
     purpose: z.enum(["diagnostic", "practice", "boss", "rescue", "review"]),
     prompt: z.string().min(1),
-    audio: z.unknown().nullable(),
-    image: z.unknown().nullable(),
+    audio: audioSchema.nullable(),
+    image: imageSchema.nullable(),
     options: z.array(optionSchema).min(2).max(6),
     correct_option_id: z.string().min(1),
     explanation: z.string().min(1),
@@ -45,6 +55,7 @@ const reviewQueueRowsSchema = z.array(
     variant_group: z.string().min(1),
     source: z.object({
       kind: z.enum(["original", "licensed", "research_reference"]),
+      url: z.string().url().optional(),
       note: z.string().min(1),
       usageRights: z.string().min(1),
     }),
@@ -145,7 +156,10 @@ export async function listQuestionReviewQueueWithSupabase(
     version: row.question_version,
     grade: row.grade,
     microSkill: row.micro_skill,
+    modality: row.modality,
     prompt: row.prompt,
+    audio: row.audio,
+    image: row.image,
     options: row.options,
     correctOptionId: row.correct_option_id,
     explanation: row.explanation,

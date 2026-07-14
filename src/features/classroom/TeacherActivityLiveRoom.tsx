@@ -64,23 +64,11 @@ export function TeacherActivityLiveRoom({
 
     void refreshParticipants();
 
-    const channel = client
-      .channel(`classroom-activity-${activityId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "activity_participants",
-          filter: `activity_id=eq.${activityId}`,
-        },
-        () => void refreshParticipants(),
-      )
-      .subscribe();
+    const pollId = window.setInterval(refreshParticipants, 5_000);
 
     return () => {
       mounted = false;
-      void client.removeChannel(channel);
+      window.clearInterval(pollId);
     };
   }, [activityId, client]);
 

@@ -61,7 +61,6 @@ describe("classroom core migration", () => {
 
   it("qualifies every outer row reference inside RLS subqueries", () => {
     const requiredOuterReferences = [
-      "activity.id = public.activity_participants.activity_id",
       "activity.id = public.activity_questions.activity_id",
       "participant.activity_id = public.activity_questions.activity_id",
       "participant.id = public.activity_responses.participant_id",
@@ -69,8 +68,6 @@ describe("classroom core migration", () => {
       "question.activity_id = public.activity_responses.activity_id",
       "question.question_id = public.activity_responses.question_id",
       "question.question_version = public.activity_responses.question_version",
-      "participant.id = public.classroom_learning_events.participant_id",
-      "activity.id = public.classroom_learning_events.activity_id",
       "participant.activity_id = public.classroom_story_progress.activity_id",
       "activity.id = public.classroom_story_progress.activity_id",
     ];
@@ -226,8 +223,26 @@ describe("classroom core migration", () => {
     expect(migration).toContain(
       "grant execute on function public.list_activity_participant_status(uuid) to authenticated",
     );
-    expect(migration).toContain(
+    expect(migration).not.toContain(
       "alter publication supabase_realtime add table public.activity_participants",
+    );
+    expect(migration).not.toContain("create policy activity_participants_teacher_select");
+  });
+
+  it("does not let teacher browsers read identifiable response or learning-event rows", () => {
+    expect(migration).not.toContain(
+      "grant select on public.activity_responses to authenticated",
+    );
+    expect(migration).not.toContain(
+      "grant select on public.classroom_learning_events to authenticated",
+    );
+    expect(migration).not.toContain("create policy activity_responses_teacher_select");
+    expect(migration).not.toContain(
+      "create policy classroom_learning_events_teacher_select",
+    );
+    expect(migration).not.toContain("create policy activity_responses_select_self");
+    expect(migration).not.toContain(
+      "create policy classroom_learning_events_select_self",
     );
   });
 
@@ -426,6 +441,7 @@ describe("classroom core migration", () => {
 
     expect(memberTable).toBeDefined();
     expect(memberTable).toContain("member_code text");
+    expect(memberTable).toContain("{6}$");
     expect(memberTable).toContain("display_alias text");
     expect(memberTable).toContain("group_label text");
     expect(memberTable).not.toMatch(/real_name|email|birthday/);
@@ -468,7 +484,11 @@ describe("classroom core migration", () => {
     expect(joinFunction).toContain("public.activity_targets target");
     expect(joinFunction).toContain("target.activity_id = activity_record.id");
     expect(joinFunction).toContain("classroom_member_id");
+    expect(joinFunction).toContain("private.activity_join_attempts");
+    expect(joinFunction).toContain("interval '10 minutes'");
+    expect(joinFunction).toContain("attempt_count >= 12");
     expect(joinFunction).not.toContain("member.display_alias =");
+    expect(joinFunction).not.toContain("learner code is already joined");
   });
 
   it("returns only anonymous aggregates for an owned activity learning report", () => {

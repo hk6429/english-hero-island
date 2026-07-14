@@ -52,7 +52,7 @@ describe("TeacherClassroomWorkspace", () => {
           data: [
             {
               member_id: "44444444-4444-4444-8444-444444444444",
-              member_code: "B7",
+              member_code: "B7K9Q2",
               display_alias: "藍鯨 7 號",
               group_label: "海洋組",
             },

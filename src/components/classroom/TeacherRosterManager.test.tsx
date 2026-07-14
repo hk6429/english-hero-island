@@ -11,7 +11,7 @@ describe("TeacherRosterManager", () => {
     const onChanged = vi.fn();
     const onCreate = vi.fn().mockResolvedValue({
       id: "44444444-4444-4444-8444-444444444444",
-      code: "B7",
+      code: "B7K9Q2",
       alias: "藍鯨 7 號",
       groupLabel: "海洋組",
     });
@@ -26,7 +26,7 @@ describe("TeacherRosterManager", () => {
         members={[
           {
             id: "44444444-4444-4444-8444-444444444444",
-            code: "B7",
+            code: "B7K9Q2",
             alias: "藍鯨 7 號",
             groupLabel: "海洋組",
           },
@@ -39,14 +39,14 @@ describe("TeacherRosterManager", () => {
 
     expect(screen.queryByLabelText(/真實姓名|電子郵件|生日/)).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("匿名別名"), "海星 8 號");
-    await user.type(screen.getByLabelText("學習代碼"), "c8");
+    await user.type(screen.getByLabelText("學習代碼"), "c8m4r6");
     await user.type(screen.getByLabelText("小組名稱（選填）"), "海洋組");
     await user.click(screen.getByRole("button", { name: "新增匿名學生" }));
 
     expect(onCreate).toHaveBeenCalledWith({
       classroomId: "22222222-2222-4222-8222-222222222222",
       displayAlias: "海星 8 號",
-      memberCode: "C8",
+      memberCode: "C8M4R6",
       groupLabel: "海洋組",
     });
     expect(onChanged).toHaveBeenCalledTimes(1);

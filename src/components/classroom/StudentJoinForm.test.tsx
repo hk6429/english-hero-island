@@ -53,14 +53,14 @@ describe("StudentJoinForm", () => {
     render(<StudentJoinForm onJoin={onJoin} />);
 
     await user.type(screen.getByLabelText("六碼活動代碼"), "a7k9q2");
-    await user.type(screen.getByLabelText("匿名學習代碼（選填）"), "b7");
+    await user.type(screen.getByLabelText("匿名學習代碼（選填）"), "b7k9q2");
     await user.type(screen.getByLabelText("匿名暱稱"), "小浪");
     await user.click(screen.getByRole("button", { name: "加入課堂任務" }));
 
     expect(onJoin).toHaveBeenCalledWith({
       joinCode: "A7K9Q2",
       nickname: "小浪",
-      memberCode: "B7",
+      memberCode: "B7K9Q2",
     });
   });
 });

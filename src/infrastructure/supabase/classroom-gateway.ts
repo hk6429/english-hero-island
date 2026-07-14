@@ -45,7 +45,7 @@ const teacherClassroomRowsSchema = z.array(teacherClassroomRowSchema);
 
 const classroomMemberRowSchema = z.object({
   member_id: z.string().uuid(),
-  member_code: z.string().regex(/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{2,8}$/),
+  member_code: z.string().regex(/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/),
   display_alias: z.string().min(1).max(24),
   group_label: z.string().min(1).max(24).nullable(),
 });
@@ -616,10 +616,10 @@ export async function createClassroomMemberWithSupabase(
     z.string().uuid().safeParse(normalized.classroomId).success &&
     normalized.displayAlias.length >= 1 &&
     normalized.displayAlias.length <= 24 &&
-    /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{2,8}$/.test(normalized.memberCode) &&
+    /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/.test(normalized.memberCode) &&
     normalized.groupLabel.length <= 24;
   if (!validRequest) {
-    throw new Error("請輸入 1–24 字匿名別名、2–8 碼學習代碼，以及最多 24 字小組名稱。");
+    throw new Error("請輸入 1–24 字匿名別名、6 碼學習代碼，以及最多 24 字小組名稱。");
   }
 
   const { data, error } = await client.rpc("create_classroom_member", {
@@ -838,7 +838,7 @@ export async function joinClassroomWithSupabase(
 
   const parsed = joinedActivityRowSchema.safeParse(Array.isArray(data) ? data[0] : data);
   if (!parsed.success) {
-    throw new Error("活動資料不完整，請老師重新建立任務。");
+    throw new Error("找不到這場任務，請確認代碼是否正確或已過期。");
   }
 
   return {

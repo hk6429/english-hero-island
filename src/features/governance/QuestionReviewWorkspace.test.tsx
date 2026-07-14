@@ -45,7 +45,10 @@ function queueRow() {
   };
 }
 
-function authenticatedClient() {
+function authenticatedClient(
+  role: "english_teacher" | "content_editor" | "administrator" =
+    "english_teacher",
+) {
   let queueLoads = 0;
   return {
     auth: {
@@ -61,8 +64,22 @@ function authenticatedClient() {
         data: { subscription: { unsubscribe: vi.fn() } },
       }),
       signInWithOtp: vi.fn(),
+      signOut: vi.fn().mockResolvedValue({ error: null }),
     },
     rpc: vi.fn().mockImplementation(async (name: string) => {
+      if (name === "get_content_governance_profile") {
+        return {
+          data: [
+            {
+              user_id: "11111111-1111-4111-8111-111111111111",
+              display_name: role === "english_teacher" ? "英語教師林老師" : "內容編輯王老師",
+              reviewer_role: role,
+              approval_status: "approved",
+            },
+          ],
+          error: null,
+        };
+      }
       if (name === "list_question_review_queue") {
         queueLoads += 1;
         return { data: queueLoads === 1 ? [queueRow()] : [], error: null };
@@ -83,6 +100,9 @@ function authenticatedClient() {
           error: null,
         };
       }
+      if (name === "search_question_bank" || name === "list_question_quality_signals") {
+        return { data: [], error: null };
+      }
       return { data: null, error: { message: "unexpected RPC" } };
     }),
   } as unknown as SupabaseClient;
@@ -100,6 +120,20 @@ describe("QuestionReviewWorkspace", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("待我複核 1 題")).toBeInTheDocument();
     expect(client.rpc).toHaveBeenCalledWith("list_question_review_queue");
+    expect(screen.getByText("英語教師林老師・英語教師")).toBeInTheDocument();
+  });
+
+  it("lets a governor end the persistent session on a shared school device", async () => {
+    const client = authenticatedClient();
+    render(<QuestionReviewWorkspace client={client} />);
+    await screen.findByRole("heading", { name: "Is this a kite?" });
+
+    fireEvent.click(screen.getByRole("button", { name: "登出題庫治理" }));
+
+    await waitFor(() => expect(client.auth.signOut).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByRole("heading", { name: "用已核准的工作信箱登入" }),
+    ).toBeInTheDocument();
   });
 
   it("records a real review then reloads the server queue", async () => {
@@ -114,6 +148,7 @@ describe("QuestionReviewWorkspace", () => {
       target: { value: "內容正確" },
     });
     fireEvent.click(screen.getByRole("button", { name: "通過複核" }));
+    fireEvent.click(screen.getByRole("button", { name: "確認送出通過複核" }));
 
     expect(
       await screen.findByRole("heading", { name: "目前沒有待你複核的題目" }),
@@ -128,7 +163,7 @@ describe("QuestionReviewWorkspace", () => {
         }),
       ),
     );
-    expect(client.rpc).toHaveBeenCalledTimes(3);
+    expect(client.rpc).toHaveBeenCalledTimes(5);
   });
 
   it("does not offer a fake local queue when Supabase is not configured", () => {
@@ -138,5 +173,17 @@ describe("QuestionReviewWorkspace", () => {
       screen.getByRole("heading", { name: "題庫治理後端尚未連線" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Is this a kite?")).not.toBeInTheDocument();
+  });
+
+  it("routes an approved content editor to the management workspace", async () => {
+    const client = authenticatedClient("content_editor");
+    render(<QuestionReviewWorkspace client={client} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "題庫管理工作區" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("內容編輯王老師・內容編輯")).toBeInTheDocument();
+    expect(client.rpc).toHaveBeenCalledWith("get_content_governance_profile");
+    expect(client.rpc).not.toHaveBeenCalledWith("list_question_review_queue");
   });
 });

@@ -147,7 +147,7 @@ describe("classroom roster gateway", () => {
             data: [
               {
                 member_id: "44444444-4444-4444-8444-444444444444",
-                member_code: "B7",
+                member_code: "B7K9Q2",
                 display_alias: "藍鯨 7 號",
                 group_label: "海洋組",
               },
@@ -160,7 +160,7 @@ describe("classroom roster gateway", () => {
             data: [
               {
                 member_id: "44444444-4444-4444-8444-444444444444",
-                member_code: "B7",
+                member_code: "B7K9Q2",
                 display_alias: "藍鯨 7 號",
                 group_label: "海洋組",
               },
@@ -188,7 +188,7 @@ describe("classroom roster gateway", () => {
     ).resolves.toEqual([
       {
         id: "44444444-4444-4444-8444-444444444444",
-        code: "B7",
+        code: "B7K9Q2",
         alias: "藍鯨 7 號",
         groupLabel: "海洋組",
       },
@@ -198,19 +198,19 @@ describe("classroom roster gateway", () => {
       createClassroomMemberWithSupabase(client, {
         classroomId: "22222222-2222-4222-8222-222222222222",
         displayAlias: " 藍鯨 7 號 ",
-        memberCode: " b7 ",
+        memberCode: " b7k9q2 ",
         groupLabel: " 海洋組 ",
       }),
     ).resolves.toEqual({
       id: "44444444-4444-4444-8444-444444444444",
-      code: "B7",
+      code: "B7K9Q2",
       alias: "藍鯨 7 號",
       groupLabel: "海洋組",
     });
     expect(client.rpc).toHaveBeenCalledWith("create_classroom_member", {
       p_classroom_id: "22222222-2222-4222-8222-222222222222",
       p_display_alias: "藍鯨 7 號",
-      p_member_code: "B7",
+      p_member_code: "B7K9Q2",
       p_group_label: "海洋組",
     });
 

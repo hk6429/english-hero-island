@@ -4,6 +4,7 @@ import { ShieldCheck, UsersRound } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 const JOIN_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/;
+const MEMBER_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/;
 const JOIN_CODE_FILTER = /[^23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
 const MEMBER_CODE_FILTER = /[^23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
 
@@ -36,6 +37,7 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
   const normalizedNickname = nickname.trim();
   const canSubmit =
     JOIN_CODE_PATTERN.test(joinCode) &&
+    (memberCode.length === 0 || MEMBER_CODE_PATTERN.test(memberCode)) &&
     normalizedNickname.length >= 1 &&
     normalizedNickname.length <= 12 &&
     !submitting;
@@ -115,16 +117,16 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
           aria-label="匿名學習代碼（選填）"
           autoCapitalize="characters"
           autoComplete="off"
-          maxLength={8}
+          maxLength={6}
           onChange={(event) =>
             setMemberCode(
               event.target.value
                 .toUpperCase()
                 .replace(MEMBER_CODE_FILTER, "")
-                .slice(0, 8),
+                .slice(0, 6),
             )
           }
-          placeholder="例如 B7"
+          placeholder="例如 B7K9Q2"
           spellCheck={false}
           type="text"
           value={memberCode}

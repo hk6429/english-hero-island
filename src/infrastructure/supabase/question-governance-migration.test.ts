@@ -96,9 +96,16 @@ describe("question governance migration", () => {
     expect(body).toContain("count(distinct review.reviewer_id)");
     expect(body).toContain("review.verdict = 'approved'");
     expect(body).toContain("reviewer.approval_status = 'approved'");
+    expect(body).toContain("another published version must be retired first");
+    expect(body).toContain("opaque audio asset is required for publication");
+    expect(body).toContain("like 'tts:%'");
     expect(body).toContain("status = 'published'");
     expect(body).toContain("published_at = now()");
     expect(body).toContain("insert into private.question_status_events");
+    expect(migration).toContain(
+      "create unique index question_versions_one_published_idx",
+    );
+    expect(migration).toContain("where status = 'published'");
   });
 
   it("supports dispute and retirement without deleting historical versions", () => {

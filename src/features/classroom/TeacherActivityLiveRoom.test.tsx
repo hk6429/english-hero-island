@@ -4,11 +4,20 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TeacherActivityLiveRoom } from "./TeacherActivityLiveRoom";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("TeacherActivityLiveRoom", () => {
-  it("refreshes the support panel after a participant realtime event", async () => {
-    let realtimeCallback: (() => void) | undefined;
+  it("refreshes the support panel through the protected status RPC without subscribing to raw rows", async () => {
+    let pollCallback: (() => Promise<void>) | undefined;
+    vi.spyOn(window, "setInterval").mockImplementation((callback, delay) => {
+      if (delay === 5_000) {
+        pollCallback = callback as () => Promise<void>;
+      }
+      return 1 as unknown as ReturnType<typeof window.setInterval>;
+    });
     const rpc = vi
       .fn()
       .mockResolvedValueOnce({ data: [], error: null })
@@ -16,19 +25,8 @@ describe("TeacherActivityLiveRoom", () => {
         data: [{ nickname: "小浪", participant_state: "joined" }],
         error: null,
       });
-    const channel = {
-      on: vi.fn().mockImplementation(
-        (_event: string, _filter: unknown, callback: () => void) => {
-          realtimeCallback = callback;
-          return channel;
-        },
-      ),
-      subscribe: vi.fn().mockReturnThis(),
-    };
     const client = {
       rpc,
-      channel: vi.fn().mockReturnValue(channel),
-      removeChannel: vi.fn().mockResolvedValue("ok"),
     } as unknown as SupabaseClient;
 
     render(
@@ -43,13 +41,13 @@ describe("TeacherActivityLiveRoom", () => {
     expect(await screen.findByText("活動碼已準備好，等待第一位學生加入。")).toBeInTheDocument();
 
     await act(async () => {
-      realtimeCallback?.();
+      await pollCallback?.();
     });
 
     expect(await screen.findByText("小浪")).toBeInTheDocument();
-    expect(client.channel).toHaveBeenCalledWith(
-      "classroom-activity-33333333-3333-4333-8333-333333333333",
-    );
+    expect(rpc).toHaveBeenCalledWith("list_activity_participant_status", {
+      p_activity_id: "33333333-3333-4333-8333-333333333333",
+    });
   });
 
   it("lets the owning teacher start and deliberately end the activity", async () => {
@@ -114,14 +112,8 @@ describe("TeacherActivityLiveRoom", () => {
       }
       return { data: [], error: null };
     });
-    const channel = {
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-    };
     const client = {
       rpc,
-      channel: vi.fn().mockReturnValue(channel),
-      removeChannel: vi.fn().mockResolvedValue("ok"),
     } as unknown as SupabaseClient;
 
     render(

@@ -10,7 +10,10 @@ const queueItem: QuestionReviewQueueItem = {
   version: 2,
   grade: 4,
   microSkill: "yes-no-questions",
+  modality: "text",
   prompt: "Is this a kite?",
+  audio: null,
+  image: null,
   options: [
     { id: "yes", text: "Yes, it is." },
     { id: "no", text: "No, it isn't." },
@@ -20,6 +23,7 @@ const queueItem: QuestionReviewQueueItem = {
   hints: ["先看問句開頭是不是 Is。"],
   source: {
     kind: "original",
+    url: "https://example.edu/question-source",
     note: "英語英雄島原創題",
     usageRights: "original-for-project",
   },
@@ -47,6 +51,45 @@ describe("QuestionReviewCard", () => {
     expect(screen.getByText("先看問句開頭是不是 Is。")).toBeInTheDocument();
     expect(screen.getByText("original-for-project")).toBeInTheDocument();
     expect(screen.getByText("修正問句與解析")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "開啟授權來源" })).toHaveAttribute(
+      "href",
+      "https://example.edu/question-source",
+    );
+  });
+
+  it("shows playable audio, transcript, and image evidence before asset review", () => {
+    const { rerender } = render(
+      <QuestionReviewCard
+        item={{
+          ...queueItem,
+          modality: "audio",
+          audio: { src: "/audio/kite.mp3", transcript: "Is this a kite?" },
+        }}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("播放題目音訊")).toHaveAttribute(
+      "src",
+      "/audio/kite.mp3",
+    );
+    expect(screen.getByText("逐字稿：Is this a kite?")).toBeInTheDocument();
+
+    rerender(
+      <QuestionReviewCard
+        item={{
+          ...queueItem,
+          modality: "image",
+          image: { src: "/images/kite.webp", alt: "一隻風箏" },
+        }}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "一隻風箏" })).toHaveAttribute(
+      "src",
+      "/images/kite.webp",
+    );
   });
 
   it("requires all seven checks and a meaningful note before approving", async () => {
@@ -65,6 +108,11 @@ describe("QuestionReviewCard", () => {
     expect(approveButton).toBeEnabled();
 
     fireEvent.click(approveButton);
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("alertdialog", { name: "確認通過複核" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "確認送出通過複核" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit).toHaveBeenCalledWith({
       questionId: queueItem.id,
@@ -92,6 +140,8 @@ describe("QuestionReviewCard", () => {
       target: { value: "第二個選項可能也能成立，請補上圖片情境。" },
     });
     fireEvent.click(screen.getByRole("button", { name: "退回修正" }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "確認送出退回修正" }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit).toHaveBeenCalledWith(

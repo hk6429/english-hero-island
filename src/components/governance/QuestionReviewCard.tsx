@@ -21,13 +21,17 @@ export type QuestionReviewQueueItem = Readonly<{
   version: number;
   grade: 3 | 4 | 5 | 6;
   microSkill: string;
+  modality: "text" | "audio" | "image";
   prompt: string;
+  audio: Readonly<{ src: string; transcript: string }> | null;
+  image: Readonly<{ src: string; alt: string }> | null;
   options: ReadonlyArray<Readonly<{ id: string; text: string }>>;
   correctOptionId: string;
   explanation: string;
   hints: ReadonlyArray<string>;
   source: Readonly<{
     kind: "original" | "licensed" | "research_reference";
+    url?: string;
     note: string;
     usageRights: string;
   }>;
@@ -64,12 +68,30 @@ const emptyCriteria = Object.fromEntries(
   reviewCriteriaKeys.map((criterion) => [criterion, false]),
 ) as Record<ReviewCriterion, boolean>;
 
+function ttsText(src: string) {
+  if (!src.startsWith("tts:")) return null;
+  try {
+    return decodeURIComponent(src.slice(4));
+  } catch {
+    return src.slice(4);
+  }
+}
+
+function playTts(text: string) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
 export function QuestionReviewCard({ item, onSubmit }: Props) {
   const [criteria, setCriteria] = useState<Record<ReviewCriterion, boolean>>({
     ...emptyCriteria,
   });
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [pendingVerdict, setPendingVerdict] = useState<
+    QuestionReviewSubmission["verdict"] | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
 
   const correctOption = useMemo(
@@ -80,22 +102,29 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
   const allCriteriaPassed = reviewCriteriaKeys.every(
     (criterion) => criteria[criterion],
   );
+  const audioTtsText = item.audio ? ttsText(item.audio.src) : null;
 
-  async function submit(verdict: QuestionReviewSubmission["verdict"]) {
+  function requestSubmit(verdict: QuestionReviewSubmission["verdict"]) {
     if (!hasMeaningfulNote || (verdict === "approved" && !allCriteriaPassed)) {
       return;
     }
+    setPendingVerdict(verdict);
+    setError(null);
+  }
 
+  async function confirmSubmit() {
+    if (!pendingVerdict) return;
     setSubmitting(true);
     setError(null);
     try {
       await onSubmit({
         questionId: item.id,
         questionVersion: item.version,
-        verdict,
+        verdict: pendingVerdict,
         note: note.trim(),
         criteria: { ...criteria },
       });
+      setPendingVerdict(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "複核送出失敗，請稍後再試。");
     } finally {
@@ -132,6 +161,40 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
       ) : null}
 
       <section className="question-review-evidence" aria-label="題目內容證據">
+        {item.audio || item.image ? (
+          <div className="question-review-assets">
+            <h3>音訊與圖片</h3>
+            {item.audio ? (
+              <div>
+                {audioTtsText ? (
+                  <button
+                    className="secondary-button"
+                    onClick={() => playTts(audioTtsText)}
+                    type="button"
+                  >
+                    播放合成語音
+                  </button>
+                ) : (
+                  <audio
+                    aria-label="播放題目音訊"
+                    controls
+                    preload="none"
+                    src={item.audio.src}
+                  />
+                )}
+                <p>{`逐字稿：${item.audio.transcript}`}</p>
+              </div>
+            ) : null}
+            {item.image ? (
+              <figure>
+                {/* Content reviewers must inspect arbitrary governed asset URLs. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img alt={item.image.alt} loading="lazy" src={item.image.src} />
+                <figcaption>{`替代文字：${item.image.alt}`}</figcaption>
+              </figure>
+            ) : null}
+          </div>
+        ) : null}
         <div>
           <h3>選項與正解</h3>
           <ol>
@@ -166,6 +229,13 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
             {item.source.kind}・{item.source.note}
           </p>
           <code>{item.source.usageRights}</code>
+          {item.source.url ? (
+            <p>
+              <a href={item.source.url} rel="noreferrer" target="_blank">
+                開啟授權來源
+              </a>
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -209,7 +279,7 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
             <button
               className="secondary-button"
               disabled={!hasMeaningfulNote || submitting}
-              onClick={() => void submit("changes_requested")}
+              onClick={() => requestSubmit("changes_requested")}
               type="button"
             >
               退回修正
@@ -217,7 +287,7 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
             <button
               className="primary-button"
               disabled={!hasMeaningfulNote || !allCriteriaPassed || submitting}
-              onClick={() => void submit("approved")}
+              onClick={() => requestSubmit("approved")}
               type="button"
             >
               {submitting ? "送出中…" : "通過複核"}
@@ -225,6 +295,43 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
           </div>
         </fieldset>
       </form>
+
+      {pendingVerdict ? (
+        <section
+          aria-labelledby={`review-confirmation-${item.id}`}
+          className="review-submit-confirmation"
+          role="alertdialog"
+        >
+          <h3 id={`review-confirmation-${item.id}`}>
+            {pendingVerdict === "approved" ? "確認通過複核" : "確認退回修正"}
+          </h3>
+          <p>
+            送出後這份真人複核紀錄不可修改或刪除；若日後發現問題，必須另走爭議流程留下新紀錄。
+          </p>
+          <div className="review-actions">
+            <button
+              className="primary-button"
+              disabled={submitting}
+              onClick={() => void confirmSubmit()}
+              type="button"
+            >
+              {submitting
+                ? "送出中…"
+                : pendingVerdict === "approved"
+                  ? "確認送出通過複核"
+                  : "確認送出退回修正"}
+            </button>
+            <button
+              className="secondary-button"
+              disabled={submitting}
+              onClick={() => setPendingVerdict(null)}
+              type="button"
+            >
+              返回檢查
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {item.changeRequestCount > 0 ? (
         <p className="inline-form-alert" role="status">

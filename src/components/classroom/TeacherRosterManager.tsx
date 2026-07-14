@@ -36,8 +36,7 @@ export function TeacherRosterManager({
   const canCreate =
     displayAlias.trim().length >= 1 &&
     displayAlias.trim().length <= 24 &&
-    memberCode.length >= 2 &&
-    memberCode.length <= 8 &&
+    memberCode.length === 6 &&
     groupLabel.trim().length <= 24 &&
     !submitting;
 
@@ -106,16 +105,16 @@ export function TeacherRosterManager({
           <input
             autoCapitalize="characters"
             autoComplete="off"
-            maxLength={8}
+            maxLength={6}
             onChange={(event) =>
               setMemberCode(
                 event.target.value
                   .toUpperCase()
                   .replace(MEMBER_CODE_FILTER, "")
-                  .slice(0, 8),
+                  .slice(0, 6),
               )
             }
-            placeholder="例如 C8"
+            placeholder="例如 C8M4R6"
             required
             spellCheck={false}
             type="text"

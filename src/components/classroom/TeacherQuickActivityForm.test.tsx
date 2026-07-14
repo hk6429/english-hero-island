@@ -85,13 +85,13 @@ describe("TeacherQuickActivityForm", () => {
         members={[
           {
             id: "44444444-4444-4444-8444-444444444444",
-            code: "B7",
+            code: "B7K9Q2",
             alias: "藍鯨 7 號",
             groupLabel: "海洋組",
           },
           {
             id: "55555555-5555-4555-8555-555555555555",
-            code: "C8",
+            code: "C8M4R6",
             alias: "海星 8 號",
             groupLabel: "海洋組",
           },

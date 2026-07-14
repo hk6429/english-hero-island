@@ -35,7 +35,7 @@ create table public.classroom_members (
   id uuid primary key default gen_random_uuid(),
   classroom_id uuid not null references public.classrooms(id) on delete cascade,
   member_code text not null
-    check (member_code ~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{2,8}$'),
+    check (member_code ~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$'),
   display_alias text not null check (char_length(trim(display_alias)) between 1 and 24),
   group_label text check (
     group_label is null or char_length(trim(group_label)) between 1 and 24
@@ -98,6 +98,12 @@ create table public.activity_participants (
   unique (id, activity_id)
 );
 
+create table private.activity_join_attempts (
+  id bigint generated always as identity primary key,
+  auth_user_id uuid not null references auth.users(id) on delete cascade,
+  attempted_at timestamptz not null default now()
+);
+
 create table private.question_versions (
   question_id text not null,
   version integer not null check (version > 0),
@@ -130,6 +136,13 @@ create table private.question_versions (
   reviewed_at timestamptz,
   published_at timestamptz,
   created_at timestamptz not null default now(),
+  search_vector tsvector generated always as (
+    setweight(to_tsvector('simple', coalesce(question_id, '')), 'A')
+    || setweight(to_tsvector('simple', coalesce(prompt, '')), 'A')
+    || setweight(to_tsvector('simple', coalesce(indicator, '')), 'B')
+    || setweight(to_tsvector('simple', coalesce(micro_skill, '')), 'B')
+    || setweight(to_tsvector('simple', coalesce(explanation, '')), 'C')
+  ) stored,
   primary key (question_id, version),
   foreign key (question_id, supersedes_version)
     references private.question_versions(question_id, version) on delete restrict,
@@ -286,16 +299,22 @@ create index classroom_learning_events_activity_skill_idx
   on public.classroom_learning_events (activity_id, micro_skill, occurred_at);
 create index classroom_learning_events_participant_occurred_idx
   on public.classroom_learning_events (participant_id, occurred_at desc);
+create index classroom_learning_events_question_version_outcome_idx
+  on public.classroom_learning_events (question_id, question_version, outcome);
 create index question_versions_status_grade_skill_idx
   on private.question_versions (status, grade, micro_skill, published_at desc);
+create unique index question_versions_one_published_idx
+  on private.question_versions (question_id)
+  where status = 'published';
+create index question_versions_search_idx on private.question_versions using gin (search_vector);
 create index question_reviews_version_verdict_idx
   on private.question_reviews (question_id, question_version, verdict, created_at);
 create index question_reviews_reviewer_idx
   on private.question_reviews (reviewer_id, created_at desc);
 create index question_status_events_version_idx
   on private.question_status_events (question_id, question_version, created_at);
-
-alter publication supabase_realtime add table public.activity_participants;
+create index activity_join_attempts_user_time_idx
+  on private.activity_join_attempts (auth_user_id, attempted_at desc);
 
 alter table public.teacher_profiles enable row level security;
 alter table public.content_reviewer_profiles enable row level security;
@@ -311,6 +330,7 @@ alter table public.classroom_story_progress enable row level security;
 alter table private.question_versions enable row level security;
 alter table private.question_reviews enable row level security;
 alter table private.question_status_events enable row level security;
+alter table private.activity_join_attempts enable row level security;
 
 alter table public.teacher_profiles force row level security;
 alter table public.content_reviewer_profiles force row level security;
@@ -326,6 +346,7 @@ alter table public.classroom_story_progress force row level security;
 alter table private.question_versions force row level security;
 alter table private.question_reviews force row level security;
 alter table private.question_status_events force row level security;
+alter table private.activity_join_attempts force row level security;
 
 revoke all on public.teacher_profiles from anon, authenticated;
 revoke all on public.content_reviewer_profiles from anon, authenticated;
@@ -342,6 +363,7 @@ revoke all on schema private from public, anon, authenticated;
 revoke all on private.question_versions from public, anon, authenticated;
 revoke all on private.question_reviews from public, anon, authenticated;
 revoke all on private.question_status_events from public, anon, authenticated;
+revoke all on private.activity_join_attempts from public, anon, authenticated;
 
 grant usage on schema public to authenticated;
 grant select on public.teacher_profiles to authenticated;
@@ -353,14 +375,13 @@ grant select, delete on public.classroom_activities to authenticated;
 grant select on public.activity_targets to authenticated;
 grant select on public.activity_participants to authenticated;
 grant select on public.activity_questions to authenticated;
-grant select on public.activity_responses to authenticated;
-grant select on public.classroom_learning_events to authenticated;
 grant select on public.classroom_story_progress to authenticated;
 
 grant usage on schema private to service_role;
 grant select, insert, update on private.question_versions to service_role;
 grant select, insert on private.question_reviews to service_role;
 grant select, insert on private.question_status_events to service_role;
+grant select, insert, delete on private.activity_join_attempts to service_role;
 
 create policy teacher_profiles_select_own
 on public.teacher_profiles for select
@@ -499,17 +520,6 @@ on public.activity_participants for select
 to authenticated
 using ((select auth.uid()) = auth_user_id);
 
-create policy activity_participants_teacher_select
-on public.activity_participants for select
-to authenticated
-using (
-  exists (
-    select 1 from public.classroom_activities activity
-    where activity.id = public.activity_participants.activity_id
-      and activity.teacher_id = (select auth.uid())
-  )
-);
-
 create policy activity_questions_teacher_select
 on public.activity_questions for select
 to authenticated
@@ -535,28 +545,6 @@ using (
   )
 );
 
-create policy activity_responses_select_self
-on public.activity_responses for select
-to authenticated
-using (
-  exists (
-    select 1 from public.activity_participants participant
-    where participant.id = public.activity_responses.participant_id
-      and participant.auth_user_id = (select auth.uid())
-  )
-);
-
-create policy activity_responses_teacher_select
-on public.activity_responses for select
-to authenticated
-using (
-  exists (
-    select 1 from public.classroom_activities activity
-    where activity.id = public.activity_responses.activity_id
-      and activity.teacher_id = (select auth.uid())
-  )
-);
-
 create policy activity_responses_participant_insert
 on public.activity_responses for insert
 to authenticated
@@ -576,28 +564,6 @@ with check (
       and question.question_id = public.activity_responses.question_id
       and question.question_version = public.activity_responses.question_version
       and activity.status = 'active'
-  )
-);
-
-create policy classroom_learning_events_select_self
-on public.classroom_learning_events for select
-to authenticated
-using (
-  exists (
-    select 1 from public.activity_participants participant
-    where participant.id = public.classroom_learning_events.participant_id
-      and participant.auth_user_id = (select auth.uid())
-  )
-);
-
-create policy classroom_learning_events_teacher_select
-on public.classroom_learning_events for select
-to authenticated
-using (
-  exists (
-    select 1 from public.classroom_activities activity
-    where activity.id = public.classroom_learning_events.activity_id
-      and activity.teacher_id = (select auth.uid())
   )
 );
 
@@ -622,6 +588,1217 @@ using (
       and activity.teacher_id = (select auth.uid())
   )
 );
+
+create or replace function private.validate_question_content(p_content jsonb)
+returns void
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  modality text;
+  option_count integer;
+  distinct_option_id_count integer;
+  distinct_option_text_count integer;
+  invalid_option_count integer;
+begin
+  if p_content is null or jsonb_typeof(p_content) <> 'object' then
+    raise exception 'question content must be an object' using errcode = '22023';
+  end if;
+
+  if coalesce(p_content ->> 'grade', '') !~ '^[3-6]$' then
+    raise exception 'question grade must be 3 to 6' using errcode = '22023';
+  end if;
+
+  if p_content ->> 'skill' not in (
+    'letters',
+    'phonics',
+    'vocabulary',
+    'classroom_english',
+    'grammar',
+    'comprehension'
+  ) then
+    raise exception 'question skill is invalid' using errcode = '22023';
+  end if;
+
+  if char_length(trim(coalesce(p_content ->> 'indicator', ''))) not between 1 and 200
+    or char_length(trim(coalesce(p_content ->> 'microSkill', ''))) not between 1 and 120
+  then
+    raise exception 'question indicator or micro skill is invalid' using errcode = '22023';
+  end if;
+
+  if coalesce(p_content ->> 'difficulty', '') !~ '^[1-3]$' then
+    raise exception 'question difficulty must be 1 to 3' using errcode = '22023';
+  end if;
+
+  modality := p_content ->> 'modality';
+  if modality not in ('text', 'audio', 'image') then
+    raise exception 'question modality is invalid' using errcode = '22023';
+  end if;
+
+  if p_content ->> 'questionType' not in (
+    'multiple_choice',
+    'listening_choice',
+    'image_choice',
+    'sentence_order'
+  ) then
+    raise exception 'question type is invalid' using errcode = '22023';
+  end if;
+
+  if p_content ->> 'purpose' not in (
+    'diagnostic',
+    'practice',
+    'boss',
+    'rescue',
+    'review'
+  ) then
+    raise exception 'question purpose is invalid' using errcode = '22023';
+  end if;
+
+  if char_length(trim(coalesce(p_content ->> 'prompt', ''))) not between 1 and 1000
+    or char_length(trim(coalesce(p_content ->> 'explanation', ''))) not between 1 and 2000
+    or char_length(trim(coalesce(p_content ->> 'variantGroup', ''))) not between 1 and 120
+  then
+    raise exception 'question text content is invalid' using errcode = '22023';
+  end if;
+
+  if jsonb_typeof(p_content -> 'options') <> 'array'
+    or jsonb_array_length(p_content -> 'options') not between 2 and 6
+  then
+    raise exception 'question options must contain 2 to 6 choices' using errcode = '22023';
+  end if;
+
+  select
+    count(*)::integer,
+    count(distinct option_value ->> 'id')::integer,
+    count(distinct lower(trim(option_value ->> 'text')))::integer,
+    count(*) filter (
+      where case
+        when jsonb_typeof(option_value) <> 'object' then true
+        else jsonb_object_length(option_value) <> 2
+          or not (option_value ? 'id')
+          or not (option_value ? 'text')
+          or jsonb_typeof(option_value -> 'id') <> 'string'
+          or jsonb_typeof(option_value -> 'text') <> 'string'
+          or char_length(trim(coalesce(option_value ->> 'id', ''))) = 0
+          or option_value ->> 'id' <> trim(option_value ->> 'id')
+          or char_length(trim(coalesce(option_value ->> 'text', ''))) = 0
+      end
+    )::integer
+  into
+    option_count,
+    distinct_option_id_count,
+    distinct_option_text_count,
+    invalid_option_count
+  from jsonb_array_elements(p_content -> 'options') as option(option_value);
+
+  if invalid_option_count > 0
+    or option_count <> distinct_option_id_count
+    or option_count <> distinct_option_text_count
+  then
+    raise exception 'question choices must have unique non-empty ids and text'
+      using errcode = '22023';
+  end if;
+
+  if char_length(trim(coalesce(p_content ->> 'correctOptionId', ''))) = 0
+    or not exists (
+      select 1
+      from jsonb_array_elements(p_content -> 'options') as option(option_value)
+      where option_value ->> 'id' = p_content ->> 'correctOptionId'
+    )
+  then
+    raise exception 'correct option must identify an existing choice' using errcode = '22023';
+  end if;
+
+  if jsonb_typeof(p_content -> 'hints') <> 'array'
+    or jsonb_array_length(p_content -> 'hints') = 0
+    or exists (
+      select 1
+      from jsonb_array_elements(p_content -> 'hints') as hint(hint_value)
+      where jsonb_typeof(hint_value) <> 'string'
+        or char_length(trim(hint_value #>> '{}')) = 0
+    )
+  then
+    raise exception 'question hints must contain non-empty text' using errcode = '22023';
+  end if;
+
+  if modality = 'audio'
+    and (
+      jsonb_typeof(p_content -> 'audio') <> 'object'
+      or char_length(trim(coalesce(p_content -> 'audio' ->> 'src', ''))) = 0
+      or char_length(trim(coalesce(p_content -> 'audio' ->> 'transcript', ''))) = 0
+    )
+  then
+    raise exception 'audio questions require a source and transcript' using errcode = '22023';
+  end if;
+
+  if modality = 'image'
+    and (
+      jsonb_typeof(p_content -> 'image') <> 'object'
+      or char_length(trim(coalesce(p_content -> 'image' ->> 'src', ''))) = 0
+      or char_length(trim(coalesce(p_content -> 'image' ->> 'alt', ''))) = 0
+    )
+  then
+    raise exception 'image questions require a source and alternative text'
+      using errcode = '22023';
+  end if;
+
+  if jsonb_typeof(p_content -> 'source') <> 'object'
+    or coalesce(p_content -> 'source' ->> 'kind', '') not in (
+      'original',
+      'licensed',
+      'research_reference'
+    )
+    or char_length(trim(coalesce(p_content -> 'source' ->> 'note', ''))) = 0
+    or char_length(trim(coalesce(p_content -> 'source' ->> 'usageRights', ''))) = 0
+  then
+    raise exception 'question source metadata is invalid' using errcode = '22023';
+  end if;
+end;
+$$;
+
+revoke execute on function private.validate_question_content(jsonb) from public, anon, authenticated;
+
+create or replace function public.get_content_governance_profile()
+returns table (
+  user_id uuid,
+  display_name text,
+  reviewer_role text,
+  approval_status text
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'content governance authentication required'
+      using errcode = '42501';
+  end if;
+
+  return query
+  select
+    profile.user_id,
+    profile.display_name,
+    profile.reviewer_role,
+    profile.approval_status
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid();
+
+  if not found then
+    raise exception 'content governance profile not found' using errcode = 'P0002';
+  end if;
+end;
+$$;
+
+revoke execute on function public.get_content_governance_profile() from public, anon;
+grant execute on function public.get_content_governance_profile() to authenticated;
+
+create or replace function public.search_question_bank(
+  p_query text default null,
+  p_grade smallint default null,
+  p_skill text default null,
+  p_micro_skill text default null,
+  p_status text default null,
+  p_modality text default null,
+  p_difficulty smallint default null,
+  p_cursor_created_at timestamptz default null,
+  p_cursor_question_id text default null,
+  p_cursor_question_version integer default null,
+  p_limit integer default 50
+)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  grade smallint,
+  skill text,
+  indicator text,
+  micro_skill text,
+  difficulty smallint,
+  modality text,
+  question_type text,
+  purpose text,
+  prompt text,
+  audio jsonb,
+  image jsonb,
+  options jsonb,
+  correct_option_id text,
+  explanation text,
+  hints text[],
+  variant_group text,
+  source jsonb,
+  author jsonb,
+  created_by uuid,
+  supersedes_version integer,
+  change_summary text,
+  locked_at timestamptz,
+  reviewed_at timestamptz,
+  published_at timestamptz,
+  created_at timestamptz,
+  approval_count integer,
+  change_request_count integer,
+  total_count bigint
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved content governor authentication required'
+      using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role in ('english_teacher', 'content_editor', 'administrator')
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved content governor required' using errcode = '42501';
+  end if;
+
+  if p_grade is not null and p_grade not between 3 and 6 then
+    raise exception 'question grade filter is invalid' using errcode = '22023';
+  end if;
+
+  if p_status is not null
+    and p_status not in ('draft', 'in_review', 'reviewed', 'published', 'disputed', 'retired')
+  then
+    raise exception 'question status filter is invalid' using errcode = '22023';
+  end if;
+
+  if p_modality is not null and p_modality not in ('text', 'audio', 'image') then
+    raise exception 'question modality filter is invalid' using errcode = '22023';
+  end if;
+
+  if p_difficulty is not null and p_difficulty not between 1 and 3 then
+    raise exception 'question difficulty filter is invalid' using errcode = '22023';
+  end if;
+
+  if p_limit is null or p_limit not between 1 and 100 then
+    raise exception 'question search limit must be 1 to 100' using errcode = '22023';
+  end if;
+
+  if (p_cursor_created_at is null) <> (p_cursor_question_id is null)
+    or (p_cursor_created_at is null) <> (p_cursor_question_version is null)
+  then
+    raise exception 'question search cursor is incomplete' using errcode = '22023';
+  end if;
+
+  if p_cursor_question_version is not null and p_cursor_question_version <= 0 then
+    raise exception 'question search cursor version is invalid' using errcode = '22023';
+  end if;
+
+  return query
+  with filtered_versions as (
+    select
+      latest.*,
+      coalesce(review_counts.approval_count, 0) as approval_count,
+      coalesce(review_counts.change_request_count, 0) as change_request_count,
+      count(*) over () as total_count
+    from private.question_versions latest
+    left join lateral (
+      select
+        count(distinct review.reviewer_id) filter (
+          where review.verdict = 'approved'
+        )::integer as approval_count,
+        count(distinct review.reviewer_id) filter (
+          where review.verdict = 'changes_requested'
+        )::integer as change_request_count
+      from private.question_reviews review
+      join public.content_reviewer_profiles reviewer
+        on reviewer.user_id = review.reviewer_id
+      where review.question_id = latest.question_id
+        and review.question_version = latest.version
+        and reviewer.reviewer_role = 'english_teacher'
+        and reviewer.approval_status = 'approved'
+    ) review_counts on true
+    where (p_query is null or trim(p_query) = ''
+      or latest.search_vector @@ websearch_to_tsquery('simple', trim(p_query)))
+      and (p_grade is null or latest.grade = p_grade)
+      and (p_skill is null or latest.skill = p_skill)
+      and (p_micro_skill is null or latest.micro_skill = p_micro_skill)
+      and (p_status is null or latest.status = p_status)
+      and (p_modality is null or latest.modality = p_modality)
+      and (p_difficulty is null or latest.difficulty = p_difficulty)
+  )
+  select
+    filtered.question_id,
+    filtered.version,
+    filtered.status,
+    filtered.grade,
+    filtered.skill,
+    filtered.indicator,
+    filtered.micro_skill,
+    filtered.difficulty,
+    filtered.modality,
+    filtered.question_type,
+    filtered.purpose,
+    filtered.prompt,
+    filtered.audio,
+    filtered.image,
+    filtered.options,
+    filtered.correct_option_id,
+    filtered.explanation,
+    filtered.hints,
+    filtered.variant_group,
+    filtered.source,
+    filtered.author,
+    filtered.created_by,
+    filtered.supersedes_version,
+    filtered.change_summary,
+    filtered.locked_at,
+    filtered.reviewed_at,
+    filtered.published_at,
+    filtered.created_at,
+    filtered.approval_count,
+    filtered.change_request_count,
+    filtered.total_count
+  from filtered_versions filtered
+  where p_cursor_created_at is null
+    or filtered.created_at < p_cursor_created_at
+    or (
+      filtered.created_at = p_cursor_created_at
+      and filtered.question_id > p_cursor_question_id
+    )
+    or (
+      filtered.created_at = p_cursor_created_at
+      and filtered.question_id = p_cursor_question_id
+      and filtered.version < p_cursor_question_version
+    )
+  order by filtered.created_at desc, filtered.question_id, filtered.version desc
+  limit p_limit;
+end;
+$$;
+
+revoke execute on function public.search_question_bank(text, smallint, text, text, text, text, smallint, timestamptz, text, integer, integer) from public, anon;
+grant execute on function public.search_question_bank(text, smallint, text, text, text, text, smallint, timestamptz, text, integer, integer) to authenticated;
+
+create or replace function public.list_question_versions(p_question_id text)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  grade smallint,
+  skill text,
+  indicator text,
+  micro_skill text,
+  difficulty smallint,
+  modality text,
+  question_type text,
+  purpose text,
+  prompt text,
+  audio jsonb,
+  image jsonb,
+  options jsonb,
+  correct_option_id text,
+  explanation text,
+  hints text[],
+  variant_group text,
+  source jsonb,
+  author jsonb,
+  created_by uuid,
+  supersedes_version integer,
+  change_summary text,
+  locked_at timestamptz,
+  reviewed_at timestamptz,
+  published_at timestamptz,
+  created_at timestamptz,
+  approval_count integer,
+  change_request_count integer
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved content governor authentication required'
+      using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role in ('english_teacher', 'content_editor', 'administrator')
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved content governor required' using errcode = '42501';
+  end if;
+
+  if p_question_id is null or char_length(trim(p_question_id)) not between 1 and 120 then
+    raise exception 'question id is invalid' using errcode = '22023';
+  end if;
+
+  return query
+  select
+    question.question_id,
+    question.version,
+    question.status,
+    question.grade,
+    question.skill,
+    question.indicator,
+    question.micro_skill,
+    question.difficulty,
+    question.modality,
+    question.question_type,
+    question.purpose,
+    question.prompt,
+    question.audio,
+    question.image,
+    question.options,
+    question.correct_option_id,
+    question.explanation,
+    question.hints,
+    question.variant_group,
+    question.source,
+    question.author,
+    question.created_by,
+    question.supersedes_version,
+    question.change_summary,
+    question.locked_at,
+    question.reviewed_at,
+    question.published_at,
+    question.created_at,
+    coalesce(review_counts.approval_count, 0),
+    coalesce(review_counts.change_request_count, 0)
+  from private.question_versions question
+  left join lateral (
+    select
+      count(distinct review.reviewer_id) filter (
+        where review.verdict = 'approved'
+      )::integer as approval_count,
+      count(distinct review.reviewer_id) filter (
+        where review.verdict = 'changes_requested'
+      )::integer as change_request_count
+    from private.question_reviews review
+    join public.content_reviewer_profiles reviewer
+      on reviewer.user_id = review.reviewer_id
+    where review.question_id = question.question_id
+      and review.question_version = question.version
+      and reviewer.reviewer_role = 'english_teacher'
+      and reviewer.approval_status = 'approved'
+  ) review_counts on true
+  where question.question_id = trim(p_question_id)
+  order by question.version desc;
+end;
+$$;
+
+revoke execute on function public.list_question_versions(text) from public, anon;
+grant execute on function public.list_question_versions(text) to authenticated;
+
+create or replace function public.list_question_quality_signals(
+  p_grade smallint default null,
+  p_micro_skill text default null,
+  p_status text default null,
+  p_modality text default null
+)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  grade smallint,
+  micro_skill text,
+  modality text,
+  prompt text,
+  response_count bigint,
+  independent_correct_count bigint,
+  assisted_correct_count bigint,
+  rescued_count bigint,
+  pending_support_count bigint,
+  is_disputed boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved content governor authentication required'
+      using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role in ('english_teacher', 'content_editor', 'administrator')
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved content governor required' using errcode = '42501';
+  end if;
+
+  if p_grade is not null and p_grade not between 3 and 6 then
+    raise exception 'question grade filter is invalid' using errcode = '22023';
+  end if;
+
+  if p_status is not null
+    and p_status not in ('draft', 'in_review', 'reviewed', 'published', 'disputed', 'retired')
+  then
+    raise exception 'question status filter is invalid' using errcode = '22023';
+  end if;
+
+  if p_modality is not null and p_modality not in ('text', 'audio', 'image') then
+    raise exception 'question modality filter is invalid' using errcode = '22023';
+  end if;
+
+  return query
+  select
+    question.question_id,
+    question.version,
+    question.status,
+    question.grade,
+    question.micro_skill,
+    question.modality,
+    question.prompt,
+    count(event.id) as response_count,
+    count(event.id) filter (
+      where event.outcome = 'independent_correct'
+    ) as independent_correct_count,
+    count(event.id) filter (
+      where event.outcome = 'assisted_correct'
+    ) as assisted_correct_count,
+    count(event.id) filter (
+      where event.outcome = 'rescued'
+    ) as rescued_count,
+    count(event.id) filter (
+      where event.outcome = 'pending_support'
+    ) as pending_support_count,
+    question.status = 'disputed' as is_disputed
+  from private.question_versions question
+  left join public.classroom_learning_events event
+    on event.question_id = question.question_id
+    and event.question_version = question.version
+  where (p_grade is null or question.grade = p_grade)
+    and (p_micro_skill is null or question.micro_skill = p_micro_skill)
+    and (p_status is null or question.status = p_status)
+    and (p_modality is null or question.modality = p_modality)
+  group by
+    question.question_id,
+    question.version,
+    question.status,
+    question.grade,
+    question.micro_skill,
+    question.modality,
+    question.prompt
+  order by question.grade, question.micro_skill, question.question_id, question.version desc;
+end;
+$$;
+
+revoke execute on function public.list_question_quality_signals(smallint, text, text, text) from public, anon;
+grant execute on function public.list_question_quality_signals(smallint, text, text, text) to authenticated;
+
+create or replace function public.create_question_draft(
+  p_question_id text,
+  p_content jsonb
+)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  created_by uuid,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+  saved_question private.question_versions%rowtype;
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved content author authentication required'
+      using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role in ('content_editor', 'administrator')
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved content editor or administrator required'
+      using errcode = '42501';
+  end if;
+
+  if p_question_id is null
+    or char_length(trim(p_question_id)) not between 1 and 120
+    or trim(p_question_id) !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$'
+  then
+    raise exception 'question id is invalid' using errcode = '22023';
+  end if;
+
+  perform private.validate_question_content(p_content);
+
+  insert into private.question_versions (
+    question_id,
+    version,
+    supersedes_version,
+    change_summary,
+    status,
+    grade,
+    skill,
+    indicator,
+    micro_skill,
+    difficulty,
+    modality,
+    question_type,
+    purpose,
+    prompt,
+    audio,
+    image,
+    options,
+    correct_option_id,
+    explanation,
+    hints,
+    variant_group,
+    source,
+    author,
+    created_by
+  )
+  values (
+    trim(p_question_id),
+    1,
+    null,
+    null,
+    'draft',
+    (p_content ->> 'grade')::smallint,
+    trim(p_content ->> 'skill'),
+    trim(p_content ->> 'indicator'),
+    trim(p_content ->> 'microSkill'),
+    (p_content ->> 'difficulty')::smallint,
+    trim(p_content ->> 'modality'),
+    trim(p_content ->> 'questionType'),
+    trim(p_content ->> 'purpose'),
+    trim(p_content ->> 'prompt'),
+    p_content -> 'audio',
+    p_content -> 'image',
+    p_content -> 'options',
+    trim(p_content ->> 'correctOptionId'),
+    trim(p_content ->> 'explanation'),
+    array(
+      select jsonb_array_elements_text(p_content -> 'hints')
+    ),
+    trim(p_content ->> 'variantGroup'),
+    p_content -> 'source',
+    jsonb_build_object(
+      'id', auth.uid()::text,
+      'displayName', profile_record.display_name
+    ),
+    auth.uid()
+  )
+  returning * into saved_question;
+
+  return query
+  select
+    saved_question.question_id,
+    saved_question.version,
+    saved_question.status,
+    saved_question.created_by,
+    saved_question.created_at;
+end;
+$$;
+
+revoke execute on function public.create_question_draft(text, jsonb) from public, anon;
+grant execute on function public.create_question_draft(text, jsonb) to authenticated;
+
+create or replace function public.import_question_drafts(p_drafts jsonb)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  created_by uuid,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+  draft_record jsonb;
+  draft_count integer;
+  distinct_question_id_count integer;
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved content author authentication required'
+      using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role in ('content_editor', 'administrator')
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved content editor or administrator required'
+      using errcode = '42501';
+  end if;
+
+  if p_drafts is null or jsonb_typeof(p_drafts) <> 'array' then
+    raise exception 'draft import must be an array' using errcode = '22023';
+  end if;
+
+  if jsonb_array_length(p_drafts) not between 1 and 200 then
+    raise exception 'draft import must contain 1 to 200 questions' using errcode = '22023';
+  end if;
+
+  select
+    count(*)::integer,
+    count(distinct trim(draft_value ->> 'questionId'))::integer
+  into draft_count, distinct_question_id_count
+  from jsonb_array_elements(p_drafts) as draft(draft_value);
+
+  if exists (
+    select 1
+    from jsonb_array_elements(p_drafts) as draft(draft_value)
+    where jsonb_typeof(draft_value) <> 'object'
+      or char_length(trim(coalesce(draft_value ->> 'questionId', ''))) not between 1 and 120
+      or trim(draft_value ->> 'questionId') !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$'
+  ) then
+    raise exception 'draft import contains an invalid question id' using errcode = '22023';
+  end if;
+
+  if distinct_question_id_count <> draft_count then
+    raise exception 'draft import question ids must be distinct' using errcode = '22023';
+  end if;
+
+  -- Validate every item before the first insert. PostgreSQL executes this RPC as
+  -- one statement, so any later conflict also rolls back the complete import.
+  for draft_record in
+    select draft_value
+    from jsonb_array_elements(p_drafts) as draft(draft_value)
+  loop
+    perform private.validate_question_content(draft_record -> 'content');
+  end loop;
+
+  for draft_record in
+    select draft_value
+    from jsonb_array_elements(p_drafts) as draft(draft_value)
+  loop
+    return query
+    select created.*
+    from public.create_question_draft(
+      draft_record ->> 'questionId',
+      draft_record -> 'content'
+    ) as created;
+  end loop;
+end;
+$$;
+
+revoke execute on function public.import_question_drafts(jsonb) from public, anon;
+grant execute on function public.import_question_drafts(jsonb) to authenticated;
+
+create or replace function public.create_question_revision(
+  p_question_id text,
+  p_from_version integer,
+  p_change_summary text,
+  p_content jsonb
+)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  supersedes_version integer,
+  change_summary text,
+  created_by uuid,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+  latest_question private.question_versions%rowtype;
+  saved_question private.question_versions%rowtype;
+  transition_at timestamptz := now();
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved content author authentication required'
+      using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role in ('content_editor', 'administrator')
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved content editor or administrator required'
+      using errcode = '42501';
+  end if;
+
+  if p_question_id is null or char_length(trim(p_question_id)) not between 1 and 120
+    or p_from_version is null or p_from_version < 1
+  then
+    raise exception 'source question version is invalid' using errcode = '22023';
+  end if;
+
+  if p_change_summary is null
+    or char_length(trim(p_change_summary)) not between 4 and 500
+  then
+    raise exception 'revision summary must contain 4 to 500 characters'
+      using errcode = '22023';
+  end if;
+
+  perform private.validate_question_content(p_content);
+
+  select question.*
+  into latest_question
+  from private.question_versions question
+  where question.question_id = trim(p_question_id)
+  order by question.version desc
+  limit 1
+  for update;
+
+  if not found then
+    raise exception 'source question version not found' using errcode = 'P0002';
+  end if;
+
+  if latest_question.version <> p_from_version then
+    raise exception 'revision must start from the latest question version'
+      using errcode = '40001';
+  end if;
+
+  if latest_question.locked_at is null then
+    raise exception 'finish the current draft before creating another revision'
+      using errcode = 'P0001';
+  end if;
+
+  insert into private.question_versions (
+    question_id,
+    version,
+    supersedes_version,
+    change_summary,
+    status,
+    grade,
+    skill,
+    indicator,
+    micro_skill,
+    difficulty,
+    modality,
+    question_type,
+    purpose,
+    prompt,
+    audio,
+    image,
+    options,
+    correct_option_id,
+    explanation,
+    hints,
+    variant_group,
+    source,
+    author,
+    created_by,
+    created_at
+  )
+  values (
+    latest_question.question_id,
+    latest_question.version + 1,
+    latest_question.version,
+    trim(p_change_summary),
+    'draft',
+    (p_content ->> 'grade')::smallint,
+    trim(p_content ->> 'skill'),
+    trim(p_content ->> 'indicator'),
+    trim(p_content ->> 'microSkill'),
+    (p_content ->> 'difficulty')::smallint,
+    trim(p_content ->> 'modality'),
+    trim(p_content ->> 'questionType'),
+    trim(p_content ->> 'purpose'),
+    trim(p_content ->> 'prompt'),
+    p_content -> 'audio',
+    p_content -> 'image',
+    p_content -> 'options',
+    trim(p_content ->> 'correctOptionId'),
+    trim(p_content ->> 'explanation'),
+    array(
+      select jsonb_array_elements_text(p_content -> 'hints')
+    ),
+    trim(p_content ->> 'variantGroup'),
+    p_content -> 'source',
+    jsonb_build_object(
+      'id', auth.uid()::text,
+      'displayName', profile_record.display_name
+    ),
+    auth.uid(),
+    transition_at
+  )
+  returning * into saved_question;
+
+  insert into private.question_status_events (
+    question_id,
+    question_version,
+    actor_id,
+    event_type,
+    from_status,
+    to_status,
+    note,
+    details,
+    created_at
+  )
+  values (
+    saved_question.question_id,
+    saved_question.version,
+    auth.uid(),
+    'revision_created',
+    latest_question.status,
+    saved_question.status,
+    trim(p_change_summary),
+    jsonb_build_object('supersedes_version', latest_question.version),
+    transition_at
+  );
+
+  return query
+  select
+    saved_question.question_id,
+    saved_question.version,
+    saved_question.status,
+    saved_question.supersedes_version,
+    saved_question.change_summary,
+    saved_question.created_by,
+    saved_question.created_at;
+end;
+$$;
+
+revoke execute on function public.create_question_revision(text, integer, text, jsonb) from public, anon;
+grant execute on function public.create_question_revision(text, integer, text, jsonb) to authenticated;
+
+create or replace function public.submit_question_for_review(
+  p_question_id text,
+  p_question_version integer,
+  p_note text
+)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  locked_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+  question_record private.question_versions%rowtype;
+  transition_at timestamptz := now();
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved content author authentication required'
+      using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role in ('content_editor', 'administrator')
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved content editor or administrator required'
+      using errcode = '42501';
+  end if;
+
+  if p_note is null or char_length(trim(p_note)) not between 4 and 1000 then
+    raise exception 'review submission note must contain 4 to 1000 characters'
+      using errcode = '22023';
+  end if;
+
+  select question.*
+  into question_record
+  from private.question_versions question
+  where question.question_id = trim(p_question_id)
+    and question.version = p_question_version
+  for update;
+
+  if not found then
+    raise exception 'question version not found' using errcode = 'P0002';
+  end if;
+
+  if question_record.status <> 'draft' or question_record.locked_at is not null then
+    raise exception 'only an unlocked draft can be submitted for review'
+      using errcode = 'P0001';
+  end if;
+
+  update private.question_versions as question
+  set
+    status = 'in_review',
+    locked_at = transition_at
+  where question.question_id = question_record.question_id
+    and question.version = question_record.version
+  returning question.* into question_record;
+
+  insert into private.question_status_events (
+    question_id,
+    question_version,
+    actor_id,
+    event_type,
+    from_status,
+    to_status,
+    note,
+    details,
+    created_at
+  )
+  values (
+    question_record.question_id,
+    question_record.version,
+    auth.uid(),
+    'submitted_for_review',
+    'draft',
+    question_record.status,
+    trim(p_note),
+    jsonb_build_object('locked_at', transition_at),
+    transition_at
+  );
+
+  return query
+  select
+    question_record.question_id,
+    question_record.version,
+    question_record.status,
+    question_record.locked_at;
+end;
+$$;
+
+revoke execute on function public.submit_question_for_review(text, integer, text) from public, anon;
+grant execute on function public.submit_question_for_review(text, integer, text) to authenticated;
+
+create or replace function private.prevent_question_version_content_mutation()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'question versions cannot be deleted' using errcode = '55000';
+  end if;
+
+  if (
+    old.locked_at is not null
+    or old.status <> 'draft'
+    or new.status <> 'draft'
+  )
+    and row(
+      old.question_id,
+      old.version,
+      old.supersedes_version,
+      old.change_summary,
+      old.grade,
+      old.skill,
+      old.indicator,
+      old.micro_skill,
+      old.difficulty,
+      old.modality,
+      old.question_type,
+      old.purpose,
+      old.prompt,
+      old.audio,
+      old.image,
+      old.options,
+      old.correct_option_id,
+      old.explanation,
+      old.hints,
+      old.variant_group,
+      old.source,
+      old.author,
+      old.created_by,
+      old.created_at
+    ) is distinct from row(
+      new.question_id,
+      new.version,
+      new.supersedes_version,
+      new.change_summary,
+      new.grade,
+      new.skill,
+      new.indicator,
+      new.micro_skill,
+      new.difficulty,
+      new.modality,
+      new.question_type,
+      new.purpose,
+      new.prompt,
+      new.audio,
+      new.image,
+      new.options,
+      new.correct_option_id,
+      new.explanation,
+      new.hints,
+      new.variant_group,
+      new.source,
+      new.author,
+      new.created_by,
+      new.created_at
+    )
+  then
+    raise exception 'frozen question version content is immutable'
+      using errcode = '55000';
+  end if;
+
+  if old.locked_at is not null and new.locked_at is distinct from old.locked_at then
+    raise exception 'a frozen question version cannot be unlocked'
+      using errcode = '55000';
+  end if;
+
+  if new.status in ('in_review', 'reviewed', 'published', 'disputed')
+    and new.locked_at is null
+  then
+    raise exception 'a governed question version must be frozen'
+      using errcode = '55000';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke execute on function private.prevent_question_version_content_mutation()
+from public, anon, authenticated;
+
+create trigger question_versions_content_immutable
+before update or delete on private.question_versions
+for each row execute function private.prevent_question_version_content_mutation();
 
 create or replace function private.prevent_question_governance_mutation()
 returns trigger
@@ -1037,6 +2214,17 @@ begin
     raise exception 'only a reviewed question version can be published' using errcode = 'P0001';
   end if;
 
+  if exists (
+    select 1
+    from private.question_versions published
+    where published.question_id = question_record.question_id
+      and published.version <> question_record.version
+      and published.status = 'published'
+  ) then
+    raise exception 'another published version must be retired first'
+      using errcode = 'P0001';
+  end if;
+
   select count(distinct review.reviewer_id)::integer
   into saved_approval_count
   from private.question_reviews review
@@ -1064,6 +2252,13 @@ begin
     )
   ) then
     raise exception 'question source rights do not permit publication' using errcode = '42501';
+  end if;
+
+  if question_record.modality = 'audio'
+    and lower(trim(coalesce(question_record.audio ->> 'src', ''))) like 'tts:%'
+  then
+    raise exception 'opaque audio asset is required for publication'
+      using errcode = 'P0001';
   end if;
 
   update private.question_versions as question
@@ -1912,9 +3107,9 @@ begin
   end if;
 
   if normalized_member_code is null
-    or normalized_member_code !~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{2,8}$'
+    or normalized_member_code !~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$'
   then
-    raise exception 'member code must contain 2 to 8 safe characters' using errcode = '22023';
+    raise exception 'member code must contain 6 safe characters' using errcode = '22023';
   end if;
 
   if normalized_group_label is not null
@@ -2465,6 +3660,7 @@ declare
   activity_record public.classroom_activities%rowtype;
   saved_participant_id uuid;
   matched_member_id uuid;
+  attempt_count integer;
   normalized_nickname text := trim(p_nickname);
   normalized_member_code text := nullif(upper(trim(p_member_code)), '');
 begin
@@ -2476,10 +3672,27 @@ begin
     raise exception 'anonymous authentication required' using errcode = '42501';
   end if;
 
+  delete from private.activity_join_attempts attempt
+  where attempt.auth_user_id = auth.uid()
+    and attempt.attempted_at < now() - interval '1 day';
+
+  select count(*)::integer
+  into attempt_count
+  from private.activity_join_attempts attempt
+  where attempt.auth_user_id = auth.uid()
+    and attempt.attempted_at >= now() - interval '10 minutes';
+
+  if attempt_count >= 12 then
+    return;
+  end if;
+
+  insert into private.activity_join_attempts (auth_user_id)
+  values (auth.uid());
+
   if p_join_code is null
     or upper(trim(p_join_code)) !~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$'
   then
-    raise exception 'activity code is invalid or expired' using errcode = '22023';
+    return;
   end if;
 
   if normalized_nickname is null
@@ -2489,9 +3702,9 @@ begin
   end if;
 
   if normalized_member_code is not null
-    and normalized_member_code !~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{2,8}$'
+    and normalized_member_code !~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$'
   then
-    raise exception 'activity code or learner code is invalid' using errcode = '22023';
+    return;
   end if;
 
   select activity.*
@@ -2503,12 +3716,12 @@ begin
   for update;
 
   if not found then
-    raise exception 'activity code is invalid or expired' using errcode = 'P0002';
+    return;
   end if;
 
   if activity_record.audience in ('small_group', 'individual') then
     if normalized_member_code is null then
-      raise exception 'activity code or learner code is invalid' using errcode = 'P0002';
+      return;
     end if;
 
     select member.id
@@ -2523,7 +3736,7 @@ begin
       and member.archived_at is null;
 
     if not found then
-      raise exception 'activity code or learner code is invalid' using errcode = 'P0002';
+      return;
     end if;
   elsif normalized_member_code is not null then
     select member.id
@@ -2534,27 +3747,32 @@ begin
       and member.archived_at is null;
 
     if not found then
-      raise exception 'activity code or learner code is invalid' using errcode = 'P0002';
+      return;
     end if;
   end if;
 
-  insert into public.activity_participants (
-    activity_id,
-    auth_user_id,
-    classroom_member_id,
-    nickname
-  )
-  values (
-    activity_record.id,
-    auth.uid(),
-    matched_member_id,
-    normalized_nickname
-  )
-  on conflict (activity_id, auth_user_id)
-  do update set
-    nickname = excluded.nickname,
-    last_seen_at = now()
-  returning id into saved_participant_id;
+  begin
+    insert into public.activity_participants (
+      activity_id,
+      auth_user_id,
+      classroom_member_id,
+      nickname
+    )
+    values (
+      activity_record.id,
+      auth.uid(),
+      matched_member_id,
+      normalized_nickname
+    )
+    on conflict (activity_id, auth_user_id)
+    do update set
+      nickname = excluded.nickname,
+      last_seen_at = now()
+    returning id into saved_participant_id;
+  exception
+    when unique_violation then
+      return;
+  end;
 
   return query
   select
@@ -2563,9 +3781,6 @@ begin
     activity_record.title,
     activity_record.grade,
     'joined'::text;
-exception
-  when unique_violation then
-    raise exception 'learner code is already joined to this activity' using errcode = '23505';
 end;
 $$;
 
