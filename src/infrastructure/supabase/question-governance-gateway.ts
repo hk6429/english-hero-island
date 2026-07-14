@@ -66,6 +66,10 @@ const reviewQueueRowsSchema = z.array(
     created_by: z.string().uuid().nullable(),
     supersedes_version: z.coerce.number().int().positive().nullable(),
     change_summary: z.string().min(4).nullable(),
+    content_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    content_hash_schema: z.literal(
+      "question-review-snapshot-pg-jsonb-text-v1",
+    ),
     locked_at: z.string().datetime(),
     created_at: z.string().datetime(),
   }),
@@ -74,11 +78,16 @@ const reviewQueueRowsSchema = z.array(
 const reviewResultRowsSchema = z
   .array(
     z.object({
+      review_id: z.string().uuid(),
       question_id: z.string().min(1),
       question_version: z.coerce.number().int().positive(),
       question_status: z.enum(["in_review", "reviewed", "disputed"]),
       approval_count: z.coerce.number().int().nonnegative(),
       change_request_count: z.coerce.number().int().nonnegative(),
+      acknowledged_content_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+      acknowledged_content_hash_schema: z.literal(
+        "question-review-snapshot-pg-jsonb-text-v1",
+      ),
       reviewed_at: z.string().datetime().nullable(),
       review_recorded_at: z.string().datetime(),
     }),
@@ -127,11 +136,14 @@ function assertRpcSucceeded(error: RpcError) {
 }
 
 export type SubmittedQuestionReview = Readonly<{
+  reviewId: string;
   questionId: string;
   questionVersion: number;
   status: "in_review" | "reviewed" | "disputed";
   approvalCount: number;
   changeRequestCount: number;
+  acknowledgedContentSha256: string;
+  acknowledgedContentHashSchema: "question-review-snapshot-pg-jsonb-text-v1";
   reviewedAt: string | null;
   reviewRecordedAt: string;
 }>;
@@ -165,6 +177,8 @@ export async function listQuestionReviewQueueWithSupabase(
     source: row.source,
     authorName: row.author.displayName,
     changeSummary: row.change_summary,
+    contentSha256: row.content_sha256,
+    contentHashSchema: row.content_hash_schema,
     lockedAt: row.locked_at,
   }));
 }
@@ -176,6 +190,8 @@ export async function submitQuestionReviewWithSupabase(
   const { data, error } = await client.rpc("submit_question_review", {
     p_question_id: submission.questionId,
     p_question_version: submission.questionVersion,
+    p_expected_content_sha256: submission.expectedContentSha256,
+    p_expected_content_hash_schema: submission.expectedContentHashSchema,
     p_verdict: submission.verdict,
     p_criteria: submission.criteria,
     p_note: submission.note.trim(),
@@ -183,12 +199,27 @@ export async function submitQuestionReviewWithSupabase(
   assertRpcSucceeded(error);
 
   const [row] = reviewResultRowsSchema.parse(data ?? []);
+  if (
+    row.question_id !== submission.questionId ||
+    row.question_version !== submission.questionVersion
+  ) {
+    throw new Error("伺服器回傳的複核題目版本與送出內容不一致，請重新載入後再試。");
+  }
+  if (
+    row.acknowledged_content_sha256 !== submission.expectedContentSha256 ||
+    row.acknowledged_content_hash_schema !== submission.expectedContentHashSchema
+  ) {
+    throw new Error("伺服器保存的內容確認收據與送出內容不一致，請重新載入後再複核。");
+  }
   return {
+    reviewId: row.review_id,
     questionId: row.question_id,
     questionVersion: row.question_version,
     status: row.question_status,
     approvalCount: row.approval_count,
     changeRequestCount: row.change_request_count,
+    acknowledgedContentSha256: row.acknowledged_content_sha256,
+    acknowledgedContentHashSchema: row.acknowledged_content_hash_schema,
     reviewedAt: row.reviewed_at,
     reviewRecordedAt: row.review_recorded_at,
   };

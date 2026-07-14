@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { QuestionReviewWorkspace } from "./QuestionReviewWorkspace";
 
 const questionId = "g4-yes-no-practice-01";
+const frozenContentSha256 = "a".repeat(64);
 
 function queueRow() {
   return {
@@ -38,6 +39,8 @@ function queueRow() {
     created_by: "11111111-1111-4111-8111-111111111111",
     supersedes_version: 1,
     change_summary: "修正問句與解析",
+    content_sha256: frozenContentSha256,
+    content_hash_schema: "question-review-snapshot-pg-jsonb-text-v1",
     locked_at: "2026-07-14T07:00:00.000Z",
     created_at: "2026-07-14T06:00:00.000Z",
   };
@@ -86,11 +89,15 @@ function authenticatedClient(
         return {
           data: [
             {
+              review_id: "22222222-2222-4222-8222-222222222222",
               question_id: questionId,
               question_version: 2,
               question_status: "reviewed",
               approval_count: 2,
               change_request_count: 0,
+              acknowledged_content_sha256: frozenContentSha256,
+              acknowledged_content_hash_schema:
+                "question-review-snapshot-pg-jsonb-text-v1",
               reviewed_at: "2026-07-14T08:00:00.000Z",
               review_recorded_at: "2026-07-14T08:00:00.000Z",
             },
@@ -157,6 +164,9 @@ describe("QuestionReviewWorkspace", () => {
         expect.objectContaining({
           p_question_id: questionId,
           p_question_version: 2,
+          p_expected_content_sha256: frozenContentSha256,
+          p_expected_content_hash_schema:
+            "question-review-snapshot-pg-jsonb-text-v1",
           p_verdict: "approved",
         }),
       ),

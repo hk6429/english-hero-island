@@ -10,6 +10,7 @@ import {
 } from "./question-governance-gateway";
 
 const questionId = "g4-yes-no-practice-01";
+const frozenContentSha256 = "a".repeat(64);
 
 describe("question governance gateway", () => {
   it("maps a protected frozen review queue without losing answer evidence", async () => {
@@ -49,6 +50,8 @@ describe("question governance gateway", () => {
             created_by: "11111111-1111-4111-8111-111111111111",
             supersedes_version: 1,
             change_summary: "修正問句與解析",
+            content_sha256: frozenContentSha256,
+            content_hash_schema: "question-review-snapshot-pg-jsonb-text-v1",
             locked_at: "2026-07-14T07:00:00.000Z",
             created_at: "2026-07-14T06:00:00.000Z",
           },
@@ -71,6 +74,8 @@ describe("question governance gateway", () => {
         }),
         correctOptionId: "yes",
         authorName: "內容編輯 A",
+        contentSha256: frozenContentSha256,
+        contentHashSchema: "question-review-snapshot-pg-jsonb-text-v1",
         lockedAt: "2026-07-14T07:00:00.000Z",
       }),
     ]);
@@ -82,11 +87,15 @@ describe("question governance gateway", () => {
       rpc: vi.fn().mockResolvedValue({
         data: [
           {
+            review_id: "22222222-2222-4222-8222-222222222222",
             question_id: questionId,
             question_version: 2,
             question_status: "reviewed",
             approval_count: 2,
             change_request_count: 0,
+            acknowledged_content_sha256: frozenContentSha256,
+            acknowledged_content_hash_schema:
+              "question-review-snapshot-pg-jsonb-text-v1",
             reviewed_at: "2026-07-14T08:00:00.000Z",
             review_recorded_at: "2026-07-14T08:00:00.000Z",
           },
@@ -97,6 +106,8 @@ describe("question governance gateway", () => {
     const submission: QuestionReviewSubmission = {
       questionId,
       questionVersion: 2,
+      expectedContentSha256: frozenContentSha256,
+      expectedContentHashSchema: "question-review-snapshot-pg-jsonb-text-v1",
       verdict: "approved",
       note: "內容正確",
       criteria: {
@@ -113,21 +124,114 @@ describe("question governance gateway", () => {
     await expect(
       submitQuestionReviewWithSupabase(client, submission),
     ).resolves.toEqual({
+      reviewId: "22222222-2222-4222-8222-222222222222",
       questionId,
       questionVersion: 2,
       status: "reviewed",
       approvalCount: 2,
       changeRequestCount: 0,
+      acknowledgedContentSha256: frozenContentSha256,
+      acknowledgedContentHashSchema:
+        "question-review-snapshot-pg-jsonb-text-v1",
       reviewedAt: "2026-07-14T08:00:00.000Z",
       reviewRecordedAt: "2026-07-14T08:00:00.000Z",
     });
     expect(client.rpc).toHaveBeenCalledWith("submit_question_review", {
       p_question_id: questionId,
       p_question_version: 2,
+      p_expected_content_sha256: frozenContentSha256,
+      p_expected_content_hash_schema:
+        "question-review-snapshot-pg-jsonb-text-v1",
       p_verdict: "approved",
       p_criteria: submission.criteria,
       p_note: "內容正確",
     });
+  });
+
+  it("rejects a success response that acknowledges a different frozen receipt", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          {
+            review_id: "22222222-2222-4222-8222-222222222222",
+            question_id: questionId,
+            question_version: 2,
+            question_status: "in_review",
+            approval_count: 1,
+            change_request_count: 0,
+            acknowledged_content_sha256: "b".repeat(64),
+            acknowledged_content_hash_schema:
+              "question-review-snapshot-pg-jsonb-text-v1",
+            reviewed_at: null,
+            review_recorded_at: "2026-07-14T08:00:00.000Z",
+          },
+        ],
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      submitQuestionReviewWithSupabase(client, {
+        questionId,
+        questionVersion: 2,
+        expectedContentSha256: frozenContentSha256,
+        expectedContentHashSchema: "question-review-snapshot-pg-jsonb-text-v1",
+        verdict: "approved",
+        note: "內容正確",
+        criteria: {
+          english_correct: true,
+          answer_unique: true,
+          explanation_correct: true,
+          hint_safe: true,
+          asset_consistent: true,
+          rights_clear: true,
+          age_appropriate: true,
+        },
+      }),
+    ).rejects.toThrow("伺服器保存的內容確認收據與送出內容不一致");
+  });
+
+  it("rejects a success response for a different question version", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          {
+            review_id: "22222222-2222-4222-8222-222222222222",
+            question_id: "different-question",
+            question_version: 3,
+            question_status: "in_review",
+            approval_count: 1,
+            change_request_count: 0,
+            acknowledged_content_sha256: frozenContentSha256,
+            acknowledged_content_hash_schema:
+              "question-review-snapshot-pg-jsonb-text-v1",
+            reviewed_at: null,
+            review_recorded_at: "2026-07-14T08:00:00.000Z",
+          },
+        ],
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      submitQuestionReviewWithSupabase(client, {
+        questionId,
+        questionVersion: 2,
+        expectedContentSha256: frozenContentSha256,
+        expectedContentHashSchema: "question-review-snapshot-pg-jsonb-text-v1",
+        verdict: "changes_requested",
+        note: "請修正情境",
+        criteria: {
+          english_correct: true,
+          answer_unique: false,
+          explanation_correct: true,
+          hint_safe: true,
+          asset_consistent: true,
+          rights_clear: true,
+          age_appropriate: true,
+        },
+      }),
+    ).rejects.toThrow("伺服器回傳的複核題目版本與送出內容不一致");
   });
 
   it("keeps publication, dispute, and retirement as explicit separate actions", async () => {

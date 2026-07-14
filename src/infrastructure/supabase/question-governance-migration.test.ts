@@ -75,6 +75,33 @@ describe("question governance migration", () => {
     );
   });
 
+  it("keeps other reviewers' decisions unreachable through general governance RPCs", () => {
+    const search = functionBody("search_question_bank");
+    const versions = functionBody("list_question_versions");
+
+    expect(search).toMatch(
+      /profile_record\.reviewer_role = 'english_teacher'\s+and p_status is distinct from 'published'/,
+    );
+    expect(search).toContain(
+      "english-teacher question search is limited to published content",
+    );
+    expect(versions).toContain(
+      "profile.reviewer_role in ('content_editor', 'administrator')",
+    );
+    expect(versions).not.toContain(
+      "profile.reviewer_role in ('english_teacher', 'content_editor', 'administrator')",
+    );
+  });
+
+  it("returns the frozen content hash that the reviewer is being asked to sign", () => {
+    const body = functionBody("list_question_review_queue");
+
+    expect(body).toContain("content_sha256 text");
+    expect(body).toContain("content_hash_schema text");
+    expect(body).toContain("question.content_sha256");
+    expect(body).toContain("question.content_hash_schema");
+  });
+
   it("records one review per real reviewer and never auto-publishes after two approvals", () => {
     const body = functionBody("submit_question_review");
 
@@ -87,6 +114,78 @@ describe("question governance migration", () => {
     expect(body).toContain("status = 'disputed'");
     expect(body).not.toContain("status = 'published'");
     expect(body).toContain("insert into private.question_status_events");
+  });
+
+  it("keeps reviewer eligibility stable for the duration of the review transaction", () => {
+    const body = functionBody("submit_question_review");
+
+    expect(body).toMatch(
+      /from public\.content_reviewer_profiles profile[\s\S]*?profile\.approval_status = 'approved'\s+for share;/,
+    );
+  });
+
+  it("records a review only against the exact frozen content hash shown to the reviewer", () => {
+    const reviewTable = migration.match(
+      /create table private\.question_reviews[\s\S]*?\n\);/,
+    )?.[0];
+    const body = functionBody("submit_question_review");
+
+    expect(reviewTable).toContain("acknowledged_content_sha256 text not null");
+    expect(reviewTable).toContain(
+      "acknowledged_content_hash_schema text not null",
+    );
+    expect(body).toContain("p_expected_content_sha256 text");
+    expect(body).toContain("p_expected_content_hash_schema text");
+    expect(body).toContain(
+      "question_record.content_sha256 is distinct from p_expected_content_sha256",
+    );
+    expect(body).toContain(
+      "question_record.content_hash_schema is distinct from p_expected_content_hash_schema",
+    );
+    expect(body).toContain("acknowledged_content_sha256,");
+    expect(body).toContain("acknowledged_content_hash_schema,");
+    expect(body).toContain("question_record.content_sha256,");
+    expect(body).toContain("question_record.content_hash_schema,");
+  });
+
+  it("prevents privileged direct inserts from bypassing the frozen receipt binding", () => {
+    const questionTable = migration.match(
+      /create table private\.question_versions[\s\S]*?\n\);/,
+    )?.[0];
+    const reviewTable = migration.match(
+      /create table private\.question_reviews[\s\S]*?\n\);/,
+    )?.[0];
+
+    expect(questionTable).toContain(
+      "unique (question_id, version, content_sha256, content_hash_schema)",
+    );
+    expect(reviewTable).toContain(
+      "foreign key (question_id, question_version, acknowledged_content_sha256, acknowledged_content_hash_schema)",
+    );
+    expect(reviewTable).toContain(
+      "references private.question_versions(question_id, version, content_sha256, content_hash_schema)",
+    );
+    expect(migration).not.toContain(
+      "grant select, insert on private.question_reviews to service_role",
+    );
+    expect(migration).toContain(
+      "grant select on private.question_reviews to service_role",
+    );
+  });
+
+  it("returns and logs the server-authoritative review acknowledgement", () => {
+    const body = functionBody("submit_question_review");
+
+    expect(body).toContain("review_id uuid");
+    expect(body).toContain("acknowledged_content_sha256 text");
+    expect(body).toContain("acknowledged_content_hash_schema text");
+    expect(body).toContain("'acknowledged_content_sha256', question_record.content_sha256");
+    expect(body).toContain(
+      "'acknowledged_content_hash_schema', question_record.content_hash_schema",
+    );
+    expect(body).toContain("saved_review_id,");
+    expect(body).toContain("question_record.content_sha256,");
+    expect(body).toContain("question_record.content_hash_schema,");
   });
 
   it("accepts exactly seven boolean criteria and requires a failed item for change requests", () => {

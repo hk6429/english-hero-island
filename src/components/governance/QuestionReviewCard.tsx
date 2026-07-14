@@ -37,12 +37,16 @@ export type QuestionReviewQueueItem = Readonly<{
   }>;
   authorName: string;
   changeSummary: string | null;
+  contentSha256: string;
+  contentHashSchema: "question-review-snapshot-pg-jsonb-text-v1";
   lockedAt: string;
 }>;
 
 export type QuestionReviewSubmission = Readonly<{
   questionId: string;
   questionVersion: number;
+  expectedContentSha256: string;
+  expectedContentHashSchema: "question-review-snapshot-pg-jsonb-text-v1";
   verdict: "approved" | "changes_requested";
   note: string;
   criteria: ReviewCriteria;
@@ -134,6 +138,8 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
       await onSubmit({
         questionId: item.id,
         questionVersion: item.version,
+        expectedContentSha256: item.contentSha256,
+        expectedContentHashSchema: item.contentHashSchema,
         verdict: pendingVerdict,
         note: note.trim(),
         criteria: { ...criteria },
@@ -174,6 +180,24 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
           <strong>{item.changeSummary}</strong>
         </p>
       ) : null}
+
+      <section
+        aria-label="凍結內容確認收據"
+        className="question-review-receipt"
+      >
+        <h3>凍結內容確認收據</h3>
+        <p>
+          下列 SHA-256 對應目前凍結題目快照。它是內容確認依據，不是數位簽章，也不代表音訊或圖片檔案已完成位元組驗證。
+        </p>
+        <p>
+          <strong>SHA-256</strong>
+          <code>{item.contentSha256}</code>
+        </p>
+        <p>
+          <strong>雜湊規格</strong>
+          <code>{item.contentHashSchema}</code>
+        </p>
+      </section>
 
       <section className="question-review-evidence" aria-label="題目內容證據">
         {item.audio || item.image ? (
@@ -323,6 +347,11 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
           <p>
             送出後這份真人複核紀錄不可修改或刪除；若日後發現問題，必須另走爭議流程留下新紀錄。
           </p>
+          <div className="question-review-receipt-confirmation">
+            <p>你將確認以下凍結內容收據：</p>
+            <code>{item.contentSha256}</code>
+            <code>{item.contentHashSchema}</code>
+          </div>
           <div className="review-actions">
             <button
               className="primary-button"

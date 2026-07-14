@@ -29,11 +29,11 @@ in_review
 ## 身分與不可變證據
 
 - `content_reviewer_profiles`：保存真實登入帳號對應的治理角色與核准狀態。
-- `question_reviews`：每位複核者對每個題目版本只能留下恰好一份複核；禁止更新與刪除。
+- `question_reviews`：每位複核者對每個題目版本只能留下恰好一份複核，並保存該次確認的 SHA-256 與 hash schema；複合外鍵要求它們必須等於該題凍結收據，且紀錄禁止更新與刪除。
 - `question_status_events`：保存複核、轉為已複核、發布、爭議與退役事件；禁止更新與刪除。
 - `question_versions`：保存線性版本關係、修改摘要、作者、凍結時間、複核完成時間與發布時間。送審同一交易會以資料庫實際內容建立 `review_snapshot`、SHA-256、版本化 hash schema 與雜湊時間；凍結後四欄都不可修改。
 
-目前 hash schema 是 `question-review-snapshot-pg-jsonb-text-v1`，明確代表 PostgreSQL JSONB 文字序列化後的專案內 SHA-256；它不是 RFC 8785、不是數位簽章，也尚未包含音訊／圖片位元組證據。內容編輯送審後會看到完整伺服器凍結收據，但複核者簽認 hash 的綁定仍是下一個獨立工作。
+目前 hash schema 是 `question-review-snapshot-pg-jsonb-text-v1`，明確代表 PostgreSQL JSONB 文字序列化後的專案內 SHA-256；它不是 RFC 8785、不是數位簽章，也尚未包含音訊／圖片位元組證據。內容編輯送審後會取得完整伺服器凍結收據；複核者會在題卡與不可逆確認框看到完整 64 碼及 schema，送出時帶回 expected receipt。伺服器鎖定該版本後精確比對，再把資料庫權威值寫入不可變複核紀錄與狀態事件；gateway 也會拒絕 acknowledged receipt 與 expected receipt 不同的成功回應。這仍只有程式與靜態契約證據，尚待專用 PostgreSQL runtime 驗證。
 
 作者不得複核自己建立的版本。停權、待核准、非英語教師角色或匿名帳號都不能送出複核；同一人也不能重複計票。
 
@@ -58,11 +58,11 @@ in_review
 - `import_question_drafts(...)`：只接收題號與題目內容，治理身分由伺服器補入；先驗證整批草稿再寫入，任一筆不合格時整批失敗。
 - `create_question_revision(...)`：從指定版本建立下一版草稿，保留線性版本關係與修改摘要。
 - `submit_question_for_review(...)`：再次驗證作者、草稿狀態與內容後，在同一交易建立不可變內容快照與 SHA-256 凍結收據。
-- `search_question_bank(...)`：依角色回傳可管理的完整題目預覽、複核票數與游標分頁。
-- `list_question_versions(...)`：提供同題版本歷程與比較所需內容。
+- `search_question_bank(...)`：內容編輯與管理員可搜尋完整治理庫；英語教師只可搜尋 `published` 題目以回報爭議，不能藉此讀取 `in_review` 票數。
+- `list_question_versions(...)`：只讓內容編輯與管理員取得同題版本歷程、比較內容與複核票數。
 - `list_question_quality_signals(...)`：只回傳匿名彙總答對證據與爭議狀態，不暴露學生作答明細。
-- `list_question_review_queue()`：只讓核准英語教師看見自己尚未複核、且不是自己建立的凍結版本。
-- `submit_question_review(...)`：驗證真人資格、自我複核、重複複核、品質標準與版本狀態。
+- `list_question_review_queue()`：只讓核准英語教師看見自己尚未複核、且不是自己建立的凍結版本，並回傳該版本的 SHA-256 與 hash schema，不回傳他人票數。
+- `submit_question_review(...)`：驗證真人資格、自我複核、重複複核、品質標準、版本狀態與 expected receipt；只保存伺服器鎖列後取得的 authoritative acknowledgement。
 - `publish_question_version(...)`：只允許核准管理員獨立發布已完成雙人複核、授權合格、使用正式音訊資產且沒有另一個發布中版本的版本。
 - `report_question_dispute(...)`：讓核准英語教師或管理員留下爭議證據並停用該版本。
 - `retire_question_version(...)`：只允許核准管理員停用版本，不刪除歷史。
@@ -75,7 +75,7 @@ in_review
 - 未登入時使用 Magic Link；RPC 仍會在伺服器重新確認角色，不能只靠畫面隱藏按鈕。
 - 核准內容編輯者只能建立、匯入、搜尋、送審與修訂；發布與退役只對核准管理員開放。核准英語教師可從專用介面搜尋已發布題目並回報爭議；RPC 仍會獨立驗證權限。
 - 待複核畫面會顯示正解、解析與來源，因此只經保護 RPC 提供給合格複核者，不出現在學生 payload。
-- 複核卡會帶入伺服器凍結時間；review queue 完全不回傳其他教師的通過或退回票數，避免任何判斷形成從眾暗示。
+- 複核卡會顯示伺服器凍結時間、完整 SHA-256 與 hash schema；review queue 不回傳其他教師的通過或退回票數，一般搜尋也限制英語教師只能讀取已發布題目，避免繞道形成從眾暗示。
 - 前端送出後重新讀取伺服器佇列，不自行推定複核或發布成功。
 - 搜尋涵蓋同題所有歷史版本並使用穩定游標分頁；只有最新版本能建立下一版，同題同時最多一個 `published` 版本。
 - 外部圖片或音訊只有同源檢查明確得到 404／410 時才標示無法存取；跨來源或網路錯誤維持「未確認」，避免把連線限制誤報成內容破損。
@@ -85,15 +85,16 @@ in_review
 
 - 在使用者確認 Supabase 組織、專案與費用後，於專用專案實際執行 migration 與 RLS／RPC runtime 測試。
 - 將 200 題草稿匯入專用 Supabase，替換所有 `tts:`／`scene:` 試作資產，並完成逐題版本與授權檢查。
-- 讓複核 queue 回傳凍結 hash、`submit_question_review` 帶入 expected hash，並由伺服器把實際簽認 hash 寫入不可變複核紀錄；目前凍結收據還不能證明真人教師簽認的是哪個 hash。
+- 在專用 Supabase 實際驗證 receipt 重算、錯誤 expected receipt 的零副作用、複合外鍵、RLS／GRANT、雙人併發與停權競態；目前只有靜態 SQL 契約，不能宣稱 PostgreSQL runtime 已證明。
+- 若任何環境曾套用舊版五參數 `submit_question_review`，必須用 forward migration 明確撤銷並刪除舊 overload，再重建七參數函式；舊 review 不得把事後 hash 回填後冒充當時確認，應保留為 unsigned 且不計票，或要求重新複核。
 - 建立正式素材 ingest 與 byte evidence（SHA-256、MIME、長度、不可變 object locator）；目前內容 hash 不等於素材位元組 hash。
 - 由兩位可驗證身分、具英語教學背景者逐題複核；不得以測試帳號冒充真人簽名。
 - 完成內容、兒童安全、資安、無障礙與多裝置總驗收後，才可將正式版本部署公開環境。
 
 ## 自動化證據
 
-- migration 靜態契約：複核身分、不可變紀錄、十三個題庫治理 RPC、角色權限、原子批次匯入與課堂選題雙票條件。
+- migration 靜態契約：複核身分、凍結 receipt／acknowledgement 綁定、不可變紀錄、盲審旁路限制、十三個題庫治理 RPC、角色權限、原子批次匯入與課堂選題雙票條件。
 - 領域測試：匯入全成全敗、自我複核、資格、同題同版本唯一複核、狀態投影、版本 lineage 與保守品質判讀。
-- gateway 測試：完整題目證據映射、伺服器錯誤傳遞、建立／匯入／修訂／送審，以及發布／爭議／退役分離。
-- 元件與工作區測試：題目表單、內容式批次匯入、搜尋預覽、含資產網址的版本比較、品質面板、角色按鈕、七項複核、不可逆操作確認、英語教師爭議回報、登入閘門與送出後重新載入。
+- gateway 測試：完整題目與 receipt 映射、expected receipt 送出、acknowledged receipt 不一致時 fail closed、伺服器錯誤傳遞、建立／匯入／修訂／送審，以及發布／爭議／退役分離。
+- 元件與工作區測試：題目表單、內容式批次匯入、搜尋預覽、含資產網址的版本比較、品質面板、角色按鈕、七項複核、完整 receipt 顯示、不可逆操作確認、英語教師爭議回報、登入閘門與送出後重新載入。
 - Playwright：桌機與 360px 手機皆驗證未連線時不會出現假的複核介面。

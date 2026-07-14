@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   QuestionReviewCard,
@@ -29,6 +36,8 @@ const queueItem: QuestionReviewQueueItem = {
   },
   authorName: "內容編輯 A",
   changeSummary: "修正問句與解析",
+  contentSha256: "a".repeat(64),
+  contentHashSchema: "question-review-snapshot-pg-jsonb-text-v1",
   lockedAt: "2026-07-14T07:00:00.000Z",
 };
 
@@ -98,6 +107,25 @@ describe("QuestionReviewCard", () => {
     );
   });
 
+  it("shows the exact frozen receipt before and during irreversible confirmation", () => {
+    render(<QuestionReviewCard item={queueItem} onSubmit={vi.fn()} />);
+
+    expect(screen.getByText(queueItem.contentSha256)).toBeInTheDocument();
+    expect(screen.getByText(queueItem.contentHashSchema)).toBeInTheDocument();
+
+    for (const checkbox of screen.getAllByRole("checkbox")) {
+      fireEvent.click(checkbox);
+    }
+    fireEvent.change(screen.getByLabelText("複核意見"), {
+      target: { value: "內容正確" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "通過複核" }));
+
+    const dialog = screen.getByRole("alertdialog", { name: "確認通過複核" });
+    expect(within(dialog).getByText(queueItem.contentSha256)).toBeInTheDocument();
+    expect(within(dialog).getByText(queueItem.contentHashSchema)).toBeInTheDocument();
+  });
+
   it("requires all seven checks and a meaningful note before approving", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<QuestionReviewCard item={queueItem} onSubmit={onSubmit} />);
@@ -124,6 +152,8 @@ describe("QuestionReviewCard", () => {
     expect(onSubmit).toHaveBeenCalledWith({
       questionId: queueItem.id,
       questionVersion: queueItem.version,
+      expectedContentSha256: queueItem.contentSha256,
+      expectedContentHashSchema: queueItem.contentHashSchema,
       verdict: "approved",
       note: "內容正確",
       criteria: {

@@ -153,6 +153,7 @@ create table private.question_versions (
     || setweight(to_tsvector('simple', coalesce(explanation, '')), 'C')
   ) stored,
   primary key (question_id, version),
+  unique (question_id, version, content_sha256, content_hash_schema),
   foreign key (question_id, supersedes_version)
     references private.question_versions(question_id, version) on delete restrict,
   check (
@@ -201,9 +202,16 @@ create table private.question_reviews (
   verdict text not null check (verdict in ('approved', 'changes_requested')),
   criteria jsonb not null check (jsonb_typeof(criteria) = 'object'),
   note text not null check (char_length(trim(note)) between 4 and 1000),
+  acknowledged_content_sha256 text not null check (
+    acknowledged_content_sha256 ~ '^[0-9a-f]{64}$'
+  ),
+  acknowledged_content_hash_schema text not null check (
+    acknowledged_content_hash_schema = 'question-review-snapshot-pg-jsonb-text-v1'
+  ),
   created_at timestamptz not null default now(),
-  foreign key (question_id, question_version)
-    references private.question_versions(question_id, version) on delete restrict,
+  foreign key (question_id, question_version, acknowledged_content_sha256, acknowledged_content_hash_schema)
+    references private.question_versions(question_id, version, content_sha256, content_hash_schema)
+    on delete restrict,
   unique (question_id, question_version, reviewer_id)
 );
 
@@ -404,7 +412,7 @@ grant select on public.classroom_story_progress to authenticated;
 
 grant usage on schema private to service_role;
 grant select, insert, update on private.question_versions to service_role;
-grant select, insert on private.question_reviews to service_role;
+grant select on private.question_reviews to service_role;
 grant select, insert on private.question_status_events to service_role;
 grant select, insert, delete on private.activity_join_attempts to service_role;
 
@@ -904,6 +912,13 @@ begin
     raise exception 'question status filter is invalid' using errcode = '22023';
   end if;
 
+  if profile_record.reviewer_role = 'english_teacher'
+    and p_status is distinct from 'published'
+  then
+    raise exception 'English-teacher question search is limited to published content'
+      using errcode = '42501';
+  end if;
+
   if p_modality is not null and p_modality not in ('text', 'audio', 'image') then
     raise exception 'question modality filter is invalid' using errcode = '22023';
   end if;
@@ -1063,7 +1078,7 @@ begin
   into profile_record
   from public.content_reviewer_profiles profile
   where profile.user_id = auth.uid()
-    and profile.reviewer_role in ('english_teacher', 'content_editor', 'administrator')
+    and profile.reviewer_role in ('content_editor', 'administrator')
     and profile.approval_status = 'approved';
 
   if not found then
@@ -1939,6 +1954,8 @@ returns table (
   created_by uuid,
   supersedes_version integer,
   change_summary text,
+  content_sha256 text,
+  content_hash_schema text,
   locked_at timestamptz,
   created_at timestamptz
 )
@@ -1972,6 +1989,8 @@ as $$
     question.created_by,
     question.supersedes_version,
     question.change_summary,
+    question.content_sha256,
+    question.content_hash_schema,
     question.locked_at,
     question.created_at
   from public.content_reviewer_profiles profile
@@ -1999,16 +2018,21 @@ grant execute on function public.list_question_review_queue() to authenticated;
 create or replace function public.submit_question_review(
   p_question_id text,
   p_question_version integer,
+  p_expected_content_sha256 text,
+  p_expected_content_hash_schema text,
   p_verdict text,
   p_criteria jsonb,
   p_note text
 )
 returns table (
+  review_id uuid,
   question_id text,
   question_version integer,
   question_status text,
   approval_count integer,
   change_request_count integer,
+  acknowledged_content_sha256 text,
+  acknowledged_content_hash_schema text,
   reviewed_at timestamptz,
   review_recorded_at timestamptz
 )
@@ -2037,7 +2061,8 @@ begin
   from public.content_reviewer_profiles profile
   where profile.user_id = auth.uid()
     and profile.reviewer_role = 'english_teacher'
-    and profile.approval_status = 'approved';
+    and profile.approval_status = 'approved'
+  for share;
 
   if not found then
     raise exception 'approved English-teacher reviewer required' using errcode = '42501';
@@ -2047,6 +2072,14 @@ begin
     or p_question_version is null or p_question_version < 1
   then
     raise exception 'question version is invalid' using errcode = '22023';
+  end if;
+
+  if p_expected_content_sha256 is null
+    or p_expected_content_sha256 !~ '^[0-9a-f]{64}$'
+    or p_expected_content_hash_schema is distinct from
+      'question-review-snapshot-pg-jsonb-text-v1'
+  then
+    raise exception 'frozen content receipt is invalid' using errcode = '22023';
   end if;
 
   if p_verdict not in ('approved', 'changes_requested') then
@@ -2121,6 +2154,13 @@ begin
     raise exception 'question is not open for review' using errcode = 'P0001';
   end if;
 
+  if question_record.content_sha256 is distinct from p_expected_content_sha256
+    or question_record.content_hash_schema is distinct from p_expected_content_hash_schema
+  then
+    raise exception 'frozen content receipt changed; reload before reviewing'
+      using errcode = 'P0001';
+  end if;
+
   if question_record.created_by = auth.uid() then
     raise exception 'question authors cannot review their own version' using errcode = '42501';
   end if;
@@ -2135,6 +2175,8 @@ begin
     verdict,
     criteria,
     note,
+    acknowledged_content_sha256,
+    acknowledged_content_hash_schema,
     created_at
   )
   values (
@@ -2145,6 +2187,8 @@ begin
     p_verdict,
     p_criteria,
     trim(p_note),
+    question_record.content_sha256,
+    question_record.content_hash_schema,
     transition_at
   )
   returning id into saved_review_id;
@@ -2204,6 +2248,8 @@ begin
       'review_id', saved_review_id,
       'verdict', p_verdict,
       'criteria', p_criteria,
+      'acknowledged_content_sha256', question_record.content_sha256,
+      'acknowledged_content_hash_schema', question_record.content_hash_schema,
       'approval_count', saved_approval_count,
       'change_request_count', saved_change_request_count
     ),
@@ -2246,11 +2292,14 @@ begin
 
   return query
   select
+    saved_review_id,
     question_record.question_id,
     question_record.version,
     question_record.status,
     saved_approval_count,
     saved_change_request_count,
+    question_record.content_sha256,
+    question_record.content_hash_schema,
     question_record.reviewed_at,
     transition_at;
 exception
@@ -2260,9 +2309,9 @@ exception
 end;
 $$;
 
-revoke execute on function public.submit_question_review(text, integer, text, jsonb, text)
+revoke execute on function public.submit_question_review(text, integer, text, text, text, jsonb, text)
 from public, anon;
-grant execute on function public.submit_question_review(text, integer, text, jsonb, text)
+grant execute on function public.submit_question_review(text, integer, text, text, text, jsonb, text)
 to authenticated;
 
 create or replace function public.publish_question_version(

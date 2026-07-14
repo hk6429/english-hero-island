@@ -225,6 +225,9 @@ describe("question authoring migration", () => {
     expect(body).toContain(
       "profile.reviewer_role in ('english_teacher', 'content_editor', 'administrator')",
     );
+    expect(body).toMatch(
+      /profile_record\.reviewer_role = 'english_teacher'\s+and p_status is distinct from 'published'/,
+    );
     expect(body).toContain("profile.approval_status = 'approved'");
     expect(body).not.toContain("distinct on (question.question_id)");
     expect(body).toContain("from private.question_versions latest");
@@ -263,6 +266,9 @@ describe("question authoring migration", () => {
     expect(body).toContain("security definer");
     expect(body).toContain("set search_path = ''");
     expect(body).toContain(
+      "profile.reviewer_role in ('content_editor', 'administrator')",
+    );
+    expect(body).not.toContain(
       "profile.reviewer_role in ('english_teacher', 'content_editor', 'administrator')",
     );
     expect(body).toContain("profile.approval_status = 'approved'");
