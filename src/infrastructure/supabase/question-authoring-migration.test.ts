@@ -53,7 +53,7 @@ describe("question authoring migration", () => {
     expect(validator).toContain("jsonb_typeof(p_content) <> 'object'");
     expect(validator).toContain("jsonb_array_length(p_content -> 'options') not between 2 and 6");
     expect(validator).toContain("count(distinct option_value ->> 'id')");
-    expect(validator).toContain("jsonb_object_length(option_value) <> 2");
+    expect(validator).toContain("(select count(*) from jsonb_object_keys(option_value)) <> 2");
     expect(validator).toContain("jsonb_typeof(option_value -> 'id') <> 'string'");
     expect(validator).toContain("jsonb_typeof(option_value -> 'text') <> 'string'");
     expect(validator).toContain("option_value ->> 'id' = p_content ->> 'correctoptionid'");

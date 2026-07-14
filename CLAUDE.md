@@ -39,7 +39,7 @@ npm run build
 ## 目前最高優先序
 
 1. ~~修正正式 Supabase 連線會被 CSP `connect-src 'self'` 阻擋的問題，並補 connected browser test。~~（2026-07-14 完成：CSP connect-src 由 `NEXT_PUBLIC_SUPABASE_URL` 導出最小 allowlist，含 `e2e/supabase-csp.spec.ts` connected browser test。）
-2. 建立 Supabase/PostgreSQL 真實 runtime 測試，不再只用 regex 檢查 migration。（阻塞：接手機器目前無可用 Docker/Podman runtime。）
+2. 建立 Supabase/PostgreSQL 真實 runtime 測試，不再只用 regex 檢查 migration。（2026-07-14 第一階段完成：OrbStack 已復原、`npm run verify:db` = reset＋28 個 pgTAP＋`db lint` 全綠，並修掉 4 個 regex 測試抓不到的真實 SQL bug；深度 pgTAP——治理雙票/凍結/發布 runtime、課堂 replay constraint、雙連線併發 harness——仍待補。）
 3. 實作「即時重驗 bytes → 明確題目版本綁定 → 單一原子 batch RPC」的 server-only trusted worker。
 4. 建立不可覆寫／版本化的正式素材儲存，或由可信發布 worker 在發布前重新讀取 bytes。
 

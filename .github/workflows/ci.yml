@@ -21,6 +21,20 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  db:
+    name: Supabase DB（migration + pgTAP + lint）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx supabase db start
+      - run: npm run test:db
+      - run: npm run lint:db
+
   e2e:
     name: Playwright（a11y + 全套）
     runs-on: ubuntu-latest

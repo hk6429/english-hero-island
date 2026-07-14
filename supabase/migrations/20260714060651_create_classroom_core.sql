@@ -838,7 +838,7 @@ begin
     count(*) filter (
       where case
         when jsonb_typeof(option_value) <> 'object' then true
-        else jsonb_object_length(option_value) <> 2
+        else (select count(*) from jsonb_object_keys(option_value)) <> 2
           or not (option_value ? 'id')
           or not (option_value ? 'text')
           or jsonb_typeof(option_value -> 'id') <> 'string'
@@ -1209,8 +1209,7 @@ begin
   from public.content_reviewer_profiles profile
   where profile.user_id = auth.uid()
     and profile.reviewer_role in ('content_editor', 'administrator')
-    and profile.approval_status = 'approved'
-  for share;
+    and profile.approval_status = 'approved';
 
   if not found then
     raise exception 'approved content governor required' using errcode = '42501';
@@ -3352,7 +3351,7 @@ grant execute on function public.get_student_activity_state(uuid) to authenticat
 
 create or replace function public.get_student_activity_questions(p_activity_id uuid)
 returns table (
-  position smallint,
+  "position" smallint,
   question_id text,
   question_version integer,
   grade smallint,
@@ -4332,6 +4331,7 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+#variable_conflict use_column
 declare
   activity_record public.classroom_activities%rowtype;
   saved_participant_id uuid;
