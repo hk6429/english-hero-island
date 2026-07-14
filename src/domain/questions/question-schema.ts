@@ -12,6 +12,8 @@ export const questionSchema = z
   .object({
     id: z.string().min(1),
     version: z.number().int().positive(),
+    supersedesVersion: z.number().int().positive().optional(),
+    changeSummary: z.string().trim().min(4).max(500).optional(),
     status: z.enum(["draft", "in_review", "reviewed", "published", "disputed", "retired"]),
     grade: z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6)]),
     skill: z.enum([
@@ -98,6 +100,38 @@ export const questionSchema = z
         path: ["correctOptionId"],
         message: "正解必須對應一個現有選項",
       });
+    }
+
+    if (question.version === 1) {
+      if (question.supersedesVersion !== undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["supersedesVersion"],
+          message: "第一版不可連結前一版",
+        });
+      }
+      if (question.changeSummary !== undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["changeSummary"],
+          message: "第一版不可包含改版摘要",
+        });
+      }
+    } else {
+      if (question.supersedesVersion !== question.version - 1) {
+        context.addIssue({
+          code: "custom",
+          path: ["supersedesVersion"],
+          message: "新版本必須明確連回前一版",
+        });
+      }
+      if (!question.changeSummary) {
+        context.addIssue({
+          code: "custom",
+          path: ["changeSummary"],
+          message: "新版本必須記錄修改摘要",
+        });
+      }
     }
 
     if (question.modality === "audio" && !question.audio) {

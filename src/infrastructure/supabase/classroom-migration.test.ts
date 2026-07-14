@@ -14,6 +14,7 @@ describe("classroom core migration", () => {
   it("creates every exposed classroom table with RLS and explicit least-privilege grants", () => {
     const exposedTables = [
       "teacher_profiles",
+      "content_reviewer_profiles",
       "classrooms",
       "classroom_members",
       "classroom_activities",
@@ -30,7 +31,28 @@ describe("classroom core migration", () => {
       expect(migration).toContain(`alter table public.${table} enable row level security`);
     }
 
-    expect(migration).toContain("create table private.question_versions");
+    const governedPrivateTables = [
+      "question_versions",
+      "question_reviews",
+      "question_status_events",
+    ];
+
+    for (const table of governedPrivateTables) {
+      expect(migration).toContain(`create table private.${table}`);
+      expect(migration).toContain(
+        `alter table private.${table} enable row level security`,
+      );
+      expect(migration).toContain(
+        `alter table private.${table} force row level security`,
+      );
+      expect(migration).toContain(
+        `revoke all on private.${table} from public, anon, authenticated`,
+      );
+    }
+
+    expect(migration).toContain(
+      "create policy content_reviewer_profiles_select_own",
+    );
     expect(migration).toContain("grant usage on schema public to authenticated");
     expect(migration).toContain("grant select");
     expect(migration).not.toMatch(/grant all/);
@@ -78,7 +100,7 @@ describe("classroom core migration", () => {
     );
   });
 
-  it("creates an activity transactionally from reviewed published questions", () => {
+  it("creates an activity transactionally from published questions with two current approved reviews", () => {
     const createActivityFunction = migration.match(
       /create or replace function public\.create_classroom_activity[\s\S]*?\$\$;/,
     )?.[0];
@@ -88,8 +110,19 @@ describe("classroom core migration", () => {
     expect(createActivityFunction).toContain("set search_path = ''");
     expect(createActivityFunction).toContain("profile.approval_status = 'approved'");
     expect(createActivityFunction).toContain("question.status = 'published'");
+    expect(createActivityFunction).toContain("private.question_reviews review");
     expect(createActivityFunction).toContain(
-      "jsonb_array_length(question.reviewers) >= 2",
+      "public.content_reviewer_profiles reviewer",
+    );
+    expect(createActivityFunction).toContain("review.verdict = 'approved'");
+    expect(createActivityFunction).toContain(
+      "reviewer.reviewer_role = 'english_teacher'",
+    );
+    expect(createActivityFunction).toContain(
+      "reviewer.approval_status = 'approved'",
+    );
+    expect(createActivityFunction).toContain(
+      "count(distinct review.reviewer_id) >= 2",
     );
     expect(createActivityFunction).toContain(
       "insert into public.activity_questions",
@@ -102,7 +135,7 @@ describe("classroom core migration", () => {
     );
   });
 
-  it("lists only reviewed published micro skills for an approved classroom owner", () => {
+  it("lists only micro skills backed by two current approved reviews", () => {
     const listSkillsFunction = migration.match(
       /create or replace function public\.list_classroom_micro_skills[\s\S]*?\$\$;/,
     )?.[0];
@@ -111,8 +144,19 @@ describe("classroom core migration", () => {
     expect(listSkillsFunction).toContain("security definer");
     expect(listSkillsFunction).toContain("profile.approval_status = 'approved'");
     expect(listSkillsFunction).toContain("question.status = 'published'");
+    expect(listSkillsFunction).toContain("private.question_reviews review");
     expect(listSkillsFunction).toContain(
-      "jsonb_array_length(question.reviewers) >= 2",
+      "public.content_reviewer_profiles reviewer",
+    );
+    expect(listSkillsFunction).toContain("review.verdict = 'approved'");
+    expect(listSkillsFunction).toContain(
+      "reviewer.reviewer_role = 'english_teacher'",
+    );
+    expect(listSkillsFunction).toContain(
+      "reviewer.approval_status = 'approved'",
+    );
+    expect(listSkillsFunction).toContain(
+      "count(distinct review.reviewer_id) >= 2",
     );
     expect(listSkillsFunction).not.toContain("correct_option_id");
     expect(listSkillsFunction).not.toContain("explanation");
@@ -137,16 +181,35 @@ describe("classroom core migration", () => {
     );
   });
 
-  it("rejects a published question version without two reviews and review dates", () => {
+  it("keeps review identities normalized and governance history append-only", () => {
     const questionTable = migration.match(
       /create table private\.question_versions[\s\S]*?\n\);/,
     )?.[0];
+    const reviewTable = migration.match(
+      /create table private\.question_reviews[\s\S]*?\n\);/,
+    )?.[0];
+    const statusEventTable = migration.match(
+      /create table private\.question_status_events[\s\S]*?\n\);/,
+    )?.[0];
 
     expect(questionTable).toBeDefined();
+    expect(reviewTable).toBeDefined();
+    expect(statusEventTable).toBeDefined();
     expect(questionTable).toContain("status <> 'published'");
-    expect(questionTable).toContain("jsonb_array_length(reviewers) >= 2");
+    expect(questionTable).not.toContain("reviewers jsonb");
     expect(questionTable).toContain("reviewed_at is not null");
     expect(questionTable).toContain("published_at is not null");
+    expect(reviewTable).toContain(
+      "unique (question_id, question_version, reviewer_id)",
+    );
+    expect(migration).toContain("question_reviews_immutable");
+    expect(migration).toContain("question_status_events_immutable");
+    expect(migration).not.toContain(
+      "grant update on private.question_reviews to authenticated",
+    );
+    expect(migration).not.toContain(
+      "grant update on private.question_status_events to authenticated",
+    );
   });
 
   it("exposes only support-oriented participant status to the owning teacher", () => {

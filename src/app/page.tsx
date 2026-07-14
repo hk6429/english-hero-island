@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   BookOpenCheck,
+  ClipboardCheck,
   GraduationCap,
   Map,
   ShieldCheck,
@@ -96,6 +97,9 @@ export default function HomePage() {
               </Link>
               <Link className="text-link" href="/teacher">
                 <GraduationCap aria-hidden="true" />教師工作區
+              </Link>
+              <Link className="text-link" href="/governance">
+                <ClipboardCheck aria-hidden="true" />題庫複核工作區
               </Link>
             </div>
           </div>

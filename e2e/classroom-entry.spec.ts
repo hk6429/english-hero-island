@@ -32,3 +32,16 @@ test("首頁可進入教師工作區，未連線時不開放建立活動", async
   await expect(page.getByLabel("教師電子郵件")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
+
+test("首頁可進入題庫複核工作區，未連線時不偽造複核結果", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: /題庫複核工作區/ }).click();
+
+  await expect(page).toHaveURL(/\/governance$/);
+  await expect(
+    page.getByRole("heading", { name: "題庫治理後端尚未連線" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /通過複核/ })).toHaveCount(0);
+  await expect(page.getByLabel("複核者電子郵件")).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});

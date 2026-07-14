@@ -141,6 +141,37 @@ describe("question schema", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("rejects predecessor metadata on the first version", () => {
+    const result = questionSchema.safeParse({
+      ...validDraftQuestion,
+      supersedesVersion: 1,
+      changeSummary: "第一版不應宣稱取代其他版本。",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("requires a revision to link to the immediately preceding version", () => {
+    const result = questionSchema.safeParse({
+      ...validDraftQuestion,
+      version: 3,
+      supersedesVersion: 1,
+      changeSummary: "修正第三版的解析內容。",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("requires every revision to explain what changed", () => {
+    const result = questionSchema.safeParse({
+      ...validDraftQuestion,
+      version: 2,
+      supersedesVersion: 1,
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
 
 export { validDraftQuestion };

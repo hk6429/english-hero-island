@@ -9,6 +9,17 @@ create table public.teacher_profiles (
   updated_at timestamptz not null default now()
 );
 
+create table public.content_reviewer_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  display_name text not null check (char_length(trim(display_name)) between 1 and 80),
+  reviewer_role text not null
+    check (reviewer_role in ('english_teacher', 'content_editor', 'administrator')),
+  approval_status text not null default 'pending'
+    check (approval_status in ('pending', 'approved', 'suspended')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.classrooms (
   id uuid primary key default gen_random_uuid(),
   teacher_id uuid not null references public.teacher_profiles(user_id) on delete restrict,
@@ -90,6 +101,10 @@ create table public.activity_participants (
 create table private.question_versions (
   question_id text not null,
   version integer not null check (version > 0),
+  supersedes_version integer,
+  change_summary text check (
+    change_summary is null or char_length(trim(change_summary)) between 4 and 500
+  ),
   status text not null
     check (status in ('draft', 'in_review', 'reviewed', 'published', 'disputed', 'retired')),
   grade smallint not null check (grade between 3 and 6),
@@ -110,19 +125,73 @@ create table private.question_versions (
   variant_group text not null,
   source jsonb not null,
   author jsonb not null,
-  reviewers jsonb not null default '[]'::jsonb check (jsonb_typeof(reviewers) = 'array'),
+  created_by uuid references auth.users(id) on delete set null,
+  locked_at timestamptz,
   reviewed_at timestamptz,
   published_at timestamptz,
   created_at timestamptz not null default now(),
   primary key (question_id, version),
+  foreign key (question_id, supersedes_version)
+    references private.question_versions(question_id, version) on delete restrict,
+  check (
+    (version = 1 and supersedes_version is null)
+    or (version > 1 and supersedes_version = version - 1 and change_summary is not null)
+  ),
   check (
     status <> 'published'
     or (
-      jsonb_array_length(reviewers) >= 2
-      and reviewed_at is not null
+      reviewed_at is not null
       and published_at is not null
+      and (
+        (source ->> 'kind' = 'original' and source ->> 'usageRights' = 'original-for-project')
+        or (
+          source ->> 'kind' = 'licensed'
+          and source ->> 'usageRights' = 'licensed-for-publication'
+        )
+      )
     )
   )
+);
+
+create table private.question_reviews (
+  id uuid primary key default gen_random_uuid(),
+  question_id text not null,
+  question_version integer not null,
+  reviewer_id uuid not null
+    references public.content_reviewer_profiles(user_id) on delete restrict,
+  reviewer_role_snapshot text not null check (reviewer_role_snapshot = 'english_teacher'),
+  verdict text not null check (verdict in ('approved', 'changes_requested')),
+  criteria jsonb not null check (jsonb_typeof(criteria) = 'object'),
+  note text not null check (char_length(trim(note)) between 4 and 1000),
+  created_at timestamptz not null default now(),
+  foreign key (question_id, question_version)
+    references private.question_versions(question_id, version) on delete restrict,
+  unique (question_id, question_version, reviewer_id)
+);
+
+create table private.question_status_events (
+  id uuid primary key default gen_random_uuid(),
+  question_id text not null,
+  question_version integer not null,
+  actor_id uuid references auth.users(id) on delete set null,
+  event_type text not null check (
+    event_type in (
+      'submitted_for_review',
+      'review_recorded',
+      'marked_reviewed',
+      'published',
+      'disputed',
+      'retired',
+      'revision_created'
+    )
+  ),
+  from_status text,
+  to_status text not null,
+  note text not null check (char_length(trim(note)) between 1 and 1000),
+  details jsonb not null default '{}'::jsonb check (jsonb_typeof(details) = 'object'),
+  created_at timestamptz not null default now(),
+  foreign key (question_id, question_version)
+    references private.question_versions(question_id, version) on delete restrict
 );
 
 create table public.activity_questions (
@@ -217,10 +286,19 @@ create index classroom_learning_events_activity_skill_idx
   on public.classroom_learning_events (activity_id, micro_skill, occurred_at);
 create index classroom_learning_events_participant_occurred_idx
   on public.classroom_learning_events (participant_id, occurred_at desc);
+create index question_versions_status_grade_skill_idx
+  on private.question_versions (status, grade, micro_skill, published_at desc);
+create index question_reviews_version_verdict_idx
+  on private.question_reviews (question_id, question_version, verdict, created_at);
+create index question_reviews_reviewer_idx
+  on private.question_reviews (reviewer_id, created_at desc);
+create index question_status_events_version_idx
+  on private.question_status_events (question_id, question_version, created_at);
 
 alter publication supabase_realtime add table public.activity_participants;
 
 alter table public.teacher_profiles enable row level security;
+alter table public.content_reviewer_profiles enable row level security;
 alter table public.classrooms enable row level security;
 alter table public.classroom_members enable row level security;
 alter table public.classroom_activities enable row level security;
@@ -231,8 +309,11 @@ alter table public.activity_responses enable row level security;
 alter table public.classroom_learning_events enable row level security;
 alter table public.classroom_story_progress enable row level security;
 alter table private.question_versions enable row level security;
+alter table private.question_reviews enable row level security;
+alter table private.question_status_events enable row level security;
 
 alter table public.teacher_profiles force row level security;
+alter table public.content_reviewer_profiles force row level security;
 alter table public.classrooms force row level security;
 alter table public.classroom_members force row level security;
 alter table public.classroom_activities force row level security;
@@ -243,8 +324,11 @@ alter table public.activity_responses force row level security;
 alter table public.classroom_learning_events force row level security;
 alter table public.classroom_story_progress force row level security;
 alter table private.question_versions force row level security;
+alter table private.question_reviews force row level security;
+alter table private.question_status_events force row level security;
 
 revoke all on public.teacher_profiles from anon, authenticated;
+revoke all on public.content_reviewer_profiles from anon, authenticated;
 revoke all on public.classrooms from anon, authenticated;
 revoke all on public.classroom_members from anon, authenticated;
 revoke all on public.classroom_activities from anon, authenticated;
@@ -256,10 +340,13 @@ revoke all on public.classroom_learning_events from anon, authenticated;
 revoke all on public.classroom_story_progress from anon, authenticated;
 revoke all on schema private from public, anon, authenticated;
 revoke all on private.question_versions from public, anon, authenticated;
+revoke all on private.question_reviews from public, anon, authenticated;
+revoke all on private.question_status_events from public, anon, authenticated;
 
 grant usage on schema public to authenticated;
 grant select on public.teacher_profiles to authenticated;
 grant update (display_name) on public.teacher_profiles to authenticated;
+grant select on public.content_reviewer_profiles to authenticated;
 grant select on public.classrooms to authenticated;
 grant select on public.classroom_members to authenticated;
 grant select, delete on public.classroom_activities to authenticated;
@@ -272,6 +359,8 @@ grant select on public.classroom_story_progress to authenticated;
 
 grant usage on schema private to service_role;
 grant select, insert, update on private.question_versions to service_role;
+grant select, insert on private.question_reviews to service_role;
+grant select, insert on private.question_status_events to service_role;
 
 create policy teacher_profiles_select_own
 on public.teacher_profiles for select
@@ -289,6 +378,11 @@ with check (
   (select auth.uid()) = user_id
   and coalesce((select (auth.jwt() ->> 'is_anonymous')::boolean), false) is false
 );
+
+create policy content_reviewer_profiles_select_own
+on public.content_reviewer_profiles for select
+to authenticated
+using ((select auth.uid()) = user_id);
 
 create policy classrooms_teacher_select
 on public.classrooms for select
@@ -528,6 +622,700 @@ using (
       and activity.teacher_id = (select auth.uid())
   )
 );
+
+create or replace function private.prevent_question_governance_mutation()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception '% is append-only', tg_table_name using errcode = '55000';
+end;
+$$;
+
+revoke execute on function private.prevent_question_governance_mutation()
+from public, anon, authenticated;
+
+create trigger question_reviews_immutable
+before update or delete on private.question_reviews
+for each row execute function private.prevent_question_governance_mutation();
+
+create trigger question_status_events_immutable
+before update or delete on private.question_status_events
+for each row execute function private.prevent_question_governance_mutation();
+
+create or replace function public.list_question_review_queue()
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  grade smallint,
+  skill text,
+  indicator text,
+  micro_skill text,
+  difficulty smallint,
+  modality text,
+  question_type text,
+  purpose text,
+  prompt text,
+  audio jsonb,
+  image jsonb,
+  options jsonb,
+  correct_option_id text,
+  explanation text,
+  hints text[],
+  variant_group text,
+  source jsonb,
+  author jsonb,
+  created_by uuid,
+  supersedes_version integer,
+  change_summary text,
+  locked_at timestamptz,
+  created_at timestamptz,
+  approval_count integer,
+  change_request_count integer
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    question.question_id,
+    question.version,
+    question.status,
+    question.grade,
+    question.skill,
+    question.indicator,
+    question.micro_skill,
+    question.difficulty,
+    question.modality,
+    question.question_type,
+    question.purpose,
+    question.prompt,
+    question.audio,
+    question.image,
+    question.options,
+    question.correct_option_id,
+    question.explanation,
+    question.hints,
+    question.variant_group,
+    question.source,
+    question.author,
+    question.created_by,
+    question.supersedes_version,
+    question.change_summary,
+    question.locked_at,
+    question.created_at,
+    coalesce(review_counts.approval_count, 0),
+    coalesce(review_counts.change_request_count, 0)
+  from public.content_reviewer_profiles profile
+  cross join private.question_versions question
+  left join lateral (
+    select
+      count(*) filter (where review.verdict = 'approved')::integer as approval_count,
+      count(*) filter (where review.verdict = 'changes_requested')::integer
+        as change_request_count
+    from private.question_reviews review
+    join public.content_reviewer_profiles reviewer
+      on reviewer.user_id = review.reviewer_id
+    where review.question_id = question.question_id
+      and review.question_version = question.version
+      and reviewer.reviewer_role = 'english_teacher'
+      and reviewer.approval_status = 'approved'
+  ) review_counts on true
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role = 'english_teacher'
+    and profile.approval_status = 'approved'
+    and coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is false
+    and question.status = 'in_review'
+    and question.locked_at is not null
+    and question.created_by is distinct from auth.uid()
+    and not exists (
+      select 1
+      from private.question_reviews review
+      where review.question_id = question.question_id
+        and review.question_version = question.version
+        and review.reviewer_id = auth.uid()
+    )
+  order by question.grade, question.micro_skill, question.created_at, question.question_id;
+$$;
+
+revoke execute on function public.list_question_review_queue() from public, anon;
+grant execute on function public.list_question_review_queue() to authenticated;
+
+create or replace function public.submit_question_review(
+  p_question_id text,
+  p_question_version integer,
+  p_verdict text,
+  p_criteria jsonb,
+  p_note text
+)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  approval_count integer,
+  change_request_count integer,
+  reviewed_at timestamptz,
+  review_recorded_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+  question_record private.question_versions%rowtype;
+  saved_review_id uuid;
+  saved_approval_count integer;
+  saved_change_request_count integer;
+  prior_status text;
+  transition_at timestamptz := now();
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved English-teacher reviewer authentication required'
+      using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role = 'english_teacher'
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved English-teacher reviewer required' using errcode = '42501';
+  end if;
+
+  if p_question_id is null or char_length(trim(p_question_id)) = 0
+    or p_question_version is null or p_question_version < 1
+  then
+    raise exception 'question version is invalid' using errcode = '22023';
+  end if;
+
+  if p_verdict not in ('approved', 'changes_requested') then
+    raise exception 'review verdict is invalid' using errcode = '22023';
+  end if;
+
+  if p_criteria is null or jsonb_typeof(p_criteria) <> 'object' then
+    raise exception 'review criteria must be an object' using errcode = '22023';
+  end if;
+
+  if p_verdict = 'approved'
+    and not p_criteria @> '{
+      "english_correct": true,
+      "answer_unique": true,
+      "explanation_correct": true,
+      "hint_safe": true,
+      "asset_consistent": true,
+      "rights_clear": true,
+      "age_appropriate": true
+    }'::jsonb
+  then
+    raise exception 'every review criterion must pass before approval'
+      using errcode = '22023';
+  end if;
+
+  if p_note is null or char_length(trim(p_note)) not between 4 and 1000 then
+    raise exception 'review note must contain 4 to 1000 characters' using errcode = '22023';
+  end if;
+
+  select question.*
+  into question_record
+  from private.question_versions question
+  where question.question_id = trim(p_question_id)
+    and question.version = p_question_version
+  for update;
+
+  if not found or question_record.status <> 'in_review' then
+    raise exception 'question is not open for review' using errcode = 'P0001';
+  end if;
+
+  if question_record.created_by = auth.uid() then
+    raise exception 'question authors cannot review their own version' using errcode = '42501';
+  end if;
+
+  prior_status := question_record.status;
+
+  insert into private.question_reviews (
+    question_id,
+    question_version,
+    reviewer_id,
+    reviewer_role_snapshot,
+    verdict,
+    criteria,
+    note,
+    created_at
+  )
+  values (
+    question_record.question_id,
+    question_record.version,
+    auth.uid(),
+    profile_record.reviewer_role,
+    p_verdict,
+    p_criteria,
+    trim(p_note),
+    transition_at
+  )
+  returning id into saved_review_id;
+
+  select
+    count(distinct review.reviewer_id) filter (
+      where review.verdict = 'approved'
+    )::integer,
+    count(distinct review.reviewer_id) filter (
+      where review.verdict = 'changes_requested'
+    )::integer
+  into saved_approval_count, saved_change_request_count
+  from private.question_reviews review
+  join public.content_reviewer_profiles reviewer
+    on reviewer.user_id = review.reviewer_id
+  where review.question_id = question_record.question_id
+    and review.question_version = question_record.version
+    and reviewer.reviewer_role = 'english_teacher'
+    and reviewer.approval_status = 'approved';
+
+  if saved_change_request_count > 0 then
+    update private.question_versions as question
+    set status = 'disputed'
+    where question.question_id = question_record.question_id
+      and question.version = question_record.version
+    returning question.* into question_record;
+  elsif saved_approval_count >= 2 then
+    update private.question_versions as question
+    set
+      status = 'reviewed',
+      reviewed_at = transition_at
+    where question.question_id = question_record.question_id
+      and question.version = question_record.version
+    returning question.* into question_record;
+  end if;
+
+  insert into private.question_status_events (
+    question_id,
+    question_version,
+    actor_id,
+    event_type,
+    from_status,
+    to_status,
+    note,
+    details,
+    created_at
+  )
+  values (
+    question_record.question_id,
+    question_record.version,
+    auth.uid(),
+    'review_recorded',
+    prior_status,
+    question_record.status,
+    trim(p_note),
+    jsonb_build_object(
+      'review_id', saved_review_id,
+      'verdict', p_verdict,
+      'criteria', p_criteria,
+      'approval_count', saved_approval_count,
+      'change_request_count', saved_change_request_count
+    ),
+    transition_at
+  );
+
+  if question_record.status <> prior_status then
+    insert into private.question_status_events (
+      question_id,
+      question_version,
+      actor_id,
+      event_type,
+      from_status,
+      to_status,
+      note,
+      details,
+      created_at
+    )
+    values (
+      question_record.question_id,
+      question_record.version,
+      auth.uid(),
+      case
+        when question_record.status = 'reviewed' then 'marked_reviewed'
+        else 'disputed'
+      end,
+      prior_status,
+      question_record.status,
+      case
+        when question_record.status = 'reviewed' then 'Two distinct approved reviews recorded'
+        else 'A reviewer requested changes'
+      end,
+      jsonb_build_object(
+        'approval_count', saved_approval_count,
+        'change_request_count', saved_change_request_count
+      ),
+      transition_at
+    );
+  end if;
+
+  return query
+  select
+    question_record.question_id,
+    question_record.version,
+    question_record.status,
+    saved_approval_count,
+    saved_change_request_count,
+    question_record.reviewed_at,
+    transition_at;
+exception
+  when unique_violation then
+    raise exception 'reviewer has already reviewed this question version'
+      using errcode = '23505';
+end;
+$$;
+
+revoke execute on function public.submit_question_review(text, integer, text, jsonb, text)
+from public, anon;
+grant execute on function public.submit_question_review(text, integer, text, jsonb, text)
+to authenticated;
+
+create or replace function public.publish_question_version(
+  p_question_id text,
+  p_question_version integer,
+  p_note text
+)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  published_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+  question_record private.question_versions%rowtype;
+  saved_approval_count integer;
+  transition_at timestamptz := now();
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved content administrator authentication required'
+      using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role = 'administrator'
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved content administrator required' using errcode = '42501';
+  end if;
+
+  if p_note is null or char_length(trim(p_note)) not between 4 and 1000 then
+    raise exception 'publication note must contain 4 to 1000 characters' using errcode = '22023';
+  end if;
+
+  select question.*
+  into question_record
+  from private.question_versions question
+  where question.question_id = trim(p_question_id)
+    and question.version = p_question_version
+  for update;
+
+  if not found then
+    raise exception 'question version not found' using errcode = 'P0002';
+  end if;
+
+  if question_record.status <> 'reviewed' then
+    raise exception 'only a reviewed question version can be published' using errcode = 'P0001';
+  end if;
+
+  select count(distinct review.reviewer_id)::integer
+  into saved_approval_count
+  from private.question_reviews review
+  join public.content_reviewer_profiles reviewer
+    on reviewer.user_id = review.reviewer_id
+  where review.question_id = question_record.question_id
+    and review.question_version = question_record.version
+    and review.verdict = 'approved'
+    and reviewer.reviewer_role = 'english_teacher'
+    and reviewer.approval_status = 'approved';
+
+  if saved_approval_count < 2 then
+    raise exception 'two current approved English-teacher reviews are required'
+      using errcode = 'P0001';
+  end if;
+
+  if not (
+    (
+      question_record.source ->> 'kind' = 'original'
+      and question_record.source ->> 'usageRights' = 'original-for-project'
+    )
+    or (
+      question_record.source ->> 'kind' = 'licensed'
+      and question_record.source ->> 'usageRights' = 'licensed-for-publication'
+    )
+  ) then
+    raise exception 'question source rights do not permit publication' using errcode = '42501';
+  end if;
+
+  update private.question_versions as question
+  set
+    status = 'published',
+    published_at = now()
+  where question.question_id = question_record.question_id
+    and question.version = question_record.version
+  returning question.* into question_record;
+
+  insert into private.question_status_events (
+    question_id,
+    question_version,
+    actor_id,
+    event_type,
+    from_status,
+    to_status,
+    note,
+    details,
+    created_at
+  )
+  values (
+    question_record.question_id,
+    question_record.version,
+    auth.uid(),
+    'published',
+    'reviewed',
+    question_record.status,
+    trim(p_note),
+    jsonb_build_object('approval_count', saved_approval_count),
+    transition_at
+  );
+
+  return query
+  select
+    question_record.question_id,
+    question_record.version,
+    question_record.status,
+    question_record.published_at;
+end;
+$$;
+
+revoke execute on function public.publish_question_version(text, integer, text)
+from public, anon;
+grant execute on function public.publish_question_version(text, integer, text)
+to authenticated;
+
+create or replace function public.report_question_dispute(
+  p_question_id text,
+  p_question_version integer,
+  p_note text
+)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  disputed_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+  question_record private.question_versions%rowtype;
+  prior_status text;
+  transition_at timestamptz := now();
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved content reviewer authentication required' using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role in ('english_teacher', 'administrator')
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved content reviewer required' using errcode = '42501';
+  end if;
+
+  if p_note is null or char_length(trim(p_note)) not between 4 and 1000 then
+    raise exception 'dispute note must contain 4 to 1000 characters' using errcode = '22023';
+  end if;
+
+  select question.*
+  into question_record
+  from private.question_versions question
+  where question.question_id = trim(p_question_id)
+    and question.version = p_question_version
+  for update;
+
+  if not found then
+    raise exception 'question version not found' using errcode = 'P0002';
+  end if;
+
+  if question_record.status not in ('in_review', 'reviewed', 'published') then
+    raise exception 'question version cannot be disputed from its current status'
+      using errcode = 'P0001';
+  end if;
+
+  prior_status := question_record.status;
+
+  update private.question_versions as question
+  set status = 'disputed'
+  where question.question_id = question_record.question_id
+    and question.version = question_record.version
+  returning question.* into question_record;
+
+  insert into private.question_status_events (
+    question_id,
+    question_version,
+    actor_id,
+    event_type,
+    from_status,
+    to_status,
+    note,
+    details,
+    created_at
+  )
+  values (
+    question_record.question_id,
+    question_record.version,
+    auth.uid(),
+    'disputed',
+    prior_status,
+    question_record.status,
+    trim(p_note),
+    jsonb_build_object('reported_by_role', profile_record.reviewer_role),
+    transition_at
+  );
+
+  return query
+  select
+    question_record.question_id,
+    question_record.version,
+    question_record.status,
+    transition_at;
+end;
+$$;
+
+revoke execute on function public.report_question_dispute(text, integer, text)
+from public, anon;
+grant execute on function public.report_question_dispute(text, integer, text)
+to authenticated;
+
+create or replace function public.retire_question_version(
+  p_question_id text,
+  p_question_version integer,
+  p_note text
+)
+returns table (
+  question_id text,
+  question_version integer,
+  question_status text,
+  retired_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  profile_record public.content_reviewer_profiles%rowtype;
+  question_record private.question_versions%rowtype;
+  prior_status text;
+  transition_at timestamptz := now();
+begin
+  if auth.uid() is null
+    or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is true
+  then
+    raise exception 'approved content administrator authentication required'
+      using errcode = '42501';
+  end if;
+
+  select profile.*
+  into profile_record
+  from public.content_reviewer_profiles profile
+  where profile.user_id = auth.uid()
+    and profile.reviewer_role = 'administrator'
+    and profile.approval_status = 'approved';
+
+  if not found then
+    raise exception 'approved content administrator required' using errcode = '42501';
+  end if;
+
+  if p_note is null or char_length(trim(p_note)) not between 4 and 1000 then
+    raise exception 'retirement note must contain 4 to 1000 characters' using errcode = '22023';
+  end if;
+
+  select question.*
+  into question_record
+  from private.question_versions question
+  where question.question_id = trim(p_question_id)
+    and question.version = p_question_version
+  for update;
+
+  if not found then
+    raise exception 'question version not found' using errcode = 'P0002';
+  end if;
+
+  if question_record.status = 'retired' then
+    raise exception 'question version is already retired' using errcode = 'P0001';
+  end if;
+
+  prior_status := question_record.status;
+
+  update private.question_versions as question
+  set status = 'retired'
+  where question.question_id = question_record.question_id
+    and question.version = question_record.version
+  returning question.* into question_record;
+
+  insert into private.question_status_events (
+    question_id,
+    question_version,
+    actor_id,
+    event_type,
+    from_status,
+    to_status,
+    note,
+    details,
+    created_at
+  )
+  values (
+    question_record.question_id,
+    question_record.version,
+    auth.uid(),
+    'retired',
+    prior_status,
+    question_record.status,
+    trim(p_note),
+    '{}'::jsonb,
+    transition_at
+  );
+
+  return query
+  select
+    question_record.question_id,
+    question_record.version,
+    question_record.status,
+    transition_at;
+end;
+$$;
+
+revoke execute on function public.retire_question_version(text, integer, text)
+from public, anon;
+grant execute on function public.retire_question_version(text, integer, text)
+to authenticated;
 
 create or replace function public.start_classroom_activity(p_activity_id uuid)
 returns table (
@@ -1404,7 +2192,19 @@ as $$
     and coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is false
     and question.status = 'published'
     and question.purpose in ('practice', 'boss')
-    and jsonb_array_length(question.reviewers) >= 2
+    and exists (
+      select 1
+      from private.question_reviews review
+      join public.content_reviewer_profiles reviewer
+        on reviewer.user_id = review.reviewer_id
+      where review.question_id = question.question_id
+        and review.question_version = question.version
+        and review.verdict = 'approved'
+        and reviewer.reviewer_role = 'english_teacher'
+        and reviewer.approval_status = 'approved'
+      group by review.question_id, review.question_version
+      having count(distinct review.reviewer_id) >= 2
+    )
   group by question.micro_skill
   having count(*) >= 3
   order by question.micro_skill;
@@ -1527,7 +2327,19 @@ begin
     and question.grade = classroom_record.grade
     and question.micro_skill = trim(p_micro_skill)
     and question.purpose in ('practice', 'boss')
-    and jsonb_array_length(question.reviewers) >= 2;
+    and exists (
+      select 1
+      from private.question_reviews review
+      join public.content_reviewer_profiles reviewer
+        on reviewer.user_id = review.reviewer_id
+      where review.question_id = question.question_id
+        and review.question_version = question.version
+        and review.verdict = 'approved'
+        and reviewer.reviewer_role = 'english_teacher'
+        and reviewer.approval_status = 'approved'
+      group by review.question_id, review.question_version
+      having count(distinct review.reviewer_id) >= 2
+    );
 
   if available_question_count < p_question_count then
     raise exception 'not enough reviewed questions for this activity' using errcode = 'P0001';
@@ -1602,7 +2414,19 @@ begin
     and question.grade = classroom_record.grade
     and question.micro_skill = trim(p_micro_skill)
     and question.purpose in ('practice', 'boss')
-    and jsonb_array_length(question.reviewers) >= 2
+    and exists (
+      select 1
+      from private.question_reviews review
+      join public.content_reviewer_profiles reviewer
+        on reviewer.user_id = review.reviewer_id
+      where review.question_id = question.question_id
+        and review.question_version = question.version
+        and review.verdict = 'approved'
+        and reviewer.reviewer_role = 'english_teacher'
+        and reviewer.approval_status = 'approved'
+      group by review.question_id, review.question_version
+      having count(distinct review.reviewer_id) >= 2
+    )
   order by question.published_at desc, question.question_id, question.version
   limit p_question_count;
 
