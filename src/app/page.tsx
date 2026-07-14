@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, Map, ShieldCheck, Swords } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpenCheck,
+  GraduationCap,
+  Map,
+  ShieldCheck,
+  Swords,
+  UsersRound,
+} from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
@@ -80,10 +88,18 @@ export default function HomePage() {
         <section className="classroom-teaser" aria-labelledby="classroom-title">
           <div>
             <p className="eyebrow">教師課堂系統</p>
-            <h2 id="classroom-title">班級合作與活動碼正在下一階段施工</h2>
-            <p>正式課堂版不會公開排名學生速度、錯題或能力狀態。</p>
+            <h2 id="classroom-title">六碼加入、教師快派與安全資料層已進入連線階段</h2>
+            <p>課堂版不公開個人成績、速度或排名；未設定專用後端前也不會產生假活動。</p>
+            <div className="classroom-teaser-actions">
+              <Link className="secondary-button secondary-link" href="/join">
+                <UsersRound aria-hidden="true" />學生輸入活動碼
+              </Link>
+              <Link className="text-link" href="/teacher">
+                <GraduationCap aria-hidden="true" />教師工作區
+              </Link>
+            </div>
           </div>
-          <span className="coming-chip">第二階段</span>
+          <span className="coming-chip">安全連線待設定</span>
         </section>
       </main>
     </AppShell>
