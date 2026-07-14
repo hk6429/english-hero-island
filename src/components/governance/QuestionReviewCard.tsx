@@ -2,6 +2,7 @@
 
 import { CheckCircle2, RotateCcw, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
+import styles from "./governance.module.css";
 
 export const reviewCriteriaKeys = [
   "english_correct",
@@ -205,7 +206,7 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
             四眼複核・{item.grade} 年級・{item.microSkill}
           </p>
           <h2 id={`review-${item.id}`}>{item.prompt}</h2>
-          <p className="question-review-meta">
+          <p className={`question-review-meta ${styles.metaChips}`}>
             <span>{`題號 ${item.id}`}</span>
             <span>{`第 ${item.version} 版`}</span>
             <span>{`作者 ${item.authorName}`}</span>
@@ -261,7 +262,13 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
               <h4>
                 {`${assetKindLabels[receipt.assetKind]}・${receipt.mimeType}・${formatByteLength(receipt.byteLength)} bytes`}
               </h4>
-              <dl>
+              <p className={styles.receiptRights}>
+                <strong>素材授權</strong>
+                <span>{`${receipt.rightsSourceKind}・${receipt.rightsUsageRights}`}</span>
+              </p>
+              <details className={styles.receiptDetails}>
+                <summary>展開完整位元組與授權欄位</summary>
+                <dl>
                 <div>
                   <dt>素材 SHA-256</dt>
                   <dd><code>{receipt.assetSha256}</code></dd>
@@ -269,10 +276,6 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
                 <div>
                   <dt>素材位置</dt>
                   <dd><code>{receipt.assetLocator}</code></dd>
-                </div>
-                <div>
-                  <dt>素材授權</dt>
-                  <dd>{`${receipt.rightsSourceKind}・${receipt.rightsUsageRights}`}</dd>
                 </div>
                 <div>
                   <dt>授權證明 SHA-256</dt>
@@ -306,7 +309,8 @@ export function QuestionReviewCard({ item, onSubmit }: Props) {
                     </time>
                   </dd>
                 </div>
-              </dl>
+                </dl>
+              </details>
             </article>
           ))}
         </section>

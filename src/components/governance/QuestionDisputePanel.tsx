@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useMemo, useState } from "react";
+import styles from "./governance.module.css";
 
 export type QuestionDisputeCandidate = Readonly<{
   id: string;
@@ -88,6 +89,7 @@ export function QuestionDisputePanel({ items, onSubmit }: Props) {
           <label>
             <span>搜尋已發布題目</span>
             <input
+              className={styles.disputeControl}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="輸入題號或題幹"
               type="search"
@@ -97,6 +99,7 @@ export function QuestionDisputePanel({ items, onSubmit }: Props) {
           <label>
             <span>選擇題目版本</span>
             <select
+              className={styles.disputeControl}
               onChange={(event) => setSelectedKey(event.target.value)}
               value={selected ? candidateKey(selected) : ""}
             >
@@ -114,6 +117,7 @@ export function QuestionDisputePanel({ items, onSubmit }: Props) {
           <label>
             <span>爭議說明</span>
             <textarea
+              className={styles.disputeControl}
               maxLength={1000}
               minLength={4}
               onChange={(event) => setNote(event.target.value)}

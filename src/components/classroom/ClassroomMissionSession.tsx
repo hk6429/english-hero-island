@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CheckCircle2, HandHeart, Swords } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import styles from "./StudentClassroom.module.css";
 import { AudioControls } from "@/components/question/AudioControls";
 import { QuestionScene } from "@/components/question/QuestionScene";
 import type {
@@ -453,6 +454,21 @@ export function ClassroomMissionSession({
         <span className="classroom-coop-chip">
           <Swords aria-hidden="true" />全班合作
         </span>
+      </div>
+
+      <div
+        aria-label="合作任務進度"
+        aria-valuemax={questions.length}
+        aria-valuemin={0}
+        aria-valuenow={currentIndex}
+        className={styles.missionProgress}
+        role="progressbar"
+      >
+        <span
+          aria-hidden="true"
+          className={styles.missionProgressFill}
+          style={{ width: `${(currentIndex / questions.length) * 100}%` }}
+        />
       </div>
 
       {encodedTranscript ? (

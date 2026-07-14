@@ -1,3 +1,5 @@
+import styles from "./governance.module.css";
+
 export type QuestionQualitySeverity = "blocking" | "warning" | "info";
 
 export type QuestionQualityFinding = Readonly<{
@@ -41,11 +43,15 @@ export function QuestionQualityPanel({ assetDataState, findings, dataState }: Pr
         <p>品質訊號協助人工判讀，不會自動取代真人複核。</p>
       </header>
 
-      <p aria-live="polite">
+      <p aria-live="polite" className={styles.dataState} data-state={dataState.state}>
         {dataState.state === "sufficient" ? "資料充足" : "資料不足"}：
         {dataState.message}
       </p>
-      <p aria-live="polite">
+      <p
+        aria-live="polite"
+        className={styles.dataState}
+        data-state={assetDataState.state}
+      >
         {assetDataState.state === "sufficient" ? "素材檢查完成" : "素材檢查未完成"}：
         {assetDataState.message}
       </p>
@@ -72,7 +78,10 @@ export function QuestionQualityPanel({ assetDataState, findings, dataState }: Pr
               {groupedFindings.map((finding) => (
                 <li key={finding.id}>
                   <article>
-                    <p>{`嚴重度：${group.severityLabel}`}</p>
+                    <p
+                      className={styles.severityBadge}
+                      data-severity={group.severity}
+                    >{`嚴重度：${group.severityLabel}`}</p>
                     <h4>{finding.title}</h4>
                     <p>{finding.description}</p>
                     {finding.evidence ? (

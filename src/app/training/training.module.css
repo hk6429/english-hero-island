@@ -1,0 +1,30 @@
+.keyChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keyChips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  color: var(--gold-ink);
+  font-size: 0.89rem;
+  font-weight: 800;
+  background: var(--white);
+  border: 1px solid var(--gold-border);
+  border-radius: 999px;
+}
+
+.keyChips li svg {
+  width: 15px;
+  height: 15px;
+}
+
+.masteryBody p {
+  margin: 0;
+}

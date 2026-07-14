@@ -5,15 +5,20 @@ import {
   ArrowRight,
   BookOpenCheck,
   ClipboardCheck,
+  EyeOff,
   GraduationCap,
+  LifeBuoy,
   Map,
   ShieldCheck,
   Swords,
+  Timer,
   UsersRound,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
+import type { AdventureStage } from "@/infrastructure/progress/progress-types";
+import styles from "./page.module.css";
 
 const stageRoute = {
   onboarding: "/start",
@@ -24,6 +29,16 @@ const stageRoute = {
   result: "/result",
   training: "/training",
 } as const;
+
+const stageLabel: Record<AdventureStage, string> = {
+  onboarding: "建立英雄",
+  diagnostic: "五題診斷戰",
+  island: "能力島",
+  mission: "今日任務",
+  battle: "任務戰鬥",
+  result: "學習證據",
+  training: "修煉場",
+};
 
 export default function HomePage() {
   const { ready, progress } = useAdventure();
@@ -37,8 +52,35 @@ export default function HomePage() {
             <p className="eyebrow">國小三至六年級英語冒險</p>
             <h1>把不熟的地方，修成自己的能力島。</h1>
             <p className="hero-lead">
-              先用五題找出起點，再用三到五分鐘完成一場任務。答錯會得到線索與救援，不會 Game Over。
+              先用五題找出起點，再一場一場小任務，把不熟的能力慢慢修回來。答錯不扣分，會得到線索與救援。
             </p>
+            <ul className={styles.trustChips} aria-label="給家長與孩子的三個安心點">
+              <li className={styles.trustChip}>
+                <Timer aria-hidden="true" size={18} />
+                一場任務約 3–5 分鐘
+              </li>
+              <li className={styles.trustChip}>
+                <LifeBuoy aria-hidden="true" size={18} />
+                答錯有線索與救援
+              </li>
+              <li className={styles.trustChip}>
+                <EyeOff aria-hidden="true" size={18} />
+                不公開成績與排名
+              </li>
+            </ul>
+            {ready && progress.profile ? (
+              <p className={styles.welcomeBack}>
+                <HeroGlyph
+                  heroId={progress.profile.heroId}
+                  accent={progress.profile.accent ?? "ocean"}
+                  size="small"
+                />
+                <span>
+                  <strong>{progress.profile.nickname}</strong>
+                  ，歡迎回島！上次冒險停在「{stageLabel[progress.stage]}」。
+                </span>
+              </p>
+            ) : null}
             <Link className="primary-button primary-link" href={nextRoute}>
               {progress.profile ? "繼續我的冒險" : "開始冒險"}
               <ArrowRight aria-hidden="true" />
@@ -70,16 +112,19 @@ export default function HomePage() {
             <h2 id="how-title">每一場戰鬥，都留下真正的學習證據</h2>
           </div>
           <article className="feature-card">
+            <span className={styles.stepBadge}>第 1 步</span>
             <Map aria-hidden="true" />
             <h3>五題找到起點</h3>
             <p>診斷只推薦第一步，不會永久把學生貼上能力標籤。</p>
           </article>
           <article className="feature-card">
+            <span className={styles.stepBadge}>第 2 步</span>
             <Swords aria-hidden="true" />
             <h3>短練功與 Boss</h3>
             <p>首次獨立答對、提示後答對與救援完成，會留下不同紀錄。</p>
           </article>
           <article className="feature-card">
+            <span className={styles.stepBadge}>第 3 步</span>
             <BookOpenCheck aria-hidden="true" />
             <h3>跨日確認精熟</h3>
             <p>兩個不同日期、不同表面題都能獨立完成，才會成為精熟能力卡。</p>

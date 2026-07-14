@@ -1,0 +1,90 @@
+/* 能力島地圖打磨：站點敘事、暖色解鎖對比、輕量互動回饋。
+   只疊加在 globals.css 既有類別之上，全部使用設計系統 token。 */
+
+/* 歡迎區：淡淡的天空色紙張，讓標題區塊和下方任務卡拉開層級 */
+.welcome {
+  padding: clamp(20px, 4vw, 32px);
+  background: linear-gradient(150deg, var(--sky), rgba(255, 253, 247, 0.35));
+  border: 2px solid rgba(12, 103, 138, 0.14);
+  border-radius: var(--radius-large);
+}
+
+/* 區卡＝冒險路線上的站點 */
+.zoneCard {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .zoneCard {
+    transition:
+      transform 200ms ease,
+      box-shadow 200ms ease;
+  }
+
+  .zoneCard:hover,
+  .zoneCard:focus-within {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card);
+  }
+}
+
+.stationChip {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 3px 10px;
+  color: var(--primary-strong);
+  font-size: 0.89rem;
+  font-weight: 850;
+  background: var(--sky);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.focusStation {
+  color: var(--gold-ink);
+  background: var(--gold-surface);
+  border-color: var(--gold-border);
+}
+
+/* 尚未探索：暖紙張＋虛線，是「還沒走到」不是「你不行」 */
+.unexplored {
+  background: rgba(255, 253, 247, 0.62);
+  border-style: dashed;
+}
+
+.unexploredIcon {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px dashed var(--border);
+}
+
+/* 已修復：森林綠印記，明確的溫暖對比 */
+.repairedCard {
+  background: linear-gradient(160deg, var(--paper), var(--forest-pale));
+  border-color: var(--forest-border);
+}
+
+.repairedIcon {
+  color: var(--forest);
+  background: var(--forest-pale);
+}
+
+/* 雲端秘境：開門進度膠囊＋解鎖光暈 */
+.secretProgress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 6px 12px;
+  color: var(--gold-ink);
+  font-size: 0.89rem;
+  font-weight: 850;
+  background: var(--gold-surface);
+  border: 1px solid var(--gold-border);
+  border-radius: 999px;
+}
+
+.secretGlow {
+  box-shadow: 0 0 0 6px rgba(240, 178, 46, 0.16);
+}

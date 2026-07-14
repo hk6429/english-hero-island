@@ -16,6 +16,13 @@
   --white: #ffffff;
   --border: #a9c5d8;
   --border-soft: #d7e4ea;
+  --surface: var(--white);
+  --ink-muted: var(--muted);
+  --focus-ring: var(--gold);
+  --gold-border: #d8b85a;
+  --forest-border: #9ec8ad;
+  --danger-border: #d99a92;
+  --surface-muted: #edf2f5;
   --shadow-soft: 0 10px 28px rgba(23, 66, 94, 0.1);
   --shadow-card: 0 18px 48px rgba(23, 66, 94, 0.15);
   --radius-small: 14px;
@@ -384,7 +391,7 @@ input:focus-visible,
 select:focus-visible,
 .choice-card:has(input:focus-visible),
 .hero-contract:has(input:focus-visible) {
-  outline: 4px solid var(--gold);
+  outline: 4px solid var(--focus-ring);
   outline-offset: 4px;
 }
 
@@ -812,7 +819,7 @@ select:focus-visible,
 }
 
 .classroom-choice-group input:focus-visible + span {
-  outline: 4px solid var(--gold);
+  outline: 4px solid var(--focus-ring);
   outline-offset: 4px;
 }
 
@@ -1874,7 +1881,7 @@ select:focus-visible,
 
 .review-note-field textarea:focus-visible,
 .review-criteria-grid input:focus-visible {
-  outline: 4px solid color-mix(in srgb, var(--gold) 46%, transparent);
+  outline: 4px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -1953,7 +1960,7 @@ select:focus-visible,
 
 .governance-action-form textarea:focus-visible {
   border-color: var(--primary);
-  outline: 4px solid color-mix(in srgb, var(--gold) 46%, transparent);
+  outline: 4px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -2066,7 +2073,7 @@ section[aria-label="題目品質檢查"] > header > p:last-child {
 .governance-field-grid textarea:focus-visible,
 .question-import-form textarea:focus-visible {
   border-color: var(--primary);
-  outline: 4px solid color-mix(in srgb, var(--gold) 46%, transparent);
+  outline: 4px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -4924,6 +4931,61 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+
+  /* 移除位移與縮放回饋（保留 skip-link 顯示與進度條填色等狀態性 transform） */
+  .primary-button:hover:not(:disabled),
+  .secondary-button:hover:not(:disabled),
+  .hint-button:hover:not(:disabled),
+  .primary-button:active:not(:disabled),
+  .secondary-button:active:not(:disabled),
+  .hint-button:active:not(:disabled),
+  .choice-card:hover,
+  .tool-card:hover,
+  .discovery-choice:not(:disabled):hover,
+  .discovery-choice[aria-pressed="true"] {
+    transform: none;
+  }
+}
+
+/* 375px 檢查寬度：縮小水平留白與大型字距，避免窄機爆版 */
+@media (max-width: 420px) {
+  .battle-topline {
+    flex-wrap: wrap;
+  }
+
+  .question-card,
+  .feedback-card,
+  .classroom-question-card,
+  .classroom-feedback-card {
+    padding: 20px 14px;
+  }
+
+  .answer-option {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .join-code-card strong,
+  .join-code-field input {
+    letter-spacing: 0.05em;
+  }
+
+  .hero-status {
+    font-size: 0.89rem;
+  }
+}
+
+/* 1440px 檢查寬度：拉開卡片群的呼吸節奏 */
+@media (min-width: 1440px) {
+  .zone-grid,
+  .home-feature-grid {
+    gap: 24px;
+  }
+
+  .result-grid,
+  .ability-card-grid {
+    gap: 20px;
+  }
 }
 .version-comparison-scroll {
   max-width: 100%;
@@ -4932,7 +4994,7 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
 }
 
 .version-comparison-scroll:focus-visible {
-  outline: 3px solid var(--focus-ring, #155e75);
+  outline: 4px solid var(--focus-ring);
   outline-offset: 3px;
 }
 

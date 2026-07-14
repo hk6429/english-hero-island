@@ -1,0 +1,68 @@
+/* 同儕鼓勵元件的區域性精修樣式（PairEncouragementRelay / ShareEncouragementButton 使用） */
+
+/* 三步接力路徑：封存 → 交接 → 回傳 */
+.relaySteps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 0;
+  margin: 0 0 12px;
+  list-style: none;
+}
+
+.relaySteps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.89rem;
+  font-weight: 700;
+}
+
+.relaySteps li + li::before {
+  content: "→";
+  margin-right: 8px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.relayStepCurrent {
+  color: var(--primary-strong) !important;
+}
+
+.relayStepCurrent .relayStepDot {
+  background: var(--primary);
+  border-color: var(--primary-strong);
+}
+
+.relayStepDone {
+  color: var(--forest) !important;
+}
+
+.relayStepDone .relayStepDot {
+  background: var(--forest);
+  border-color: var(--forest);
+}
+
+.relayStepDot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  background: var(--border-soft);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
+/* 鼓勵卡預覽：先看到要送出的話，再決定分享 */
+.sharePreview {
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  color: var(--ink);
+  font-size: 0.89rem;
+  font-weight: 500;
+  line-height: 1.6;
+  background: var(--gold-surface);
+  border: 2px solid var(--gold-border);
+  border-radius: var(--radius-small);
+}

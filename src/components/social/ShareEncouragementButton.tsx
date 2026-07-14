@@ -2,6 +2,7 @@
 
 import { Share2 } from "lucide-react";
 import { useState } from "react";
+import styles from "./Social.module.css";
 
 export function ShareEncouragementButton({ abilityLabel }: { abilityLabel: string }) {
   const [message, setMessage] = useState("");
@@ -35,6 +36,7 @@ export function ShareEncouragementButton({ abilityLabel }: { abilityLabel: strin
 
   return (
     <div className="encouragement-share">
+      <blockquote className={styles.sharePreview}>{text}</blockquote>
       <button className="secondary-button" type="button" onClick={shareEncouragement}>
         <Share2 aria-hidden="true" />
         分享鼓勵卡

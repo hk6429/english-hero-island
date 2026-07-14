@@ -12,6 +12,7 @@ import {
   PersonStanding,
   Soup,
 } from "lucide-react";
+import styles from "./QuestionScene.module.css";
 
 export function QuestionScene({ src, alt }: { src: string; alt: string }) {
   const key = src.replace(/^scene:/, "");
@@ -43,7 +44,10 @@ export function QuestionScene({ src, alt }: { src: string; alt: string }) {
   return (
     <figure className="question-scene" role="img" aria-label={alt}>
       <span className="scene-sun" aria-hidden="true" />
+      <span className={styles.cloud} aria-hidden="true" />
+      <span className={`${styles.cloud} ${styles.cloudFar}`} aria-hidden="true" />
       <span className="scene-ground" aria-hidden="true" />
+      <span className={styles.iconHalo} aria-hidden="true" />
       <Icon className="scene-icon" aria-hidden="true" />
     </figure>
   );

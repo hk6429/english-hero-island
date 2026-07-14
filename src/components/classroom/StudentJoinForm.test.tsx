@@ -19,8 +19,16 @@ describe("StudentJoinForm", () => {
 
     render(<StudentJoinForm onJoin={onJoin} onJoined={onJoined} />);
 
+    expect(screen.getByText("已輸入 0／6 碼")).toBeInTheDocument();
+    expect(screen.getByText("下一步：輸入老師給的六碼活動代碼")).toBeInTheDocument();
+
     await user.type(screen.getByLabelText("六碼活動代碼"), "a7k9q2");
+    expect(screen.getByText("六碼都到齊了！")).toBeInTheDocument();
+    expect(screen.getByText("下一步：取一個匿名暱稱")).toBeInTheDocument();
+
     await user.type(screen.getByLabelText("匿名暱稱"), "小浪");
+    expect(screen.queryByText(/^下一步：/)).not.toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: "加入課堂任務" }));
 
     expect(onJoin).toHaveBeenCalledWith({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import styles from "./governance.module.css";
 
 export type QuestionLibraryStatus =
   | "draft"
@@ -256,7 +257,12 @@ export function QuestionLibraryPanel({
                   >
                     <strong>{item.prompt}</strong>
                     <span>{`${item.grade} 年級・${item.microSkill}`}</span>
-                    <span>{`第 ${item.version} 版・${statusLabels[item.status]}`}</span>
+                    <span
+                      className={styles.statusBadge}
+                      data-status={item.status}
+                    >
+                      {`第 ${item.version} 版・${statusLabels[item.status]}`}
+                    </span>
                     <span>{`${sourceLabels[item.source.kind]}｜${item.source.usageRights}`}</span>
                   </button>
                 </li>
@@ -266,7 +272,10 @@ export function QuestionLibraryPanel({
 
           <article aria-labelledby={`question-preview-${selectedItem.id}`}>
             <p>{`第 ${selectedItem.version} 版`}</p>
-            <p>{`狀態：${statusLabels[selectedItem.status]}`}</p>
+            <p
+              className={styles.statusBadge}
+              data-status={selectedItem.status}
+            >{`狀態：${statusLabels[selectedItem.status]}`}</p>
             <h3 id={`question-preview-${selectedItem.id}`}>
               {selectedItem.prompt}
             </h3>

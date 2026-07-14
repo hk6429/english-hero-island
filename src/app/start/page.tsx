@@ -2,13 +2,14 @@
 
 import { ArrowRight, Palette, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
 import { AppShell } from "@/components/layout/AppShell";
 import type { Grade } from "@/domain/questions/question-schema";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { HEROES, HERO_ACCENTS } from "@/features/adventure/content-map";
 import type { HeroAccent, HeroId } from "@/infrastructure/progress/progress-types";
+import styles from "./start.module.css";
 
 const grades: Grade[] = [3, 4, 5, 6];
 
@@ -21,6 +22,11 @@ export default function StartPage() {
   const [nickname, setNickname] = useState(progress.profile?.nickname ?? "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const nicknameInputRef = useRef<HTMLInputElement>(null);
+
+  const selectedHero = HEROES.find((hero) => hero.id === heroId) ?? HEROES[0];
+  const selectedAccent = HERO_ACCENTS.find((choice) => choice.id === accent) ?? HERO_ACCENTS[0];
+  const previewNickname = nickname.trim().slice(0, 12);
 
   async function beginAdventure(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,6 +34,7 @@ export default function StartPage() {
 
     if (!safeNickname) {
       setError("請先幫英雄取一個暱稱。");
+      nicknameInputRef.current?.focus();
       return;
     }
 
@@ -48,13 +55,25 @@ export default function StartPage() {
         <div className="section-heading centered-heading">
           <p className="eyebrow">建立你的冒險檔案</p>
           <h1>選一位英雄，找到今天最適合的起點。</h1>
-          <p>只需要年級與暱稱；完成五題後，能力島會推薦第一個任務。</p>
+          <p>四個小步驟、大約一分鐘就完成；接著用五題，讓能力島推薦你的第一個任務。</p>
         </div>
 
         {!ready ? (
           <p className="loading-state">正在準備英雄名冊……</p>
         ) : (
           <form className="profile-form" onSubmit={beginAdventure} noValidate>
+            <div className={styles.previewCard} aria-hidden="true">
+              <span className={styles.previewGlyph}>
+                <HeroGlyph heroId={heroId} accent={accent} size="large" />
+              </span>
+              <p className={styles.previewTitle}>你的英雄卡（跟著你的選擇即時更新）</p>
+              <p className={styles.previewName}>
+                {previewNickname || "還沒取名的英雄"}
+              </p>
+              <p className={styles.previewMeta}>
+                {grade} 年級・{selectedHero.name}｜{selectedHero.title}・{selectedAccent.name}光環
+              </p>
+            </div>
             <fieldset className="form-section">
               <legend>1. 我現在是幾年級？</legend>
               <div className="grade-grid">
@@ -136,6 +155,8 @@ export default function StartPage() {
                 maxLength={12}
                 autoComplete="off"
                 placeholder="例如：小海星"
+                ref={nicknameInputRef}
+                aria-invalid={error ? true : undefined}
                 aria-describedby="nickname-help nickname-error"
                 onChange={(event) => {
                   setNickname(event.target.value);

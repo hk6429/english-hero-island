@@ -4,6 +4,7 @@ import { Archive, School } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import type { SupportedGrade } from "@/domain/classroom/create-classroom";
 import type { TeacherClassroomOption } from "./TeacherQuickActivityForm";
+import styles from "./TeacherPolish.module.css";
 
 type Props = Readonly<{
   classrooms: ReadonlyArray<TeacherClassroomOption>;
@@ -74,7 +75,10 @@ export function TeacherClassroomManager({
         <School aria-hidden="true" />
       </div>
 
-      <form className="classroom-manager-form" onSubmit={createClassroom}>
+      <form
+        className={`classroom-manager-form ${styles.managerForm}`}
+        onSubmit={createClassroom}
+      >
         <label className="classroom-field">
           <span>新班級名稱</span>
           <input
@@ -112,7 +116,9 @@ export function TeacherClassroomManager({
                 <span>{classroom.grade} 年級</span>
               </div>
               {archiveTargetId === classroom.id ? (
-                <div className="classroom-archive-confirmation">
+                <div
+                  className={`classroom-archive-confirmation ${styles.archiveConfirm}`}
+                >
                   <span>封存後不再出現在派題清單。</span>
                   <button
                     className="text-button danger-text-button"

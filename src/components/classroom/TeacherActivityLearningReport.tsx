@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { BarChart3, Lightbulb, ShieldCheck, TriangleAlert } from "lucide-react";
+import { BarChart3, Info, Lightbulb, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   deriveActivityLearningReport,
@@ -9,6 +9,7 @@ import {
   type ActivityLearningReport,
 } from "@/domain/classroom/derive-activity-learning-report";
 import { getActivityLearningEvidenceWithSupabase } from "@/infrastructure/supabase/classroom-gateway";
+import styles from "./TeacherPolish.module.css";
 
 type Props = Readonly<{
   client: SupabaseClient;
@@ -79,11 +80,25 @@ export function TeacherActivityLearningReport({ client, activityId }: Props) {
       </header>
 
       <div className="activity-report-metrics" role="group" aria-label="課後學習證據摘要">
-        <strong>作答覆蓋 {report.metrics.responseCoveragePercent}%</strong>
-        <strong>獨立答對 {report.metrics.independentCorrectPercent}%</strong>
-        <strong>提示後答對 {report.metrics.assistedCorrectPercent}%</strong>
-        <strong>救援後完成 {report.metrics.rescuedPercent}%</strong>
-        <strong>需要支援 {report.metrics.pendingSupportPercent}%</strong>
+        {[
+          { label: "作答覆蓋", value: report.metrics.responseCoveragePercent },
+          { label: "獨立答對", value: report.metrics.independentCorrectPercent },
+          { label: "提示後答對", value: report.metrics.assistedCorrectPercent },
+          { label: "救援後完成", value: report.metrics.rescuedPercent },
+          {
+            label: "需要支援",
+            value: report.metrics.pendingSupportPercent,
+            flagged: report.metrics.pendingSupportPercent > 0,
+          },
+        ].map((metric) => (
+          <div
+            className={`${styles.statTile}${metric.flagged ? ` ${styles.statTileFlag}` : ""}`}
+            key={metric.label}
+          >
+            <span className={styles.statLabel}>{metric.label}</span>
+            <span className={styles.statValue}>{metric.value}%</span>
+          </div>
+        ))}
       </div>
 
       <section
@@ -134,7 +149,8 @@ export function TeacherActivityLearningReport({ client, activityId }: Props) {
         </div>
       </section>
 
-      <p className="activity-report-guardrail">
+      <p className={`activity-report-guardrail ${styles.guardrail}`}>
+        <Info aria-hidden="true" />
         判讀門檻：活動已結束、至少 5 位參與者、六成完成全部題目，且每題至少 3 份作答。這是教學決策提示，不是學生能力診斷證明。
       </p>
     </section>

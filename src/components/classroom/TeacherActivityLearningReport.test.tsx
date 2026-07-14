@@ -45,10 +45,11 @@ describe("TeacherActivityLearningReport", () => {
       await screen.findByRole("heading", { name: "課後學習證據" }),
     ).toBeInTheDocument();
     expect(screen.getByText("可能的共通卡點")).toBeInTheDocument();
-    expect(screen.getByText("作答覆蓋 96%")).toBeInTheDocument();
-    expect(screen.getByText("獨立答對 65%")).toBeInTheDocument();
-    expect(screen.getByText("提示後答對 9%")).toBeInTheDocument();
-    expect(screen.getByText("救援後完成 0%")).toBeInTheDocument();
+    expect(screen.getByText("作答覆蓋").closest("div")).toHaveTextContent("96%");
+    expect(screen.getByText("獨立答對").closest("div")).toHaveTextContent("65%");
+    expect(screen.getByText("提示後答對").closest("div")).toHaveTextContent("9%");
+    expect(screen.getByText("救援後完成").closest("div")).toHaveTextContent("0%");
+    expect(screen.getByText("需要支援").closest("div")).toHaveTextContent("26%");
     expect(
       screen.getByText("第 2 題：4／8 份曾使用或仍需要支援（50%）"),
     ).toBeInTheDocument();

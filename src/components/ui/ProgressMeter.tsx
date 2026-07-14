@@ -9,14 +9,16 @@ export function ProgressMeter({
   max: number;
   tone?: "ocean" | "forest" | "gold";
 }) {
-  const safeMax = Math.max(1, max);
-  const safeValue = Math.min(safeMax, Math.max(0, value));
+  const safeMax = Number.isFinite(max) ? Math.max(1, Math.round(max)) : 1;
+  const safeValue = Number.isFinite(value)
+    ? Math.min(safeMax, Math.max(0, Math.round(value)))
+    : 0;
 
   return (
     <div className="meter-block">
       <div className="meter-label">
         <span>{label}</span>
-        <span>
+        <span aria-hidden="true">
           {safeValue}／{safeMax}
         </span>
       </div>
@@ -27,6 +29,7 @@ export function ProgressMeter({
         aria-valuemin={0}
         aria-valuemax={safeMax}
         aria-valuenow={safeValue}
+        aria-valuetext={`${safeValue}／${safeMax}`}
       >
         <span style={{ transform: `scaleX(${safeValue / safeMax})` }} />
       </div>

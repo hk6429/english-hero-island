@@ -1,8 +1,15 @@
-import { CheckCircle2, CircleDashed, HandHeart, LoaderCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleDashed,
+  HandHeart,
+  LoaderCircle,
+  UsersRound,
+} from "lucide-react";
 import {
   projectClassroomStatus,
   type ClassroomStatusInput,
 } from "@/domain/classroom/project-classroom-status";
+import styles from "./TeacherPolish.module.css";
 
 type Props = Readonly<{
   participants: ReadonlyArray<ClassroomStatusInput>;
@@ -13,6 +20,13 @@ const stateClassNames = {
   in_progress: "live-state-progress",
   completed: "live-state-completed",
   may_need_help: "live-state-support",
+} as const;
+
+const rowClassNames = {
+  joined: styles.rowJoined,
+  in_progress: styles.rowProgress,
+  completed: styles.rowCompleted,
+  may_need_help: styles.rowSupport,
 } as const;
 
 export function TeacherLiveStatusPanel({ participants }: Props) {
@@ -28,18 +42,18 @@ export function TeacherLiveStatusPanel({ participants }: Props) {
         <span className="live-total">共 {projection.counts.total} 人</span>
       </div>
 
-      <div className="live-count-grid">
-        <article>
+      <div className="live-count-grid" role="group" aria-label="任務狀態統計">
+        <article className={styles.cardJoined}>
           <CircleDashed aria-hidden="true" />
           <span>已加入</span>
           <strong>{projection.counts.joined}</strong>
         </article>
-        <article>
+        <article className={styles.cardProgress}>
           <LoaderCircle aria-hidden="true" />
           <span>進行中</span>
           <strong>{projection.counts.inProgress}</strong>
         </article>
-        <article>
+        <article className={styles.cardCompleted}>
           <CheckCircle2 aria-hidden="true" />
           <span>已完成</span>
           <strong>{projection.counts.completed}</strong>
@@ -54,16 +68,24 @@ export function TeacherLiveStatusPanel({ participants }: Props) {
       {projection.participants.length > 0 ? (
         <ul className="live-participant-list" aria-label="學生任務狀態">
           {projection.participants.map((participant, index) => (
-            <li key={`${participant.nickname}-${index}`}>
+            <li
+              className={rowClassNames[participant.state]}
+              key={`${participant.nickname}-${index}`}
+            >
               <strong>{participant.nickname}</strong>
-              <span className={stateClassNames[participant.state]}>
+              <span
+                className={`${stateClassNames[participant.state]} ${styles.stateChip}`}
+              >
                 狀態：{participant.label}
               </span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="live-empty">活動碼已準備好，等待第一位學生加入。</p>
+        <p className={`live-empty ${styles.emptyState}`}>
+          <UsersRound aria-hidden="true" />
+          活動碼已準備好，等待第一位學生加入。
+        </p>
       )}
     </section>
   );

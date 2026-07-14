@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Compass, FlaskConical, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
+import { HeroGlyph } from "@/components/adventure/HeroGlyph";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 
 export function AppShell({
@@ -18,7 +19,9 @@ export function AppShell({
     <div className={`app-shell ${pageClassName}`}>
       <div className="pilot-banner" role="status">
         <FlaskConical aria-hidden="true" size={20} />
-        <span>試作內容：60 題原創草稿，待兩位英語教師複核，不作正式評量。</span>
+        <span>
+          <strong>試作內容</strong>：60 題原創草稿，待兩位英語教師複核，不作正式評量。
+        </span>
       </div>
       <header className="site-header">
         <Link className="brand-link" href="/" aria-label="英語英雄島首頁">
@@ -29,9 +32,14 @@ export function AppShell({
         </Link>
         {progress.profile ? (
           <div className="hero-status" role="group" aria-label="英雄狀態">
+            <HeroGlyph
+              heroId={progress.profile.heroId}
+              accent={progress.profile.accent ?? "ocean"}
+              size="small"
+            />
             <span>{progress.profile.grade} 年級</span>
             <strong>{progress.profile.nickname}</strong>
-            <span className="xp-chip">
+            <span className="xp-chip" role="status" aria-label={`目前累積 ${progress.xp} XP`}>
               <Sparkles aria-hidden="true" size={17} />
               {progress.xp} XP
             </span>

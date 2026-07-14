@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { PairEncouragementRelay } from "./PairEncouragementRelay";
@@ -19,6 +19,9 @@ describe("PairEncouragementRelay", () => {
     expect(screen.getByText("這台裝置已完成 2 次真人策略接力。")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "封存我的方法，交給下一位" }));
     expect(screen.getByRole("heading", { name: "請把裝置交給下一位學伴" })).toBeInTheDocument();
+    const trail = screen.getByRole("list", { name: "接力進度" });
+    expect(within(trail).getByText("交給學伴")).toHaveAttribute("aria-current", "step");
+    expect(within(trail).getByText("封存方法")).not.toHaveAttribute("aria-current");
     expect(screen.queryByLabelText(/姓名|暱稱/)).not.toBeInTheDocument();
     expect(screen.queryByText("把單字拆成小段，再一段一段接回來。")).not.toBeInTheDocument();
     expect(onReceive).not.toHaveBeenCalled();

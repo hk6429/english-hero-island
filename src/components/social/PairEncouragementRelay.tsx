@@ -2,8 +2,42 @@
 
 import { HandHeart, LockKeyhole, MailOpen, UsersRound } from "lucide-react";
 import { useState } from "react";
+import styles from "./Social.module.css";
 
 type RelayStage = "intro" | "sealed" | "revealed" | "complete";
+
+const RELAY_STEPS = ["封存方法", "交給學伴", "回傳用法"] as const;
+
+const STAGE_STEP_INDEX: Record<RelayStage, number> = {
+  intro: 0,
+  sealed: 1,
+  revealed: 2,
+  complete: 3,
+};
+
+function RelayStepTrail({ stage }: { stage: RelayStage }) {
+  const activeIndex = STAGE_STEP_INDEX[stage];
+  return (
+    <ol className={styles.relaySteps} aria-label="接力進度">
+      {RELAY_STEPS.map((step, index) => (
+        <li
+          aria-current={index === activeIndex ? "step" : undefined}
+          className={
+            index < activeIndex
+              ? styles.relayStepDone
+              : index === activeIndex
+                ? styles.relayStepCurrent
+                : undefined
+          }
+          key={step}
+        >
+          <span aria-hidden="true" className={styles.relayStepDot} />
+          {step}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 const APPLICATION_RESPONSES = [
   "下一題先找一個關鍵線索",
@@ -31,6 +65,7 @@ export function PairEncouragementRelay({
         <UsersRound aria-hidden="true" />
         <div>
           <p className="eyebrow">真人同桌模式・可選</p>
+          <RelayStepTrail stage="intro" />
           <h2 id="pair-relay-title">把剛才有效的方法留給下一位學伴</h2>
           <p>
             你要交出的策略是「{strategyName}」：{strategyMessage}
@@ -50,6 +85,7 @@ export function PairEncouragementRelay({
         <LockKeyhole aria-hidden="true" />
         <div>
           <p className="eyebrow">方法已封存</p>
+          <RelayStepTrail stage="sealed" />
           <h2 id="partner-handoff-title">請把裝置交給下一位學伴</h2>
           <p>內容已遮住；不輸入姓名，也不顯示彼此分數、速度或錯題。</p>
         </div>
@@ -67,6 +103,7 @@ export function PairEncouragementRelay({
         <HandHeart aria-hidden="true" />
         <div>
           <p className="eyebrow">上一位學伴留下的方法</p>
+          <RelayStepTrail stage="revealed" />
           <h2 id="received-strategy-title">{strategyName}</h2>
           <p>{strategyMessage}</p>
           <div className="relay-response" role="group" aria-labelledby="relay-response-title">
@@ -110,6 +147,7 @@ export function PairEncouragementRelay({
       <HandHeart aria-hidden="true" />
       <div>
         <p className="eyebrow">真人收件已確認</p>
+        <RelayStepTrail stage="complete" />
         <h2>共同修復 +1</h2>
         <p>下一位學伴的回覆：{applicationResponse}</p>
         <p>策略卡只存於這個瀏覽器，不建立學伴資料，也不代表分數或能力排名。</p>

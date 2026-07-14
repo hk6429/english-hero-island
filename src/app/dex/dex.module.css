@@ -1,0 +1,78 @@
+/* 能力圖鑑打磨：牌卡收藏質感、知識星收藏牌、收藏計數。
+   只疊加在 globals.css 既有類別之上，全部使用設計系統 token。 */
+
+/* 已收藏能力卡：雙層金框，像一張真的收藏卡 */
+.collectedCard {
+  position: relative;
+  box-shadow:
+    0 0 0 4px rgba(208, 168, 73, 0.18),
+    var(--shadow-soft);
+}
+
+.collectedCard::after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border: 1px dashed rgba(118, 80, 0, 0.32);
+  border-radius: 16px;
+  pointer-events: none;
+}
+
+.collectedArt {
+  color: var(--gold-ink);
+  background: linear-gradient(160deg, var(--white), var(--gold-surface));
+  border-color: var(--gold-border);
+}
+
+/* 未取得／後續擴充：虛線畫框＝「等待揭曉的卡位」，不是懲罰 */
+.pendingArt {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.75);
+  border-style: dashed;
+}
+
+/* 收藏計數徽章 */
+.collectChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 6px 12px;
+  color: var(--gold-ink);
+  font-size: 0.89rem;
+  font-weight: 850;
+  background: var(--gold-surface);
+  border: 1px solid var(--gold-border);
+  border-radius: 999px;
+}
+
+/* 知識星：從列表項升級成收藏牌 */
+.starEntry {
+  padding: 18px;
+  background: linear-gradient(160deg, var(--paper), var(--gold-surface));
+  border-width: 2px;
+  border-radius: 18px;
+}
+
+.starBadge {
+  display: grid;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  color: var(--gold-ink);
+  background: var(--white);
+  border: 1px solid var(--gold-border);
+  border-radius: 14px;
+  place-items: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .starEntry {
+    transition: transform 200ms ease;
+  }
+
+  .starEntry:hover {
+    transform: translateY(-2px);
+  }
+}

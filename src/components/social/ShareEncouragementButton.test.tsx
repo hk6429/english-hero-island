@@ -14,6 +14,9 @@ describe("ShareEncouragementButton", () => {
     const user = userEvent.setup();
 
     render(<ShareEncouragementButton abilityLabel="CVC 拼讀" />);
+    expect(
+      screen.getByText(/慢慢來，每一次用方法完成都算進步/),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "分享鼓勵卡" }));
 
     expect(share).toHaveBeenCalledOnce();

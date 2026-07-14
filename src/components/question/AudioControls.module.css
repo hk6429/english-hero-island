@@ -1,0 +1,62 @@
+.panel.panel {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 0;
+  padding: 16px 18px;
+  background: var(--paper);
+  border: 2px solid var(--border-soft);
+  border-radius: 20px;
+}
+
+.groupLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.groupLabel svg {
+  width: 20px;
+  height: 20px;
+  color: var(--primary);
+}
+
+.playRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.playRow :global(.secondary-button) {
+  flex: 1 1 150px;
+  min-height: 56px;
+}
+
+.supportRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-soft);
+}
+
+.supportRow small {
+  flex: 1 1 220px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.status {
+  align-self: flex-start;
+  margin: 12px 0 0;
+  padding: 8px 16px;
+  color: var(--primary-strong);
+  font-weight: 750;
+  background: var(--sky);
+  border-radius: 999px;
+}

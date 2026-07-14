@@ -5,6 +5,7 @@ import { type FormEvent, useMemo, useState } from "react";
 import { generateJoinCode } from "@/domain/classroom/generate-join-code";
 import { validateActivityTargets } from "@/domain/classroom/validate-activity-targets";
 import type { ClassroomMember } from "@/infrastructure/supabase/classroom-gateway";
+import styles from "./TeacherPolish.module.css";
 
 export type TeacherClassroomOption = Readonly<{
   id: string;
@@ -128,7 +129,14 @@ export function TeacherQuickActivityForm({
         </span>
       </div>
 
-      <div className="classroom-field-grid">
+      <p className={styles.stepLabel}>
+        <span aria-hidden="true" className={styles.stepNum}>
+          1
+        </span>
+        選班級與能力
+      </p>
+
+      <div className={`classroom-field-grid ${styles.fieldGrid}`}>
         <label className="classroom-field">
           <span>班級</span>
           <select
@@ -178,7 +186,14 @@ export function TeacherQuickActivityForm({
         </label>
       </div>
 
-      <div className="classroom-choice-grid">
+      <p className={styles.stepLabel}>
+        <span aria-hidden="true" className={styles.stepNum}>
+          2
+        </span>
+        題數與派給誰
+      </p>
+
+      <div className={`classroom-choice-grid ${styles.fieldGrid}`}>
         <fieldset className="classroom-choice-group">
           <legend>題數</legend>
           <label>
@@ -274,6 +289,13 @@ export function TeacherQuickActivityForm({
         </p>
       ) : null}
 
+      <p className={styles.stepLabel}>
+        <span aria-hidden="true" className={styles.stepNum}>
+          3
+        </span>
+        確認並建立
+      </p>
+
       <div className="classroom-privacy-note">
         <ShieldCheck aria-hidden="true" />
         <p>
@@ -286,6 +308,10 @@ export function TeacherQuickActivityForm({
         {submitting ? "正在建立…" : "建立課堂任務"}
       </button>
 
+      {!canSubmit && !submitting ? (
+        <p className={styles.submitHint}>選好班級、能力與對象後，就能建立任務。</p>
+      ) : null}
+
       {error ? (
         <p className="inline-form-alert" role="alert">
           {error}
@@ -295,7 +321,7 @@ export function TeacherQuickActivityForm({
       {created ? (
         <section className="join-code-card" aria-live="polite">
           <p>活動已建立，請學生輸入</p>
-          <strong>{created.joinCode}</strong>
+          <strong className={styles.joinCode}>{created.joinCode}</strong>
           <small>代碼有效 24 小時；教師啟動後才會顯示題目。</small>
         </section>
       ) : null}

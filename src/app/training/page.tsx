@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowRight, CalendarClock, RotateCcw, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarClock,
+  CalendarDays,
+  RotateCcw,
+  ShieldCheck,
+  Shuffle,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -9,6 +16,7 @@ import { scheduleReview } from "@/domain/mastery/schedule-review";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { FOCUS_MICRO_SKILL, microSkillLabel } from "@/features/adventure/content-map";
 import { createReviewSession } from "@/features/adventure/session-factory";
+import styles from "./training.module.css";
 
 function displayDate(value: string): string {
   return new Intl.DateTimeFormat("zh-TW", {
@@ -96,9 +104,21 @@ export default function TrainingPage() {
 
         <div className="integrity-note">
           <ShieldCheck aria-hidden="true" />
-          <p>
-            <strong>精熟規則：</strong>兩個不同日期、兩種不同表面題都首次獨立答對。今天先試跑仍會保留紀錄，但不會冒充跨日精熟。
-          </p>
+          <div className={styles.masteryBody}>
+            <p>
+              <strong>精熟規則：</strong>兩個不同日期、兩種不同表面題都首次獨立答對。今天先試跑仍會保留紀錄，但不會冒充跨日精熟。
+            </p>
+            <ul className={styles.keyChips} aria-label="精熟需要的兩把鑰匙">
+              <li>
+                <CalendarDays aria-hidden="true" />
+                鑰匙一：換一天
+              </li>
+              <li>
+                <Shuffle aria-hidden="true" />
+                鑰匙二：換一種表面題
+              </li>
+            </ul>
+          </div>
         </div>
 
         {error ? <p className="inline-alert" role="alert">{error}</p> : null}

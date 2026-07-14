@@ -8,6 +8,7 @@ import { HeroGlyph } from "@/components/adventure/HeroGlyph";
 import { AppShell } from "@/components/layout/AppShell";
 import type { Grade } from "@/domain/questions/question-schema";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
+import styles from "./secret.module.css";
 
 type Discovery = Readonly<{
   id: string;
@@ -168,7 +169,16 @@ export default function SecretPage() {
                 </p>
               </div>
               <section className="secret-inventory" aria-label="星光秘境收藏狀態">
-                <span className="starlight-key-count">可用星鑰 {starlightKeys} 把</span>
+                <span className="starlight-key-count">
+                  {starlightKeys > 0 ? (
+                    <span className={styles.keyPips} aria-hidden="true">
+                      {Array.from({ length: Math.min(5, starlightKeys) }, (_, index) => (
+                        <Sparkles key={index} />
+                      ))}
+                    </span>
+                  ) : null}
+                  可用星鑰 {starlightKeys} 把
+                </span>
                 <span className="discovery-count">已收藏 {collectedIds.length}</span>
               </section>
             </section>
@@ -219,7 +229,7 @@ export default function SecretPage() {
                   <Sparkles />
                 </span>
                 <div>
-                  <p className="eyebrow">探索發現</p>
+                  <p className="eyebrow">探索發現・{selected.title}</p>
                   <h2>{selected.english}</h2>
                   <p>{selected.story}</p>
                   <strong>已收入探索圖鑑</strong>

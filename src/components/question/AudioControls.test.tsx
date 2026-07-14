@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AudioControls } from "./AudioControls";
@@ -34,6 +34,16 @@ describe("AudioControls", () => {
       screen.getByText("無法使用聲音時再開啟；文字版可能包含作答線索。"),
     ).toBeInTheDocument();
     expect(screen.queryByText("cat")).not.toBeInTheDocument();
+  });
+
+  it("groups both playback speeds under one labelled listening group", () => {
+    render(<AudioControls transcript="cat" />);
+
+    const listenGroup = screen.getByRole("group", { name: "播放聽力內容" });
+    const { getByRole } = within(listenGroup);
+
+    expect(getByRole("button", { name: "正常播放" })).toBeInTheDocument();
+    expect(getByRole("button", { name: "慢速播放" })).toBeInTheDocument();
   });
 
   it("shows a visible text-support path when speech playback is unavailable", async () => {

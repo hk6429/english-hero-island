@@ -1,0 +1,28 @@
+/* 成長優先：數字格上方的暖心標語 */
+.gridCaption {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+/* 通關慶祝：星火輕輕升起，溫暖不浮誇 */
+.heroCelebrate {
+  animation: result-glow 240ms ease-out;
+}
+
+@keyframes result-glow {
+  from {
+    transform: translateY(10px);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroCelebrate {
+    animation: none;
+  }
+}

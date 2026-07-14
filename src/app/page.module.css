@@ -1,0 +1,67 @@
+/* Home page refinements (scoped to src/app/page.tsx) */
+
+.trustChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 26px;
+  padding: 0;
+  list-style: none;
+}
+
+.trustChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  color: var(--primary-strong);
+  font-size: 0.9rem;
+  font-weight: 750;
+  background: var(--white);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+}
+
+.trustChip svg {
+  flex: 0 0 auto;
+  color: var(--forest);
+}
+
+.welcomeBack {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 18px;
+  padding: 9px 18px 9px 11px;
+  color: var(--gold-ink);
+  font-size: 0.95rem;
+  background: var(--gold-surface);
+  border: 1px solid var(--gold-border);
+  border-radius: 999px;
+}
+
+.welcomeBack strong {
+  color: var(--gold-ink);
+}
+
+.stepBadge {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  margin-bottom: 14px;
+  padding: 3px 12px;
+  color: var(--primary-strong);
+  font-size: 0.89rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  background: var(--sky);
+  border-radius: 999px;
+}
+
+@media (max-width: 640px) {
+  .welcomeBack {
+    align-items: flex-start;
+  }
+}

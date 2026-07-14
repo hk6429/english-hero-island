@@ -97,6 +97,9 @@ describe("ClassroomMissionSession", () => {
     );
 
     expect(await screen.findByText(question.prompt)).toBeInTheDocument();
+    const progressbar = screen.getByRole("progressbar", { name: "合作任務進度" });
+    expect(progressbar).toHaveAttribute("aria-valuenow", "0");
+    expect(progressbar).toHaveAttribute("aria-valuemax", "1");
     expect(screen.queryByText("this 代表單數物品，使用 it 回答。")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Yes, it is." }));

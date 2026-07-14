@@ -27,6 +27,7 @@ import {
   SKILL_LABELS,
   microSkillLabel,
 } from "@/features/adventure/content-map";
+import styles from "./island.module.css";
 
 const skills: Skill[] = [
   "letters",
@@ -77,7 +78,7 @@ export default function IslandPage() {
   return (
     <AppShell pageClassName="island-page">
       <main id="main-content" className="page-main" tabIndex={-1}>
-        <section className="island-welcome">
+        <section className={`island-welcome ${styles.welcome}`}>
           <HeroGlyph heroId={profile.heroId} accent={profile.accent} size="large" />
           <div>
             <p className="eyebrow">{profile.nickname} 的能力島</p>
@@ -138,9 +139,33 @@ export default function IslandPage() {
                 ? progress.repairedZones.includes(sampledMicroSkill)
                 : false;
 
+              const isUnexplored = !repaired && !isFocusZone && status === "unassessed";
+
               return (
-                <article className={`zone-card zone-${index + 1} ${isFocusZone ? "focus-zone" : ""}`} key={skill}>
-                  <span className="zone-icon" aria-hidden="true">
+                <article
+                  className={[
+                    "zone-card",
+                    `zone-${index + 1}`,
+                    styles.zoneCard,
+                    isFocusZone ? "focus-zone" : "",
+                    isUnexplored ? styles.unexplored : "",
+                    repaired ? styles.repairedCard : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  key={skill}
+                >
+                  <span
+                    className={`${styles.stationChip} ${isFocusZone ? styles.focusStation : ""}`}
+                  >
+                    第 {index + 1} 站
+                  </span>
+                  <span
+                    className={`zone-icon ${repaired ? styles.repairedIcon : ""} ${
+                      isUnexplored ? styles.unexploredIcon : ""
+                    }`}
+                    aria-hidden="true"
+                  >
                     {repaired ? <CheckCircle2 /> : isFocusZone ? <Sparkles /> : <CircleDashed />}
                   </span>
                   <div>
@@ -154,7 +179,10 @@ export default function IslandPage() {
           </div>
         </section>
 
-        <section className={`secret-zone ${secretUnlocked ? "unlocked" : ""}`} aria-labelledby="secret-title">
+        <section
+          className={`secret-zone ${secretUnlocked ? `unlocked ${styles.secretGlow}` : ""}`}
+          aria-labelledby="secret-title"
+        >
           <span className="secret-icon" aria-hidden="true">
             {secretUnlocked ? <Sparkles /> : <LockKeyhole />}
           </span>
@@ -171,7 +199,11 @@ export default function IslandPage() {
                 進入星光秘境
                 <ArrowRight aria-hidden="true" />
               </Link>
-            ) : null}
+            ) : (
+              <span className={styles.secretProgress}>
+                開門進度 {Math.min(progress.repairedZones.length, 1)}／1・完成主線就點亮入口
+              </span>
+            )}
           </div>
         </section>
       </main>

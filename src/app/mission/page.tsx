@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, MapPinned, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Circle, MapPinned, ShieldCheck, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -15,6 +15,7 @@ import {
 } from "@/features/adventure/content-map";
 import { createMissionSession } from "@/features/adventure/session-factory";
 import { MissionRadioGroup } from "./MissionRadioGroup";
+import styles from "./mission.module.css";
 
 export default function MissionPage() {
   const router = useRouter();
@@ -94,7 +95,12 @@ export default function MissionPage() {
           <>
             <section className="route-section" aria-labelledby="route-title">
               <div className="section-heading">
-                <p className="eyebrow">自主路線</p>
+                <p className={`eyebrow ${styles.stepEyebrow}`}>
+                  <span className={styles.stepBadge} aria-hidden="true">
+                    1
+                  </span>
+                  第 1 步・自主路線
+                </p>
                 <h2 id="route-title">同一份能力，想怎麼走？</h2>
                 <p>兩條路使用相同題目、提示與 XP 規則，只改變你看見的探索方式。</p>
               </div>
@@ -105,9 +111,9 @@ export default function MissionPage() {
                 selectedId={session?.selectedRoute}
                 onSelect={(route) => dispatch({ type: "choose_route", route })}
                 optionClassName={(_, selected) =>
-                  `route-card ${selected ? "selected" : ""}`
+                  `route-card ${styles.routeCard} ${selected ? "selected" : ""}`
                 }
-                renderOption={(route) => (
+                renderOption={(route, selected) => (
                   <>
                     <MapPinned aria-hidden="true" />
                     <span>
@@ -115,6 +121,12 @@ export default function MissionPage() {
                       <small>{route.description}</small>
                       <em>{route.effect}</em>
                     </span>
+                    {selected ? (
+                      <span className={styles.routeSelectedMark}>
+                        <Check aria-hidden="true" />
+                        已選這條路
+                      </span>
+                    ) : null}
                   </>
                 )}
               />
@@ -122,7 +134,12 @@ export default function MissionPage() {
 
             <section className="tool-section" aria-labelledby="tool-title">
               <div className="section-heading">
-                <p className="eyebrow">策略選擇</p>
+                <p className={`eyebrow ${styles.stepEyebrow}`}>
+                  <span className={styles.stepBadge} aria-hidden="true">
+                    2
+                  </span>
+                  第 2 步・策略選擇
+                </p>
                 <h2 id="tool-title">這次想帶哪一個提示工具？</h2>
                 <p>工具不是作弊；知道何時求助，也是一種學習能力。</p>
               </div>
@@ -159,6 +176,20 @@ export default function MissionPage() {
                 我先自己想 10 秒，需要時再使用工具；答錯也會完成救援。
               </span>
             </label>
+
+            <ul className={styles.prepChecklist} aria-label="出發前檢查">
+              <li className={session?.selectedRoute ? styles.prepDone : undefined}>
+                {session?.selectedRoute ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
+                路線：
+                {MISSION_ROUTES.find((route) => route.id === session?.selectedRoute)?.name ??
+                  "等你挑選"}
+              </li>
+              <li className={session?.selectedTool ? styles.prepDone : undefined}>
+                {session?.selectedTool ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
+                工具：
+                {HINT_TOOLS.find((tool) => tool.id === session?.selectedTool)?.name ?? "等你挑選"}
+              </li>
+            </ul>
 
             <button
               className="primary-button wide-action"

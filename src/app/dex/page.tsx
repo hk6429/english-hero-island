@@ -16,6 +16,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { deriveMastery } from "@/domain/mastery/derive-mastery";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { FOCUS_MICRO_SKILL, microSkillLabel } from "@/features/adventure/content-map";
+import styles from "./dex.module.css";
 
 const discoveryTitles: Readonly<Record<string, string>> = {
   "g3-constellation-cat": "短母音星",
@@ -80,8 +81,13 @@ export default function DexPage() {
         </section>
 
         <section className="ability-card-grid" aria-label="能力卡收藏">
-          <article className={`ability-card ${collected ? "collected" : "locked"}`}>
-            <div className="ability-card-art" aria-hidden="true">
+          <article
+            className={`ability-card ${collected ? `collected ${styles.collectedCard}` : "locked"}`}
+          >
+            <div
+              className={`ability-card-art ${collected ? styles.collectedArt : styles.pendingArt}`}
+              aria-hidden="true"
+            >
               {collected ? <Sparkles /> : <LockKeyhole />}
             </div>
             <p className="eyebrow">{profile.grade} 年級主線</p>
@@ -113,7 +119,7 @@ export default function DexPage() {
           </article>
 
           <article className="ability-card future-card">
-            <div className="ability-card-art" aria-hidden="true">
+            <div className={`ability-card-art ${styles.pendingArt}`} aria-hidden="true">
               <BookOpenCheck />
             </div>
             <p className="eyebrow">後續擴充</p>
@@ -127,14 +133,20 @@ export default function DexPage() {
             <p className="eyebrow">秘境不是抽獎</p>
             <h2 id="exploration-dex-title">星光探索收藏</h2>
             <p>每一顆星都能找到；這裡只記錄你已經親手打開的知識片段。</p>
+            <span className={styles.collectChip}>
+              <Star aria-hidden="true" size={16} />
+              已收藏 {(progress.discoveries ?? []).length} 顆知識星
+            </span>
           </div>
           {(progress.discoveries ?? []).length === 0 ? (
             <p className="empty-collection">完成主線並進入星光秘境，就能收藏第一顆知識星。</p>
           ) : (
             <div className="discovery-entry-grid">
               {(progress.discoveries ?? []).map((discoveryId) => (
-                <article className="discovery-entry" key={discoveryId}>
-                  <Star aria-hidden="true" />
+                <article className={`discovery-entry ${styles.starEntry}`} key={discoveryId}>
+                  <span className={styles.starBadge} aria-hidden="true">
+                    <Star />
+                  </span>
                   <div>
                     <strong>{discoveryTitles[discoveryId] ?? "未知星片"}</strong>
                     <span>已收入探索圖鑑</span>

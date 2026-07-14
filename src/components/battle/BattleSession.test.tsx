@@ -51,6 +51,47 @@ describe("BattleSession", () => {
     expect(onComplete).toHaveBeenCalledOnce();
   });
 
+  it("keeps shield feedback warm after a wrong first try and leads feedback with growth", async () => {
+    const store = new MemoryProgressStore();
+    await store.save({
+      ...createEmptyProgress(),
+      profile: { nickname: "小浪", grade: 3, heroId: "wave-scout" },
+      stage: "diagnostic",
+      activeSession: {
+        id: "shield-test",
+        kind: "diagnostic",
+        microSkill: null,
+        questionIds: ["g3-diagnostic-uppercase-lowercase-01"],
+        currentIndex: 0,
+        phase: "diagnostic",
+        hintsUsed: 0,
+        selectedTool: null,
+        battle: { armor: 1, shields: 3, combo: 0, rescueActive: false },
+        outcomes: [],
+      },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <AdventureProvider store={store}>
+        <BattleSession bank={pilotQuestionBank} onComplete={vi.fn()} />
+      </AdventureProvider>,
+    );
+
+    await screen.findByText("Which lowercase letter matches G?");
+    expect(screen.getByText("護盾 3／3")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "q" }));
+    expect(screen.getByText("護盾 2／3")).toBeInTheDocument();
+    expect(screen.getByText(/護盾擋住了這一下/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/失敗|太慢|你不會|Game Over/i);
+
+    await user.click(screen.getByRole("button", { name: "g" }));
+    expect(
+      screen.getByText("成長紀錄：救援後自己走完最後一步，方法已經留在你身上。"),
+    ).toBeInTheDocument();
+  });
+
   it("records a correct answer after revealing the text alternative as assisted learning", async () => {
     const store = new MemoryProgressStore();
     await store.save({

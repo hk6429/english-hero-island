@@ -1,0 +1,238 @@
+/*
+ * 治理工作區共用視覺元件（狀態徽章／差異標記／收據摺疊／表單控制項）。
+ * 部分選擇器刻意重複 class 名稱以提高 specificity，
+ * 用來覆蓋 globals.css 中以屬性選擇器撰寫的既有規則（globals.css 不可修改）。
+ * 用色克制：狀態一律「文字 + 底色」並存，不以顏色作為唯一訊號。
+ */
+
+/* ── 狀態徽章系統（題庫管理清單與預覽共用） ────────────────── */
+
+.statusBadge.statusBadge[data-status] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  margin: 0;
+  padding: 4px 10px;
+  color: var(--muted);
+  font-size: 0.89rem;
+  font-weight: 850;
+  line-height: 1.4;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+}
+
+.statusBadge.statusBadge[data-status="in_review"] {
+  color: var(--primary-strong);
+  background: var(--sky);
+  border-color: var(--border);
+}
+
+.statusBadge.statusBadge[data-status="reviewed"],
+.statusBadge.statusBadge[data-status="published"] {
+  color: var(--forest);
+  background: var(--forest-pale);
+  border-color: var(--forest-border);
+}
+
+.statusBadge.statusBadge[data-status="published"] {
+  border-color: var(--forest);
+}
+
+.statusBadge.statusBadge[data-status="disputed"] {
+  color: var(--danger);
+  background: var(--danger-pale);
+  border-color: var(--danger-border);
+}
+
+/* ── 版本比較：差異可讀性 ──────────────────────────────── */
+
+.diffRow.diffRow[data-changed="true"] > th {
+  box-shadow: inset 4px 0 0 var(--gold);
+}
+
+.diffRow.diffRow.diffRow[data-changed="true"] > td {
+  background: color-mix(in srgb, var(--gold-surface) 42%, var(--white));
+}
+
+.diffRow.diffRow[data-changed="false"] > td {
+  color: var(--muted);
+}
+
+.diffBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 0.89rem;
+  font-weight: 850;
+  line-height: 1.4;
+  white-space: nowrap;
+  border-radius: 999px;
+}
+
+.diffBadge[data-changed="true"] {
+  color: var(--gold-ink);
+  background: var(--gold-surface);
+  border: 1px solid var(--gold-border);
+}
+
+.diffBadge[data-changed="false"] {
+  color: var(--muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--border-soft);
+}
+
+.diffSummary.diffSummary.diffSummary {
+  display: inline-flex;
+  width: fit-content;
+  padding: 8px 14px;
+  color: var(--forest);
+  font-weight: 850;
+  background: var(--forest-pale);
+  border: 1px solid var(--forest-border);
+  border-radius: 999px;
+}
+
+.diffSummary.diffSummary.diffSummary[data-has-changes="true"] {
+  color: var(--gold-ink);
+  background: var(--gold-surface);
+  border-color: var(--gold-border);
+}
+
+/* ── 品質檢查：嚴重度徽章與資料狀態 ─────────────────────── */
+
+.severityBadge.severityBadge.severityBadge {
+  display: inline-flex;
+  width: fit-content;
+  margin: 0 0 10px;
+  padding: 3px 10px;
+  font-size: 0.89rem;
+  font-weight: 900;
+  line-height: 1.4;
+  border-radius: 999px;
+}
+
+.severityBadge.severityBadge.severityBadge[data-severity="blocking"] {
+  color: var(--danger);
+  background: var(--danger-pale);
+  border: 1px solid var(--danger-border);
+}
+
+.severityBadge.severityBadge.severityBadge[data-severity="warning"] {
+  color: var(--gold-ink);
+  background: var(--gold-surface);
+  border: 1px solid var(--gold-border);
+}
+
+.severityBadge.severityBadge.severityBadge[data-severity="info"] {
+  color: var(--primary-strong);
+  background: var(--sky);
+  border: 1px solid var(--border);
+}
+
+.dataState.dataState.dataState {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  color: var(--forest);
+  font-weight: 800;
+  background: var(--forest-pale);
+  border: 1px solid var(--forest-border);
+  border-radius: var(--radius-control);
+}
+
+.dataState.dataState.dataState[data-state="insufficient"] {
+  color: var(--gold-ink);
+  background: var(--gold-surface);
+  border-color: var(--gold-border);
+}
+
+/* ── 複核卡片：中繼資料籤條與收據摺疊 ───────────────────── */
+
+.metaChips.metaChips {
+  gap: 8px;
+}
+
+.metaChips.metaChips > span,
+.metaChips.metaChips > time {
+  display: inline-flex;
+  padding: 3px 10px;
+  color: var(--muted);
+  font-weight: 750;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+}
+
+.receiptRights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0 0;
+}
+
+.receiptRights > strong {
+  color: var(--ink);
+}
+
+.receiptRights > span {
+  display: inline-flex;
+  padding: 3px 10px;
+  color: var(--forest);
+  font-weight: 800;
+  background: var(--forest-pale);
+  border: 1px solid var(--forest-border);
+  border-radius: 999px;
+}
+
+.receiptDetails {
+  margin-top: 10px;
+}
+
+.receiptDetails > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 6px 12px;
+  color: var(--primary-strong);
+  font-weight: 850;
+  background: var(--sky);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.receiptDetails > summary:focus-visible {
+  outline: 4px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.receiptDetails[open] > summary {
+  margin-bottom: 4px;
+}
+
+/* ── 爭議回報表單：控制項一致化 ─────────────────────────── */
+
+.disputeControl.disputeControl {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.5;
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+textarea.disputeControl.disputeControl {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.disputeControl.disputeControl:focus-visible {
+  border-color: var(--primary);
+  outline: 4px solid var(--focus-ring);
+  outline-offset: 2px;
+}

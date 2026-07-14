@@ -1,0 +1,77 @@
+.stepEyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepBadge {
+  display: grid;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  color: var(--white);
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  background: var(--primary);
+  border-radius: 999px;
+  place-items: center;
+}
+
+.routeCard {
+  position: relative;
+}
+
+.routeSelectedMark {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  color: var(--white);
+  font-size: 0.89rem;
+  font-weight: 800;
+  background: var(--forest);
+  border-radius: 999px;
+}
+
+.routeSelectedMark svg {
+  width: 14px;
+  height: 14px;
+}
+
+.prepChecklist {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.prepChecklist li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 16px;
+  color: var(--muted);
+  font-weight: 750;
+  background: var(--white);
+  border: 2px solid var(--border-soft);
+  border-radius: 999px;
+}
+
+.prepChecklist li svg {
+  width: 18px;
+  height: 18px;
+}
+
+.prepDone {
+  color: var(--forest);
+  background: var(--forest-pale);
+  border-color: var(--forest-border);
+}

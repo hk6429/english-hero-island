@@ -1,0 +1,112 @@
+/* 學生課堂入口與合作任務的區域性精修樣式（僅供 StudentJoinForm / ClassroomMissionSession 使用） */
+
+/* 表單欄位的步驟編號：讓孩子知道先填哪一格 */
+.fieldHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepBadge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--primary-strong);
+  font-size: 0.92rem;
+  font-weight: 900;
+  background: var(--sky);
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+
+/* 編號用 CSS 內容呈現，避免混入表單標籤的可讀文字 */
+.stepBadge::before {
+  content: attr(data-step);
+}
+
+/* 六碼輸入進度：已輸入幾碼、集滿時轉為完成色 */
+.codeProgress {
+  min-height: 1.3em;
+}
+
+.codeProgressDone {
+  color: var(--forest) !important;
+  font-weight: 800 !important;
+}
+
+/* 主行動下方的「下一步」引導：描述下一步，不標記表現 */
+.nextStepHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 等待老師啟動：溫和的呼吸點點（只動 opacity） */
+.waitingDots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+
+.waitingDots i {
+  width: 12px;
+  height: 12px;
+  background: var(--primary);
+  border-radius: 50%;
+  animation: waiting-breathe 1.6s ease-in-out infinite;
+}
+
+.waitingDots i:nth-child(2) {
+  animation-delay: 0.24s;
+}
+
+.waitingDots i:nth-child(3) {
+  animation-delay: 0.48s;
+}
+
+@keyframes waiting-breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .waitingDots i {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* 合作任務進度條：可及性進度回饋 */
+.missionProgress {
+  overflow: hidden;
+  height: 12px;
+  margin-bottom: 24px;
+  background: var(--sky);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.missionProgressFill {
+  display: block;
+  height: 100%;
+  background: var(--forest);
+  border-radius: 999px;
+  transition: width 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .missionProgressFill {
+    transition: none;
+  }
+}

@@ -1,0 +1,190 @@
+/* 教師工作區精修層：疊在 globals.css 的教室樣式之上，只補層級與回饋，不重寫版型。 */
+
+/* ── 即時課堂狀態：四張統計卡的狀態色彩 ── */
+.cardJoined.cardJoined > svg {
+  color: var(--muted);
+}
+
+.cardProgress.cardProgress > svg,
+.cardProgress > strong {
+  color: var(--primary-strong);
+}
+
+.cardCompleted.cardCompleted {
+  background: var(--forest-pale);
+  border-color: var(--forest-border);
+}
+
+.cardCompleted.cardCompleted > svg,
+.cardCompleted > strong {
+  color: var(--forest);
+}
+
+/* ── 學生列表：狀態左緣色帶 + 狀態圓點，一眼掃完 ── */
+.rowJoined.rowJoined {
+  border-left: 4px solid var(--border);
+}
+
+.rowProgress.rowProgress {
+  border-left: 4px solid var(--primary);
+}
+
+.rowCompleted.rowCompleted {
+  background: var(--forest-pale);
+  border-left: 4px solid var(--forest);
+}
+
+.rowSupport.rowSupport {
+  background: var(--gold-surface);
+  border-left: 4px solid var(--gold-ink);
+}
+
+.stateChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stateChip::before {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  content: "";
+  background: currentcolor;
+  border-radius: 50%;
+}
+
+.emptyState.emptyState {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 24px 0 0;
+  padding: 18px;
+  color: var(--primary-strong);
+  font-weight: 750;
+  background: var(--sky);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-control);
+}
+
+.emptyState svg {
+  flex: 0 0 auto;
+}
+
+/* ── 課後報告：指標改為「標籤＋大數字」統計磚 ── */
+.statTile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  min-height: 76px;
+  padding: 12px 8px;
+  text-align: center;
+  background: var(--white);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius-control);
+}
+
+.statLabel {
+  color: var(--muted);
+  font-size: 0.89rem;
+  font-weight: 750;
+}
+
+.statValue {
+  color: var(--primary-strong);
+  font-size: 1.5rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.statTileFlag.statTileFlag {
+  background: var(--gold-surface);
+  border-color: var(--gold-border);
+}
+
+.statTileFlag .statValue {
+  color: var(--gold-ink);
+}
+
+.guardrail.guardrail {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.guardrail svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+
+/* ── 快派表單：步驟標籤 + 主行動提示 + 活動碼可讀性 ── */
+.stepLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--primary-strong);
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.stepLabel::after {
+  flex: 1;
+  height: 1px;
+  content: "";
+  background: var(--border-soft);
+}
+
+.stepNum {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--white);
+  font-size: 0.89rem;
+  font-weight: 900;
+  background: var(--primary);
+  border-radius: 50%;
+}
+
+.submitHint {
+  margin: -10px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.joinCode {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+}
+
+/* ── 班級管理：封存確認框 ── */
+.archiveConfirm.archiveConfirm {
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--gold-surface) 55%, var(--white));
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-small);
+}
+
+/* ── 375px 小螢幕：欄位堆疊，不爆版 ── */
+@media (max-width: 640px) {
+  .fieldGrid.fieldGrid,
+  .managerForm.managerForm {
+    grid-template-columns: 1fr;
+  }
+
+  .managerForm.managerForm button {
+    justify-self: start;
+  }
+}

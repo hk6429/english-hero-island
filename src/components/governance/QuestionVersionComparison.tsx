@@ -1,3 +1,5 @@
+import styles from "./governance.module.css";
+
 export type QuestionVersionFieldValue =
   | string
   | number
@@ -67,7 +69,11 @@ export function QuestionVersionComparison({ before, after }: Props) {
         {after.changeSummary ? <p>{`本版修改：${after.changeSummary}`}</p> : null}
       </header>
 
-      <p aria-live="polite">
+      <p
+        aria-live="polite"
+        className={styles.diffSummary}
+        data-has-changes={changedCount > 0 ? "true" : "false"}
+      >
         {changedCount === 0
           ? `全部 ${comparisonRows.length} 個比較欄位皆無變更。`
           : `${changedCount} 個欄位已變更，${comparisonRows.length - changedCount} 個欄位無變更。`}
@@ -91,11 +97,22 @@ export function QuestionVersionComparison({ before, after }: Props) {
           </thead>
           <tbody>
             {comparisonRows.map((row) => (
-              <tr key={row.key}>
+              <tr
+                className={styles.diffRow}
+                data-changed={row.changed ? "true" : "false"}
+                key={row.key}
+              >
                 <th scope="row">{row.label}</th>
                 <td>{displayValue(row.beforeValue)}</td>
                 <td>{displayValue(row.afterValue)}</td>
-                <td>{row.changed ? "已變更" : "無變更"}</td>
+                <td>
+                  <span
+                    className={styles.diffBadge}
+                    data-changed={row.changed ? "true" : "false"}
+                  >
+                    {row.changed ? "已變更" : "無變更"}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

@@ -2,6 +2,7 @@
 
 import { ShieldCheck, UsersRound } from "lucide-react";
 import { type FormEvent, useState } from "react";
+import styles from "./StudentClassroom.module.css";
 
 const JOIN_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/;
 const MEMBER_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/;
@@ -68,6 +69,14 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
     }
   }
 
+  const nextStepHint = !JOIN_CODE_PATTERN.test(joinCode)
+    ? "下一步：輸入老師給的六碼活動代碼"
+    : memberCode.length > 0 && !MEMBER_CODE_PATTERN.test(memberCode)
+      ? "下一步：把匿名學習代碼補滿六碼，或先清空留白"
+      : normalizedNickname.length < 1
+        ? "下一步：取一個匿名暱稱"
+        : null;
+
   if (joined) {
     return (
       <section className="student-waiting-card" aria-live="polite">
@@ -77,6 +86,11 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
         <p className="eyebrow">{joined.grade} 年級合作任務</p>
         <h2>已加入 {joined.activityTitle}</h2>
         <strong>等待老師啟動任務</strong>
+        <span className={styles.waitingDots} aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
         <p>先把裝置留在這一頁。開始後，每個人的完成都會修復同一座班級能力島。</p>
       </section>
     );
@@ -93,8 +107,12 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
       </div>
 
       <label className="classroom-field join-code-field">
-        <span>六碼活動代碼</span>
+        <span className={styles.fieldHead}>
+          <span aria-hidden="true" className={styles.stepBadge} data-step="1" />
+          六碼活動代碼
+        </span>
         <input
+          aria-label="六碼活動代碼"
           autoCapitalize="characters"
           autoComplete="off"
           inputMode="text"
@@ -109,10 +127,19 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
           type="text"
           value={joinCode}
         />
+        <small
+          aria-live="polite"
+          className={`${styles.codeProgress} ${joinCode.length === 6 ? styles.codeProgressDone : ""}`}
+        >
+          {joinCode.length === 6 ? "六碼都到齊了！" : `已輸入 ${joinCode.length}／6 碼`}
+        </small>
       </label>
 
       <label className="classroom-field">
-        <span>匿名學習代碼（選填）</span>
+        <span className={styles.fieldHead}>
+          <span aria-hidden="true" className={styles.stepBadge} data-step="2" />
+          匿名學習代碼（選填）
+        </span>
         <input
           aria-label="匿名學習代碼（選填）"
           autoCapitalize="characters"
@@ -135,7 +162,10 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
       </label>
 
       <label className="classroom-field">
-        <span>匿名暱稱</span>
+        <span className={styles.fieldHead}>
+          <span aria-hidden="true" className={styles.stepBadge} data-step="3" />
+          匿名暱稱
+        </span>
         <input
           aria-label="匿名暱稱"
           autoComplete="off"
@@ -157,6 +187,10 @@ export function StudentJoinForm({ onJoin, onJoined }: Props) {
         <UsersRound aria-hidden="true" />
         {submitting ? "正在加入…" : "加入課堂任務"}
       </button>
+
+      {!submitting && nextStepHint ? (
+        <p className={styles.nextStepHint}>{nextStepHint}</p>
+      ) : null}
 
       {error ? (
         <p className="inline-form-alert" role="alert">

@@ -24,6 +24,7 @@ import { AudioControls } from "@/components/question/AudioControls";
 import { QuestionScene } from "@/components/question/QuestionScene";
 import { ProgressMeter } from "@/components/ui/ProgressMeter";
 import type { HintTool, MissionRoute } from "@/infrastructure/progress/progress-types";
+import styles from "./BattleSession.module.css";
 
 type Feedback = Readonly<{
   outcome: LearningOutcome;
@@ -52,6 +53,19 @@ function outcomeMessage(outcome: LearningOutcome): string {
       return "夥伴協力成功：完成救援後的再次嘗試。";
     case "pending_support":
       return "這一小段先放進修煉佇列，下次會換一個更清楚的線索。";
+  }
+}
+
+function growthNote(outcome: LearningOutcome): string {
+  switch (outcome) {
+    case "independent_correct":
+      return "成長紀錄：獨立完成一次，精熟證據又多了一筆。";
+    case "assisted_correct":
+      return "成長紀錄：會挑線索、會用線索，這本身就是能力。";
+    case "rescued":
+      return "成長紀錄：救援後自己走完最後一步，方法已經留在你身上。";
+    case "pending_support":
+      return "成長紀錄：先把位置記下來，下次用更清楚的線索再走一次。";
   }
 }
 
@@ -146,7 +160,7 @@ export function BattleSession({
       <section
         aria-live="polite"
         aria-labelledby="feedback-title"
-        className="feedback-card"
+        className={`feedback-card ${styles.feedbackEnter}`}
         ref={feedbackRef}
         tabIndex={-1}
       >
@@ -159,6 +173,7 @@ export function BattleSession({
           <strong>方法整理</strong>
           <p>{feedback.explanation}</p>
         </div>
+        <p className={styles.growthNote}>{growthNote(feedback.outcome)}</p>
         <p className="xp-earned">本題獲得 {feedback.xp} XP</p>
         <button
           className="primary-button"
@@ -295,11 +310,22 @@ export function BattleSession({
     <section className="battle-layout" aria-labelledby="question-title">
       <div className="battle-topline">
         <div className="battle-stat">
-          <Shield aria-hidden="true" />
+          <span className={styles.pips} aria-hidden="true">
+            {[0, 1, 2].map((slot) => (
+              <Shield key={slot} className={slot < visibleShields ? styles.pipOn : styles.pipOff} />
+            ))}
+          </span>
           <span>護盾 {visibleShields}／3</span>
         </div>
         <div className="battle-stat">
-          <Flame aria-hidden="true" />
+          <span className={styles.pips} aria-hidden="true">
+            {[0, 1, 2].map((slot) => (
+              <Flame
+                key={slot}
+                className={slot < Math.min(3, session.battle.combo) ? styles.comboOn : styles.pipOff}
+              />
+            ))}
+          </span>
           <span>連擊 {session.battle.combo}／3</span>
         </div>
       </div>
@@ -310,6 +336,21 @@ export function BattleSession({
         max={session.questionIds.length}
         tone={isBoss ? "gold" : "ocean"}
       />
+
+      <ol className={styles.stepDots} aria-hidden="true">
+        {session.questionIds.map((questionId, index) => (
+          <li
+            key={questionId}
+            className={
+              index < session.currentIndex
+                ? styles.stepDone
+                : index === session.currentIndex
+                  ? styles.stepNow
+                  : styles.stepNext
+            }
+          />
+        ))}
+      </ol>
 
       {route ? (
         <div className={`route-moment route-${selectedRoute}`} role="status">
@@ -334,6 +375,12 @@ export function BattleSession({
             </span>
           ) : null}
         </div>
+
+        {isBoss ? (
+          <p className={styles.bossCalm}>
+            深呼吸——Boss 只是把同一種方法換了裝扮，節奏放慢，方法照舊。
+          </p>
+        ) : null}
 
         {question.audio ? (
           <AudioControls

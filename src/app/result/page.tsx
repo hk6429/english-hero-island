@@ -13,6 +13,7 @@ import { deriveMastery } from "@/domain/mastery/derive-mastery";
 import { deriveOutcomeStory } from "@/domain/story/derive-outcome-story";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { HINT_TOOLS, microSkillLabel } from "@/features/adventure/content-map";
+import styles from "./result.module.css";
 
 export default function ResultPage() {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function ResultPage() {
   return (
     <AppShell pageClassName="result-page">
       <main id="main-content" className="page-main narrow-main" tabIndex={-1}>
-        <section className="result-hero">
+        <section className={`result-hero ${styles.heroCelebrate}`}>
           <HeroGlyph heroId={profile.heroId} accent={profile.accent} size="large" />
           <span className="result-spark" aria-hidden="true">
             <Sparkles />
@@ -77,6 +78,19 @@ export default function ResultPage() {
           </div>
         </section>
 
+        <section className="mastery-card">
+          <div>
+            <p className="eyebrow">能力狀態</p>
+            <h2>{mastery.status === "mastered" ? "精熟能力卡已點亮" : "已進入跨日確認"}</h2>
+            <p>
+              目前有 {mastery.independentDates.length} 個獨立完成日期、{mastery.independentSurfaces} 種不同表面題。
+              需要兩天、兩種表面題都獨立完成，才會標示精熟。
+            </p>
+          </div>
+          <span className="xp-medal">累積 {progress.xp} XP</span>
+        </section>
+
+        <p className={styles.gridCaption}>數字只是紀錄；會用線索、完成救援，也都是這次帶走的成長。</p>
         <section className="result-grid" aria-label="本次任務結果">
           <article>
             <CheckCircle2 aria-hidden="true" />
@@ -93,18 +107,6 @@ export default function ResultPage() {
             <strong>{rescued}</strong>
             <span>救援／待回流</span>
           </article>
-        </section>
-
-        <section className="mastery-card">
-          <div>
-            <p className="eyebrow">能力狀態</p>
-            <h2>{mastery.status === "mastered" ? "精熟能力卡已點亮" : "已進入跨日確認"}</h2>
-            <p>
-              目前有 {mastery.independentDates.length} 個獨立完成日期、{mastery.independentSurfaces} 種不同表面題。
-              需要兩天、兩種表面題都獨立完成，才會標示精熟。
-            </p>
-          </div>
-          <span className="xp-medal">累積 {progress.xp} XP</span>
         </section>
 
         <StreakGlow streak={progress.streak} compact />
