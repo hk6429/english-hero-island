@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Play, Radio, Square } from "lucide-react";
 import { useEffect, useState } from "react";
+import { TeacherActivityLearningReport } from "@/components/classroom/TeacherActivityLearningReport";
 import { TeacherLiveStatusPanel } from "@/components/classroom/TeacherLiveStatusPanel";
 import type { ClassroomStatusInput } from "@/domain/classroom/project-classroom-status";
 import {
@@ -220,6 +221,9 @@ export function TeacherActivityLiveRoom({
       ) : null}
       {!loading && activityStatus !== "ended" ? (
         <TeacherLiveStatusPanel participants={participants} />
+      ) : null}
+      {activityStatus === "ended" || activityStatus === "completed" ? (
+        <TeacherActivityLearningReport activityId={activityId} client={client} />
       ) : null}
     </div>
   );

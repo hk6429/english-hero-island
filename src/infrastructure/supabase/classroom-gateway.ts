@@ -12,6 +12,8 @@ import type {
 } from "@/components/classroom/TeacherQuickActivityForm";
 import type { ClassroomStatusInput } from "@/domain/classroom/project-classroom-status";
 import type { StudentActivityQuestion } from "@/domain/classroom/build-student-activity-payload";
+import type { ActivityLearningEvidence } from "@/domain/classroom/derive-activity-learning-report";
+import { getMicroSkillLabel } from "@/domain/classroom/micro-skill-catalog";
 import {
   createClassroomDraft,
   type SupportedGrade,
@@ -92,6 +94,27 @@ const participantStatusRowsSchema = z.array(
   }),
 );
 
+const activityLearningEvidenceRowsSchema = z
+  .array(
+    z.object({
+      activity_id: z.string().uuid(),
+      activity_title: z.string().min(1),
+      activity_status: z.enum(["waiting", "active", "completed", "ended"]),
+      audience: z.enum(["whole_class", "small_group", "individual"]),
+      micro_skill: z.string().min(1),
+      question_count: z.union([z.literal(3), z.literal(5)]),
+      participant_count: z.coerce.number().int().nonnegative(),
+      responding_participant_count: z.coerce.number().int().nonnegative(),
+      completed_participant_count: z.coerce.number().int().nonnegative(),
+      question_position: z.coerce.number().int().min(1).max(5),
+      question_id: z.string().min(1),
+      response_count: z.coerce.number().int().nonnegative(),
+      independent_correct_count: z.coerce.number().int().nonnegative(),
+      pending_support_count: z.coerce.number().int().nonnegative(),
+    }),
+  )
+  .min(1);
+
 const startedActivityRowSchema = z.object({
   activity_id: z.string().uuid(),
   activity_status: z.literal("active"),
@@ -171,28 +194,6 @@ const submittedResponseRowSchema = z.object({
     "may_need_help",
   ]),
 });
-
-const microSkillLabels: Readonly<Record<string, string>> = {
-  "uppercase-lowercase": "大小寫字母配對",
-  "letter-listening": "字母聽辨",
-  "letter-writing": "字母書寫",
-  "phonological-awareness": "音韻覺識",
-  "cvc-decoding": "CVC 拼讀",
-  "affirmative-negative": "肯定句與否定句",
-  "image-sentence-match": "圖句配對",
-  "this-that-questions": "This／That 問句",
-  "yes-no-questions": "Yes／No 問句",
-  adjectives: "形容詞理解",
-  "age-and-can": "年齡與 Can 句型",
-  "image-sentence-meaning": "圖句語意",
-  "short-dialogue": "短對話理解",
-  "weather-listening": "天氣聽力",
-  "clothing-and-have": "衣物與 Have 句型",
-  "integrated-dialogue-text": "整合對話閱讀",
-  "occupation-and-family": "職業與家庭",
-  "place-and-destination": "地點與目的地",
-  "present-progressive": "現在進行式",
-};
 
 export type StartedClassroomActivity = Readonly<{
   activityId: string;
@@ -478,6 +479,62 @@ export async function listActivityParticipantStatusWithSupabase(
   }));
 }
 
+export async function getActivityLearningEvidenceWithSupabase(
+  client: SupabaseClient,
+  activityId: string,
+): Promise<ActivityLearningEvidence> {
+  const { data, error } = await client.rpc("get_activity_learning_evidence", {
+    p_activity_id: activityId,
+  });
+  if (error) {
+    throw new Error("無法讀取課後學習證據，請確認活動屬於目前教師。");
+  }
+
+  const parsed = activityLearningEvidenceRowsSchema.safeParse(data ?? []);
+  if (!parsed.success) {
+    throw new Error("課後學習證據格式不完整，請重新整理後再試。");
+  }
+
+  const first = parsed.data[0];
+  const metadataIsConsistent = parsed.data.every(
+    (row) =>
+      row.activity_id === first.activity_id &&
+      row.activity_title === first.activity_title &&
+      row.activity_status === first.activity_status &&
+      row.audience === first.audience &&
+      row.micro_skill === first.micro_skill &&
+      row.question_count === first.question_count &&
+      row.participant_count === first.participant_count &&
+      row.responding_participant_count === first.responding_participant_count &&
+      row.completed_participant_count === first.completed_participant_count,
+  );
+  const positions = new Set(parsed.data.map((row) => row.question_position));
+  if (!metadataIsConsistent || positions.size !== parsed.data.length) {
+    throw new Error("課後學習證據彼此矛盾，請聯絡系統管理者。");
+  }
+
+  return {
+    activityId: first.activity_id,
+    title: first.activity_title,
+    status: first.activity_status,
+    audience: first.audience,
+    microSkill: first.micro_skill,
+    questionCount: first.question_count,
+    participantCount: first.participant_count,
+    respondingParticipantCount: first.responding_participant_count,
+    completedParticipantCount: first.completed_participant_count,
+    questions: parsed.data
+      .map((row) => ({
+        position: row.question_position,
+        questionId: row.question_id,
+        responseCount: row.response_count,
+        independentCorrectCount: row.independent_correct_count,
+        pendingSupportCount: row.pending_support_count,
+      }))
+      .sort((left, right) => left.position - right.position),
+  };
+}
+
 export async function listClassroomMicroSkillsWithSupabase(
   client: SupabaseClient,
   classroomId: string,
@@ -496,7 +553,7 @@ export async function listClassroomMicroSkillsWithSupabase(
 
   return parsed.data.map((row) => ({
     id: row.micro_skill,
-    label: microSkillLabels[row.micro_skill] ?? row.micro_skill.replaceAll("-", " "),
+    label: getMicroSkillLabel(row.micro_skill),
     availableQuestions: row.available_questions,
   }));
 }

@@ -91,6 +91,27 @@ describe("TeacherActivityLiveRoom", () => {
           error: null,
         };
       }
+      if (name === "get_activity_learning_evidence") {
+        return {
+          data: [1, 2, 3].map((position) => ({
+            activity_id: "33333333-3333-4333-8333-333333333333",
+            activity_title: "Yes／No 快速救援",
+            activity_status: "ended",
+            audience: "whole_class",
+            micro_skill: "yes-no-questions",
+            question_count: 3,
+            participant_count: 0,
+            responding_participant_count: 0,
+            completed_participant_count: 0,
+            question_position: position,
+            question_id: `g4-yes-no-practice-0${position}`,
+            response_count: 0,
+            independent_correct_count: 0,
+            pending_support_count: 0,
+          })),
+          error: null,
+        };
+      }
       return { data: [], error: null };
     });
     const channel = {
@@ -136,5 +157,8 @@ describe("TeacherActivityLiveRoom", () => {
     });
     expect(await screen.findByText("活動已結束")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "結束活動" })).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "課後學習證據" }),
+    ).toBeInTheDocument();
   });
 });

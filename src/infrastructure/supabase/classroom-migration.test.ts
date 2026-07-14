@@ -407,4 +407,29 @@ describe("classroom core migration", () => {
     expect(joinFunction).toContain("classroom_member_id");
     expect(joinFunction).not.toContain("member.display_alias =");
   });
+
+  it("returns only anonymous aggregates for an owned activity learning report", () => {
+    const evidenceFunction = migration.match(
+      /create or replace function public\.get_activity_learning_evidence[\s\S]*?\$\$;/,
+    )?.[0];
+
+    expect(evidenceFunction).toBeDefined();
+    expect(evidenceFunction).toContain("security definer");
+    expect(evidenceFunction).toContain("set search_path = ''");
+    expect(evidenceFunction).toContain("activity.teacher_id = auth.uid()");
+    expect(evidenceFunction).toContain("profile.approval_status = 'approved'");
+    expect(evidenceFunction).toContain("public.activity_questions question");
+    expect(evidenceFunction).toContain("public.classroom_learning_events event");
+    expect(evidenceFunction).toContain("count(distinct participant.id)");
+    expect(evidenceFunction).toContain("independent_correct_count");
+    expect(evidenceFunction).toContain("pending_support_count");
+    expect(evidenceFunction).not.toMatch(/nickname|auth_user_id|selected_option_id/);
+    expect(evidenceFunction).not.toMatch(/correct_option_id|explanation|prompt/);
+    expect(migration).toContain(
+      "grant execute on function public.get_activity_learning_evidence(uuid) to authenticated",
+    );
+    expect(migration).toContain(
+      "revoke execute on function public.get_activity_learning_evidence(uuid) from public, anon",
+    );
+  });
 });

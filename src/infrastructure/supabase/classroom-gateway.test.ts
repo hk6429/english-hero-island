@@ -6,6 +6,7 @@ import {
   createTeacherClassroomWithSupabase,
   createClassroomMemberWithSupabase,
   endClassroomActivityWithSupabase,
+  getActivityLearningEvidenceWithSupabase,
   getStudentActivityStateWithSupabase,
   getStudentActivityQuestionsWithSupabase,
   joinClassroomWithSupabase,
@@ -398,6 +399,109 @@ describe("listActivityParticipantStatusWithSupabase", () => {
       { nickname: "藍鯨", state: "may_need_help" },
     ]);
     expect(client.rpc).toHaveBeenCalledWith("list_activity_participant_status", {
+      p_activity_id: "33333333-3333-4333-8333-333333333333",
+    });
+  });
+});
+
+describe("getActivityLearningEvidenceWithSupabase", () => {
+  it("maps only anonymous activity aggregates for the post-class report", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          {
+            activity_id: "33333333-3333-4333-8333-333333333333",
+            activity_title: "Yes／No 快速救援",
+            activity_status: "ended",
+            audience: "whole_class",
+            micro_skill: "yes-no-questions",
+            question_count: 3,
+            participant_count: 8,
+            responding_participant_count: 8,
+            completed_participant_count: 7,
+            question_position: 1,
+            question_id: "g4-yes-no-practice-01",
+            response_count: 8,
+            independent_correct_count: 7,
+            pending_support_count: 1,
+          },
+          {
+            activity_id: "33333333-3333-4333-8333-333333333333",
+            activity_title: "Yes／No 快速救援",
+            activity_status: "ended",
+            audience: "whole_class",
+            micro_skill: "yes-no-questions",
+            question_count: 3,
+            participant_count: 8,
+            responding_participant_count: 8,
+            completed_participant_count: 7,
+            question_position: 2,
+            question_id: "g4-yes-no-practice-02",
+            response_count: 8,
+            independent_correct_count: 4,
+            pending_support_count: 4,
+          },
+          {
+            activity_id: "33333333-3333-4333-8333-333333333333",
+            activity_title: "Yes／No 快速救援",
+            activity_status: "ended",
+            audience: "whole_class",
+            micro_skill: "yes-no-questions",
+            question_count: 3,
+            participant_count: 8,
+            responding_participant_count: 8,
+            completed_participant_count: 7,
+            question_position: 3,
+            question_id: "g4-yes-no-practice-03",
+            response_count: 7,
+            independent_correct_count: 6,
+            pending_support_count: 1,
+          },
+        ],
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      getActivityLearningEvidenceWithSupabase(
+        client,
+        "33333333-3333-4333-8333-333333333333",
+      ),
+    ).resolves.toEqual({
+      activityId: "33333333-3333-4333-8333-333333333333",
+      title: "Yes／No 快速救援",
+      status: "ended",
+      audience: "whole_class",
+      microSkill: "yes-no-questions",
+      questionCount: 3,
+      participantCount: 8,
+      respondingParticipantCount: 8,
+      completedParticipantCount: 7,
+      questions: [
+        {
+          position: 1,
+          questionId: "g4-yes-no-practice-01",
+          responseCount: 8,
+          independentCorrectCount: 7,
+          pendingSupportCount: 1,
+        },
+        {
+          position: 2,
+          questionId: "g4-yes-no-practice-02",
+          responseCount: 8,
+          independentCorrectCount: 4,
+          pendingSupportCount: 4,
+        },
+        {
+          position: 3,
+          questionId: "g4-yes-no-practice-03",
+          responseCount: 7,
+          independentCorrectCount: 6,
+          pendingSupportCount: 1,
+        },
+      ],
+    });
+    expect(client.rpc).toHaveBeenCalledWith("get_activity_learning_evidence", {
       p_activity_id: "33333333-3333-4333-8333-333333333333",
     });
   });

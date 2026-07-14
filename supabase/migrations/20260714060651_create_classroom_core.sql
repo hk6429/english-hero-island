@@ -1748,6 +1748,109 @@ $$;
 revoke execute on function public.join_classroom_activity(text, text, text) from public, anon;
 grant execute on function public.join_classroom_activity(text, text, text) to authenticated;
 
+create or replace function public.get_activity_learning_evidence(p_activity_id uuid)
+returns table (
+  activity_id uuid,
+  activity_title text,
+  activity_status text,
+  audience text,
+  micro_skill text,
+  question_count smallint,
+  participant_count bigint,
+  responding_participant_count bigint,
+  completed_participant_count bigint,
+  question_position smallint,
+  question_id text,
+  response_count bigint,
+  independent_correct_count bigint,
+  pending_support_count bigint
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with owned_activity as (
+    select activity.*
+    from public.classroom_activities activity
+    join public.teacher_profiles profile on profile.user_id = activity.teacher_id
+    where activity.id = p_activity_id
+      and activity.teacher_id = auth.uid()
+      and profile.approval_status = 'approved'
+      and coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is false
+  ),
+  participant_response_counts as (
+    select
+      participant.id as participant_id,
+      count(event.id)::integer as answered_count
+    from owned_activity activity
+    join public.activity_participants participant
+      on participant.activity_id = activity.id
+    left join public.classroom_learning_events event
+      on event.activity_id = activity.id
+      and event.participant_id = participant.id
+    group by participant.id
+  ),
+  participant_summary as (
+    select
+      count(distinct participant.id) as participant_count,
+      count(distinct participant.id) filter (
+        where coalesce(response_count.answered_count, 0) > 0
+      ) as responding_participant_count,
+      count(distinct participant.id) filter (
+        where coalesce(response_count.answered_count, 0) >= activity.question_count
+      ) as completed_participant_count
+    from owned_activity activity
+    left join public.activity_participants participant
+      on participant.activity_id = activity.id
+    left join participant_response_counts response_count
+      on response_count.participant_id = participant.id
+    group by activity.id, activity.question_count
+  ),
+  question_summary as (
+    select
+      question.activity_id,
+      question.position,
+      question.question_id,
+      count(event.id) as response_count,
+      count(event.id) filter (
+        where event.outcome = 'independent_correct'
+      ) as independent_correct_count,
+      count(event.id) filter (
+        where event.outcome = 'pending_support'
+      ) as pending_support_count
+    from owned_activity activity
+    join public.activity_questions question on question.activity_id = activity.id
+    left join public.classroom_learning_events event
+      on event.activity_id = question.activity_id
+      and event.question_id = question.question_id
+      and event.question_version = question.question_version
+    group by question.activity_id, question.position, question.question_id
+  )
+  select
+    activity.id,
+    activity.title,
+    activity.status,
+    activity.audience,
+    activity.micro_skill,
+    activity.question_count,
+    participant.participant_count,
+    participant.responding_participant_count,
+    participant.completed_participant_count,
+    question.position,
+    question.question_id,
+    question.response_count,
+    question.independent_correct_count,
+    question.pending_support_count
+  from owned_activity activity
+  cross join participant_summary participant
+  join question_summary question on question.activity_id = activity.id
+  order by question.position;
+$$;
+
+revoke execute on function public.get_activity_learning_evidence(uuid) from public, anon;
+grant execute on function public.get_activity_learning_evidence(uuid) to authenticated;
+
 create or replace function private.prevent_classroom_learning_event_mutation()
 returns trigger
 language plpgsql
