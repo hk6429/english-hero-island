@@ -148,17 +148,24 @@ export default function DexPage() {
         <section className="partner-dex" aria-labelledby="partner-dex-title">
           <div className="section-heading">
             <p className="eyebrow">不公開、不排名</p>
-            <h2 id="partner-dex-title">夥伴鼓勵收藏</h2>
-            <p>只收藏學伴選擇的鼓勵句，不記錄對方姓名、分數、速度或錯題。</p>
+            <h2 id="partner-dex-title">真人策略接力</h2>
+            <p>只收藏下一位學伴實際打開並確認收到的策略，不記錄姓名、分數、速度或錯題。</p>
           </div>
           {(progress.partnerEncouragements ?? []).length === 0 ? (
-            <p className="empty-collection">完成任務後，可把裝置交給身旁學伴留下一張卡。</p>
+            <p className="empty-collection">完成任務後，可把剛才有效的方法封存給身旁的下一位學伴。</p>
           ) : (
             <div className="partner-entry-grid">
               {(progress.partnerEncouragements ?? []).map((card) => (
                 <article className="partner-entry" key={card.id}>
                   <HandHeart aria-hidden="true" />
-                  <p>{card.message}</p>
+                  <div>
+                    <p>{card.message}</p>
+                    {card.applicationResponse ? (
+                      <p className="partner-response">
+                        下一位學伴會這樣用：<strong>{card.applicationResponse}</strong>
+                      </p>
+                    ) : null}
+                  </div>
                 </article>
               ))}
             </div>

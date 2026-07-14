@@ -3308,9 +3308,17 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
   color: var(--muted);
 }
 
-.discovery-count {
+.secret-inventory {
+  display: flex;
+  align-items: flex-end;
   flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
   margin-left: auto;
+}
+
+.discovery-count,
+.starlight-key-count {
   padding: 7px 12px;
   color: var(--gold-ink);
   font-size: 0.88rem;
@@ -3318,6 +3326,12 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
   background: var(--gold-surface);
   border: 1px solid #d8b85a;
   border-radius: 999px;
+}
+
+.starlight-key-count {
+  color: var(--primary-strong);
+  background: #e7f6fb;
+  border-color: #8ec8dc;
 }
 
 .discovery-grid {
@@ -3342,7 +3356,7 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
   box-shadow: var(--shadow-soft);
 }
 
-.discovery-choice:hover,
+.discovery-choice:not(:disabled):hover,
 .discovery-choice[aria-pressed="true"] {
   border-color: var(--gold);
   transform: translateY(-2px);
@@ -3351,6 +3365,24 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
 .discovery-choice.collected {
   background: linear-gradient(160deg, #fffdf7, #fff4c8);
   border-color: #d8b85a;
+}
+
+.discovery-choice.mystery {
+  background: linear-gradient(160deg, #e7f6fb, #e8e4f5);
+  border-color: #8297b8;
+  border-style: dashed;
+}
+
+.discovery-choice.mystery:disabled {
+  color: #51616a;
+  cursor: not-allowed;
+  background: #edf2f4;
+  border-color: #a8b6bd;
+}
+
+.discovery-choice.mystery .discovery-star {
+  color: var(--primary-strong);
+  border-color: #8ec8dc;
 }
 
 .discovery-star {
@@ -3843,6 +3875,42 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
 .pair-relay p:last-child {
   margin-bottom: 0;
   color: var(--muted);
+}
+
+.relay-response {
+  margin-top: 18px;
+}
+
+.relay-response h3 {
+  margin-bottom: 6px;
+  font-size: 1.05rem;
+}
+
+.relay-response-options {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.relay-response-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.relay-response-options label:has(input:checked) {
+  border-color: var(--forest);
+  background: var(--forest-pale);
+}
+
+.partner-response {
+  margin-top: 6px;
+  color: var(--forest);
 }
 
 .relay-intro > .secondary-button,
@@ -4407,7 +4475,8 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
     flex-direction: column;
   }
 
-  .discovery-count {
+  .secret-inventory {
+    align-items: flex-start;
     margin-left: 0;
   }
 

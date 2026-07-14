@@ -44,6 +44,13 @@ export type QuestionImportError = Readonly<{
   message: string;
 }>;
 
+/** Creates the server-neutral JSON shape accepted by the atomic draft importer. */
+export function toQuestionImportPayload(
+  questions: readonly Question[],
+): ImportedQuestionDraft[] {
+  return questions.map(toImportedDraft);
+}
+
 /** Parses an imported JSON batch atomically; any row error rejects the entire batch. */
 export function validateQuestionImport(input: unknown): QuestionImportResult {
   if (!Array.isArray(input)) {

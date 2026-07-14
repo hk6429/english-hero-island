@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCircle2, LockKeyhole, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, CheckCircle2, LockKeyhole, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -134,8 +134,11 @@ export default function SecretPage() {
   }
 
   const discoveries = discoveriesByGrade[profile.grade];
-  const selected = discoveries.find((discovery) => discovery.id === selectedId);
   const collectedIds = progress.discoveries ?? [];
+  const starlightKeys = progress.starlightKeys ?? 0;
+  const selected = discoveries.find(
+    (discovery) => discovery.id === selectedId && collectedIds.includes(discovery.id),
+  );
 
   return (
     <AppShell pageClassName="secret-page">
@@ -160,30 +163,51 @@ export default function SecretPage() {
               <div>
                 <p className="eyebrow">已用能力解鎖</p>
                 <h1>星光秘境</h1>
-                <p>選一顆星看看藏著什麼。每顆都能探索，沒有抽不到的獎品。</p>
+                <p>
+                  每個不同學習日完成主線，最多獲得 1 把不會過期或歸零的星鑰。每把揭露一顆，持續學習就能全部收藏；沒有付費或倒數。
+                </p>
               </div>
-              <span className="discovery-count">已收藏 {collectedIds.length}</span>
+              <div className="secret-inventory" aria-label="星光秘境收藏狀態">
+                <span className="starlight-key-count">可用星鑰 {starlightKeys} 把</span>
+                <span className="discovery-count">已收藏 {collectedIds.length}</span>
+              </div>
             </section>
 
             <section className="discovery-grid" aria-label="星光探索選擇">
-              {discoveries.map((discovery) => {
+              {discoveries.map((discovery, index) => {
                 const collected = collectedIds.includes(discovery.id);
+                const canReveal = collected || starlightKeys > 0;
                 return (
                   <button
-                    className={`discovery-choice ${collected ? "collected" : ""}`}
+                    className={`discovery-choice ${collected ? "collected" : "mystery"}`}
                     type="button"
                     key={discovery.id}
+                    aria-label={
+                      collected
+                        ? `${discovery.title}，已收藏，可免費重看`
+                        : `未知星片 ${index + 1}，${canReveal ? "使用 1 把星鑰揭露" : "目前沒有星鑰"}`
+                    }
                     aria-pressed={selectedId === discovery.id}
+                    disabled={!canReveal}
                     onClick={() => {
+                      if (!collected && starlightKeys === 0) return;
                       setSelectedId(discovery.id);
-                      dispatch({ type: "record_discovery", discoveryId: discovery.id });
+                      if (!collected) {
+                        dispatch({ type: "record_discovery", discoveryId: discovery.id });
+                      }
                     }}
                   >
                     <span className="discovery-star" aria-hidden="true">
-                      {collected ? <CheckCircle2 /> : <Star />}
+                      {collected ? <CheckCircle2 /> : <LockKeyhole />}
                     </span>
-                    <strong>{discovery.title}</strong>
-                    <span>{discovery.clue}</span>
+                    <strong>{collected ? discovery.title : "未知星片"}</strong>
+                    <span>
+                      {collected
+                        ? discovery.clue
+                        : canReveal
+                          ? "使用 1 把星鑰揭露"
+                          : "完成下一個不同學習日即可再獲得星鑰"}
+                    </span>
                   </button>
                 );
               })}

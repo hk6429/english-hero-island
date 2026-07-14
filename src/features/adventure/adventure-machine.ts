@@ -112,9 +112,21 @@ export function reduceAdventure(
     const latestSessionEvent = progress.events
       .filter((event) => event.sessionId === progress.activeSession?.id)
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))[0];
+    const completedMissionDate =
+      progress.activeSession.kind === "mission" &&
+      progress.activeSession.currentIndex >= progress.activeSession.questionIds.length
+        ? latestSessionEvent?.studyDate
+        : undefined;
+    const keyDates = progress.starlightKeyDates ?? [];
+    const earnsStarlightKey =
+      completedMissionDate !== undefined && !keyDates.includes(completedMissionDate);
     return {
       ...progress,
       stage: "result",
+      starlightKeys: (progress.starlightKeys ?? 0) + (earnsStarlightKey ? 1 : 0),
+      starlightKeyDates: earnsStarlightKey
+        ? [...keyDates, completedMissionDate].sort()
+        : keyDates,
       streak:
         progress.activeSession.kind === "mission" && latestSessionEvent
           ? updateStreak(progress.streak, latestSessionEvent.studyDate)
@@ -141,9 +153,12 @@ export function reduceAdventure(
   if (action.type === "record_discovery" && progress.profile) {
     const discoveries = progress.discoveries ?? [];
     if (discoveries.includes(action.discoveryId)) return progress;
+    const starlightKeys = progress.starlightKeys ?? 0;
+    if (starlightKeys === 0) return progress;
     return {
       ...progress,
       discoveries: [...discoveries, action.discoveryId],
+      starlightKeys: starlightKeys - 1,
     };
   }
 

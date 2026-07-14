@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { projectBattle } from "@/domain/battle/project-battle";
+import { buildHintScaffold } from "@/domain/hints/build-hint-scaffold";
 import { createLearningEvent } from "@/domain/learning/create-learning-event";
 import type { LearningOutcome } from "@/domain/learning/types";
 import type { Question } from "@/domain/questions/question-schema";
@@ -22,7 +23,7 @@ import { HINT_TOOLS } from "@/features/adventure/content-map";
 import { AudioControls } from "@/components/question/AudioControls";
 import { QuestionScene } from "@/components/question/QuestionScene";
 import { ProgressMeter } from "@/components/ui/ProgressMeter";
-import type { MissionRoute } from "@/infrastructure/progress/progress-types";
+import type { HintTool, MissionRoute } from "@/infrastructure/progress/progress-types";
 
 type Feedback = Readonly<{
   outcome: LearningOutcome;
@@ -94,6 +95,7 @@ export function BattleSession({
   const [firstWrongOptionId, setFirstWrongOptionId] = useState<string | null>(null);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [hintVisible, setHintVisible] = useState(false);
+  const [hintToolOverride, setHintToolOverride] = useState<HintTool | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
   if (!ready) {
@@ -111,7 +113,8 @@ export function BattleSession({
 
   const temporaryShieldLoss = firstWrongOptionId ? 1 : 0;
   const visibleShields = Math.max(0, session.battle.shields - temporaryShieldLoss);
-  const selectedTool = HINT_TOOLS.find((tool) => tool.id === session.selectedTool);
+  const activeHintTool = hintToolOverride ?? session.selectedTool ?? "word-bridge";
+  const selectedTool = HINT_TOOLS.find((tool) => tool.id === activeHintTool);
   const selectedRoute = session.selectedRoute ?? null;
   const route = selectedRoute ? routeMoment(selectedRoute, session.currentIndex) : null;
 
@@ -152,6 +155,7 @@ export function BattleSession({
             setFirstWrongOptionId(null);
             setHintsUsed(0);
             setHintVisible(false);
+            setHintToolOverride(null);
             setFeedback(null);
           }}
         >
@@ -173,6 +177,7 @@ export function BattleSession({
 
   const isBoss = question.purpose === "boss";
   const bossMove = isBoss ? deriveBossMove(question.id) : null;
+  const hintScaffold = buildHintScaffold(question, activeHintTool);
 
   function showHint() {
     if (!hintVisible) {
@@ -243,7 +248,9 @@ export function BattleSession({
     setFeedback({
       outcome: event.outcome,
       message: outcomeMessage(event.outcome),
-      explanation: question.explanation,
+      explanation: hintVisible
+        ? `${question.explanation} ${hintScaffold.feedback}`
+        : question.explanation,
       xp: award.total,
       complete: nextIndex >= session.questionIds.length,
     });
@@ -342,12 +349,28 @@ export function BattleSession({
         ) : null}
 
         {hintVisible ? (
-          <div className="hint-card" role="status">
+          <div className="hint-card" role="status" aria-label="提示內容">
             <Lightbulb aria-hidden="true" />
             <div>
               <strong>{selectedTool?.name ?? "提示工具"}</strong>
               {selectedTool ? <p className="hint-strategy">{selectedTool.description}</p> : null}
-              <p>{question.hints[0]}</p>
+              <p>{hintScaffold.clue}</p>
+              <div role="group" aria-label="切換提示工具">
+                {HINT_TOOLS.map((tool) => (
+                  <button
+                    type="button"
+                    key={tool.id}
+                    aria-label={`切換為${tool.name}`}
+                    aria-pressed={tool.id === activeHintTool}
+                    onClick={() => {
+                      setHintToolOverride(tool.id);
+                      dispatch({ type: "choose_tool", tool: tool.id });
+                    }}
+                  >
+                    {tool.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : null}

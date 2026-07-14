@@ -50,7 +50,7 @@ export const grade3Questions = [
   }),
   q({
     id: "g3-cvc-practice-05", skill: "phonics", indicator: "能以圖文線索辨識 CVC 字詞", microSkill: "cvc-decoding", difficulty: 1, purpose: "practice", modality: "image", imageScene: "red-object-on-hook", imageAlt: "一張紅色物品的情境圖，請依題幹選出單字",
-    prompt: "The picture shows a red hat. Complete: a red ___.", options: ["hat", "hen", "hop"], answerIndex: 0,
+    prompt: "Look at the picture. Complete the phrase: a red ___.", options: ["hat", "hen", "hop"], answerIndex: 0,
     explanation: "hat 是帽子，句子是 a red hat。", hints: ["注意單字中間是 a，最後是 t。"], variantGroup: "g3-cvc-hat",
   }),
   q({

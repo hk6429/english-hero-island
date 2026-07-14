@@ -16,6 +16,16 @@ describe("IndexedDbProgressStore", () => {
       },
       stage: "island" as const,
       xp: 40,
+      starlightKeys: 2,
+      starlightKeyDates: ["2026-07-14", "2026-07-15"],
+      partnerEncouragements: [
+        {
+          id: "relay-01",
+          message: "拆字橋：把題目拆成小步驟。",
+          applicationResponse: "下一題先把題目拆成兩個小步驟",
+          receivedAt: "2026-07-14T10:00:00.000Z",
+        },
+      ],
     };
 
     await firstPage.save(progress);
@@ -28,7 +38,11 @@ describe("IndexedDbProgressStore", () => {
     const databaseName = `hero-island-legacy-${crypto.randomUUID()}`;
     const legacySnapshot = Object.fromEntries(
       Object.entries(createEmptyProgress()).filter(
-        ([key]) => key !== "discoveries" && key !== "partnerEncouragements",
+        ([key]) =>
+          key !== "discoveries" &&
+          key !== "starlightKeys" &&
+          key !== "starlightKeyDates" &&
+          key !== "partnerEncouragements",
       ),
     ) as ProgressSnapshot;
 
@@ -38,6 +52,8 @@ describe("IndexedDbProgressStore", () => {
     const upgradedVersion = new IndexedDbProgressStore({ databaseName });
     const upgraded = await upgradedVersion.load();
     expect(upgraded.discoveries).toEqual([]);
+    expect(upgraded.starlightKeys).toBe(0);
+    expect(upgraded.starlightKeyDates).toEqual([]);
     expect(upgraded.partnerEncouragements).toEqual([]);
   });
 });

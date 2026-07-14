@@ -12,7 +12,7 @@ import { PairEncouragementRelay } from "@/components/social/PairEncouragementRel
 import { deriveMastery } from "@/domain/mastery/derive-mastery";
 import { deriveOutcomeStory } from "@/domain/story/derive-outcome-story";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
-import { microSkillLabel } from "@/features/adventure/content-map";
+import { HINT_TOOLS, microSkillLabel } from "@/features/adventure/content-map";
 
 export default function ResultPage() {
   const router = useRouter();
@@ -45,6 +45,10 @@ export default function ResultPage() {
   const focus = session.microSkill ?? sessionEvents[0]?.microSkill ?? "adventure";
   const mastery = deriveMastery(focus, progress.events);
   const story = deriveOutcomeStory(session.outcomes);
+  const relayStrategy = HINT_TOOLS.find((tool) => tool.id === session.selectedTool) ?? {
+    name: "慢慢排除",
+    description: "先找題目關鍵字，再排除不相符的選項。",
+  };
 
   return (
     <AppShell pageClassName="result-page">
@@ -115,12 +119,16 @@ export default function ResultPage() {
         </section>
 
         <PairEncouragementRelay
-          onReceive={(message) =>
+          strategyName={relayStrategy.name}
+          strategyMessage={relayStrategy.description}
+          repairCount={progress.partnerEncouragements.length}
+          onReceive={(message, applicationResponse) =>
             dispatch({
               type: "record_partner_encouragement",
               card: {
                 id: crypto.randomUUID(),
                 message,
+                applicationResponse,
                 receivedAt: new Date().toISOString(),
               },
             })

@@ -15,6 +15,8 @@ function normalizeProgress(stored: ProgressSnapshot): ProgressSnapshot {
     repairedZones: stored.repairedZones ?? [],
     dexEntries: stored.dexEntries ?? [],
     discoveries: stored.discoveries ?? [],
+    starlightKeys: stored.starlightKeys ?? 0,
+    starlightKeyDates: stored.starlightKeyDates ?? [],
     partnerEncouragements: stored.partnerEncouragements ?? [],
     activeSession: stored.activeSession
       ? {

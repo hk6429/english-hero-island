@@ -25,6 +25,7 @@ export type StudentProfile = Readonly<{
 export type PartnerEncouragement = Readonly<{
   id: string;
   message: string;
+  applicationResponse?: string;
   receivedAt: string;
 }>;
 
@@ -52,6 +53,8 @@ export type ProgressSnapshot = Readonly<{
   repairedZones: string[];
   dexEntries: string[];
   discoveries: string[];
+  starlightKeys: number;
+  starlightKeyDates: string[];
   partnerEncouragements: PartnerEncouragement[];
   activeSession: ActiveSession | null;
   streak: Readonly<{
@@ -71,6 +74,8 @@ export function createEmptyProgress(): ProgressSnapshot {
     repairedZones: [],
     dexEntries: [],
     discoveries: [],
+    starlightKeys: 0,
+    starlightKeyDates: [],
     partnerEncouragements: [],
     activeSession: null,
     streak: {

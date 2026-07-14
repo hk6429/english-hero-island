@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "export:review-candidates": "tsx scripts/export-review-candidates.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.3",
@@ -35,6 +36,7 @@
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
     "supabase": "^2.109.1",
+    "tsx": "^4.23.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   },

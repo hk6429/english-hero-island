@@ -209,11 +209,75 @@ describe("adventure state machine", () => {
     expect(island.activeSession).toBeNull();
   });
 
-  it("collects one secret discovery without duplicating it", () => {
+  it("awards at most one persistent starlight key for each mission study date", () => {
+    function completedMission(
+      progress: ReturnType<typeof createEmptyProgress>,
+      sessionId: string,
+      studyDate: string,
+    ) {
+      const event = Object.freeze({
+        id: `event-${sessionId}`,
+        type: "question_completed" as const,
+        outcome: "independent_correct" as const,
+        studentId: "student-06",
+        sessionId,
+        questionId: `boss-${sessionId}`,
+        questionVersion: 1,
+        microSkill: "present-progressive",
+        variantGroup: `progressive-${sessionId}`,
+        firstSelectedOptionId: "a",
+        hintsUsed: 0,
+        rescueVariantCorrect: false,
+        occurredAt: `${studyDate}T10:00:00.000Z`,
+        studyDate,
+      });
+
+      return {
+        ...progress,
+        profile: { nickname: "小星", grade: 6 as const, heroId: "star-smith" as const },
+        stage: "battle" as const,
+        events: [...progress.events, event],
+        activeSession: {
+          id: sessionId,
+          kind: "mission" as const,
+          microSkill: "present-progressive",
+          questionIds: [event.questionId],
+          currentIndex: 1,
+          phase: "boss" as const,
+          hintsUsed: 0,
+          selectedTool: "example-card" as const,
+          selectedRoute: "story-trail" as const,
+          battle: { armor: 0, shields: 3, combo: 1, rescueActive: false },
+          outcomes: ["independent_correct" as const],
+        },
+      };
+    }
+
+    const firstDay = reduceAdventure(
+      completedMission(createEmptyProgress(), "mission-one", "2026-07-14"),
+      { type: "complete_session" },
+    );
+    const repeatedDay = reduceAdventure(
+      completedMission(firstDay, "mission-two", "2026-07-14"),
+      { type: "complete_session" },
+    );
+    const nextDay = reduceAdventure(
+      completedMission(repeatedDay, "mission-three", "2026-07-15"),
+      { type: "complete_session" },
+    );
+
+    expect(firstDay.starlightKeys).toBe(1);
+    expect(repeatedDay.starlightKeys).toBe(1);
+    expect(nextDay.starlightKeys).toBe(2);
+    expect(nextDay.starlightKeyDates).toEqual(["2026-07-14", "2026-07-15"]);
+  });
+
+  it("spends one key on a first reveal while keeping collected stars free to revisit", () => {
     const progress = {
       ...createEmptyProgress(),
       profile: { nickname: "小星", grade: 6 as const, heroId: "star-smith" as const },
       stage: "island" as const,
+      starlightKeys: 1,
     };
 
     const discovered = reduceAdventure(progress, {
@@ -224,9 +288,16 @@ describe("adventure state machine", () => {
       type: "record_discovery",
       discoveryId: "constellation-action-now",
     });
+    const blockedWithoutKey = reduceAdventure(repeated, {
+      type: "record_discovery",
+      discoveryId: "constellation-action-question",
+    });
 
     expect(discovered.discoveries).toEqual(["constellation-action-now"]);
+    expect(discovered.starlightKeys).toBe(0);
     expect(repeated.discoveries).toEqual(["constellation-action-now"]);
+    expect(repeated.starlightKeys).toBe(0);
+    expect(blockedWithoutKey).toBe(repeated);
   });
 
   it("keeps one anonymous partner encouragement card without duplicating it", () => {
