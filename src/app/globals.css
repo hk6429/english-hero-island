@@ -1,34 +1,36 @@
 :root {
-  --ink: #17324d;
-  --muted: #4b6173;
-  --primary: #0c678a;
-  --primary-strong: #084d68;
-  --forest: #2f7455;
-  --forest-pale: #e3f3e8;
-  --gold: #f0a202;
-  --gold-ink: #765000;
-  --gold-surface: #fff2bd;
-  --danger: #9b3e3a;
-  --danger-pale: #fff0ee;
-  --sky: #e4f5ff;
-  --grass: #dcefd2;
-  --paper: #fffdf7;
+  /* Duolingo 式明亮童趣配色：白底、鮮綠行動色、粗淺灰外框、鮮黃/藍/紅點綴。
+     行動色帶白字者一律挑通過 WCAG 對比的深一階綠，不用會失敗的螢光綠。 */
+  --ink: #3c3c3c;
+  --muted: #5a5a5a;
+  --primary: #2f7a00;
+  --primary-strong: #245e00;
+  --forest: #0d6db0;
+  --forest-pale: #ddf3ff;
+  --gold: #ffc800;
+  --gold-ink: #7a5c00;
+  --gold-surface: #fff3c4;
+  --danger: #d63b30;
+  --danger-pale: #ffece9;
+  --sky: #f4fbef;
+  --grass: #e8f7dc;
+  --paper: #ffffff;
   --white: #ffffff;
-  --border: #a9c5d8;
-  --border-soft: #d7e4ea;
+  --border: #e2e2e2;
+  --border-soft: #efefef;
   --surface: var(--white);
   --ink-muted: var(--muted);
-  --focus-ring: var(--gold);
-  --gold-border: #d8b85a;
-  --forest-border: #9ec8ad;
-  --danger-border: #d99a92;
-  --surface-muted: #edf2f5;
-  --shadow-soft: 0 10px 28px rgba(23, 66, 94, 0.1);
-  --shadow-card: 0 18px 48px rgba(23, 66, 94, 0.15);
-  --radius-small: 14px;
-  --radius-control: 16px;
-  --radius-card: 24px;
-  --radius-large: 32px;
+  --focus-ring: #1cb0f6;
+  --gold-border: #ffdd66;
+  --forest-border: #a6dcff;
+  --danger-border: #f2b3ad;
+  --surface-muted: #f3f6f1;
+  --shadow-soft: 0 8px 0 rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 6px 0 rgba(0, 0, 0, 0.08);
+  --radius-small: 16px;
+  --radius-control: 18px;
+  --radius-card: 22px;
+  --radius-large: 30px;
   font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
   color: var(--ink);
   background: var(--sky);
@@ -51,10 +53,11 @@ body {
   overflow-x: hidden;
   font-size: 18px;
   line-height: 1.65;
-  /* 純色底 → axe 可正確計算文字對比；漸層移到 ::before 只做視覺 */
-  background-color: #eef7fe;
+  /* 純色底 → axe 可正確計算文字對比；裝飾漸層移到 ::before 只做視覺 */
+  background-color: #f4fbef;
 }
 
+/* 明亮童趣背景：淡綠底 ＋ 幾顆柔和彩色圓點，像塗鴉本，不干擾文字對比 */
 body::before {
   content: "";
   position: fixed;
@@ -62,9 +65,11 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(circle at 9% 8%, rgba(255, 255, 255, 0.78) 0 5%, transparent 5.3%),
-    radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.62) 0 7%, transparent 7.3%),
-    linear-gradient(180deg, #dff3ff 0%, #f7fcff 58%, #f5fbf1 100%);
+    radial-gradient(circle at 12% 14%, rgba(88, 204, 2, 0.1) 0 12%, transparent 12.4%),
+    radial-gradient(circle at 86% 10%, rgba(28, 176, 246, 0.1) 0 10%, transparent 10.4%),
+    radial-gradient(circle at 90% 82%, rgba(255, 200, 0, 0.12) 0 14%, transparent 14.4%),
+    radial-gradient(circle at 8% 84%, rgba(206, 130, 255, 0.09) 0 11%, transparent 11.4%),
+    linear-gradient(180deg, #f1fbe8 0%, #f7fcf3 60%, #eef8ff 100%);
 }
 
 button,
@@ -467,9 +472,9 @@ select:focus-visible,
 .ink-left {
   left: 0;
   background:
-    radial-gradient(120% 34% at 0% 14%, rgba(11, 90, 122, 0.82), transparent 64%),
-    radial-gradient(115% 32% at 0% 46%, rgba(38, 104, 74, 0.72), transparent 66%),
-    radial-gradient(130% 40% at 0% 82%, rgba(11, 90, 122, 0.6), transparent 68%);
+    radial-gradient(120% 34% at 0% 14%, rgba(88, 204, 2, 0.28), transparent 64%),
+    radial-gradient(115% 32% at 0% 46%, rgba(28, 176, 246, 0.24), transparent 66%),
+    radial-gradient(130% 40% at 0% 82%, rgba(255, 200, 0, 0.22), transparent 68%);
   -webkit-mask-image: linear-gradient(90deg, #000 26%, transparent);
   mask-image: linear-gradient(90deg, #000 26%, transparent);
 }
@@ -477,9 +482,9 @@ select:focus-visible,
 .ink-right {
   right: 0;
   background:
-    radial-gradient(120% 34% at 100% 14%, rgba(163, 118, 10, 0.72), transparent 64%),
-    radial-gradient(115% 32% at 100% 48%, rgba(11, 90, 122, 0.62), transparent 66%),
-    radial-gradient(130% 40% at 100% 82%, rgba(38, 104, 74, 0.58), transparent 68%);
+    radial-gradient(120% 34% at 100% 14%, rgba(255, 200, 0, 0.26), transparent 64%),
+    radial-gradient(115% 32% at 100% 48%, rgba(206, 130, 255, 0.22), transparent 66%),
+    radial-gradient(130% 40% at 100% 82%, rgba(88, 204, 2, 0.24), transparent 68%);
   -webkit-mask-image: linear-gradient(270deg, #000 26%, transparent);
   mask-image: linear-gradient(270deg, #000 26%, transparent);
 }
@@ -613,17 +618,23 @@ select:focus-visible,
   color: var(--white);
   font-size: 1.42rem;
   font-weight: 900;
+  letter-spacing: 0.02em;
   text-decoration: none;
-  background: radial-gradient(circle at 50% 26%, #12a0d0, var(--primary));
-  border: 3px solid var(--white);
+  background: var(--primary);
+  border: none;
   border-radius: 999px;
-  box-shadow: 0 12px 30px rgba(12, 103, 138, 0.44), 0 0 0 7px rgba(235, 184, 43, 0.34);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 8px 0 var(--primary-strong);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .launch-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 34px rgba(12, 103, 138, 0.5), 0 0 0 7px rgba(235, 184, 43, 0.5);
+  box-shadow: 0 10px 0 var(--primary-strong);
+}
+
+.launch-button:active {
+  transform: translateY(6px);
+  box-shadow: 0 2px 0 var(--primary-strong);
 }
 
 .launch-label {
