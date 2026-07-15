@@ -5248,3 +5248,219 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
     justify-content: flex-start;
   }
 }
+
+/* ── 自學小站（/learn 中樞＋閃卡） ───────────────────────────── */
+.learn-main {
+  width: min(100% - 32px, 900px);
+  margin-inline: auto;
+  padding-block: clamp(20px, 4vw, 40px);
+}
+
+.learn-head {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.learn-sub {
+  max-width: 46ch;
+  margin: 8px auto 0;
+  color: var(--muted);
+}
+
+.learn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+.learn-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.learn-card-ready {
+  border-color: var(--primary);
+  transition: transform 0.12s ease;
+}
+
+.learn-card-ready:hover {
+  transform: translateY(-3px);
+}
+
+.learn-card-soon {
+  opacity: 0.72;
+}
+
+.learn-card-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  color: var(--white);
+  background: var(--primary);
+  border-radius: 16px;
+  box-shadow: 0 5px 0 var(--primary-strong);
+}
+
+.learn-card-soon .learn-card-icon {
+  background: var(--muted);
+  box-shadow: 0 5px 0 #3f3f3f;
+}
+
+.learn-card h2 {
+  margin: 4px 0 0;
+  font-size: 1.35rem;
+}
+
+.learn-card p {
+  color: var(--muted);
+  font-size: 0.96rem;
+}
+
+.learn-card-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  color: var(--primary-strong);
+  font-weight: 850;
+}
+
+/* 年級選擇 */
+.grade-picker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.grade-chip {
+  min-height: 44px;
+  padding: 8px 18px;
+  color: var(--primary-strong);
+  font-weight: 850;
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 3px 0 #d7d7d7;
+  cursor: pointer;
+}
+
+.grade-chip-active {
+  color: var(--white);
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 3px 0 var(--primary-strong);
+}
+
+.learn-progress {
+  text-align: center;
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+/* 閃卡 */
+.flashcard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: min(100%, 420px);
+  min-height: 260px;
+  margin: 0 auto 20px;
+  padding: 28px;
+  background: var(--white);
+  border: 3px solid var(--primary);
+  border-radius: var(--radius-large);
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.flashcard:active {
+  transform: translateY(4px);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.08);
+}
+
+.flashcard-flipped {
+  border-color: var(--gold);
+  background: var(--gold-surface);
+}
+
+.flashcard-emoji {
+  font-size: 3.4rem;
+  line-height: 1;
+}
+
+.flashcard-face {
+  font-size: clamp(2rem, 7vw, 3rem);
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.flashcard-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.flashcard-actions {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.flashcard-actions .primary-button,
+.flashcard-actions .secondary-button {
+  min-width: 130px;
+}
+
+.flashcard-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 420px);
+  margin: 0 auto 20px;
+  padding: 28px;
+  text-align: center;
+  color: var(--gold-ink);
+  background: var(--gold-surface);
+  border: 3px solid var(--gold-border);
+  border-radius: var(--radius-large);
+}
+
+.flashcard-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+}
+
+.flashcard-tools .text-link {
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.home-learn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  color: var(--primary-strong);
+  font-weight: 800;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}

@@ -61,6 +61,18 @@ test("首頁沒有 axe 可偵測的 WCAG 2.2 A／AA 違規", async ({ page }, te
   await expectNoAutomatedWcagViolations(page, testInfo, "homepage");
 });
 
+test("自學小站沒有 axe 可偵測的 WCAG 2.2 A／AA 違規", async ({ page }, testInfo) => {
+  await page.goto("/learn");
+  await expect(page.getByRole("heading", { name: "自己練，慢慢就記住了" })).toBeVisible();
+  await expectNoAutomatedWcagViolations(page, testInfo, "learn-hub");
+});
+
+test("閃卡頁沒有 axe 可偵測的 WCAG 2.2 A／AA 違規", async ({ page }, testInfo) => {
+  await page.goto("/learn/flashcards");
+  await expect(page.getByRole("heading", { name: "單字閃卡（五盒複習）" })).toBeVisible();
+  await expectNoAutomatedWcagViolations(page, testInfo, "flashcards");
+});
+
 test("鍵盤使用者可跳到主要內容", async ({ page }) => {
   await page.goto("/");
 

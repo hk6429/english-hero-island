@@ -109,6 +109,11 @@ export default function HomePage() {
               <ArrowRight aria-hidden="true" />
             </Link>
 
+            <Link className="home-learn-link" href="/learn">
+              <BookOpenCheck aria-hidden="true" size={18} />
+              想先自己練？來自學小站玩閃卡、記憶牌、連連看
+            </Link>
+
             {ready && progress.profile ? (
               <p className={styles.welcomeBack}>
                 <HeroGlyph
