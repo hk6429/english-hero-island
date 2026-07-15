@@ -27,6 +27,7 @@ import {
   SKILL_LABELS,
   microSkillLabel,
 } from "@/features/adventure/content-map";
+import { IslandShelf } from "./IslandShelf";
 import styles from "./island.module.css";
 
 const skills: Skill[] = [
@@ -84,8 +85,13 @@ export default function IslandPage() {
             <p className="eyebrow">{profile.nickname} 的能力島</p>
             <h1>地圖不是分數表，是下一步的導航。</h1>
             <p>診斷只決定今天的起點；之後每一次作答，都能改變能力狀態。</p>
+            <Link className="text-link" href="/start">
+              編輯英雄設定
+            </Link>
           </div>
         </section>
+
+        <IslandShelf collectedMicroSkills={progress.dexEntries} />
 
         <StreakGlow streak={progress.streak} />
 

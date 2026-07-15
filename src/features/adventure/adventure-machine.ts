@@ -11,6 +11,7 @@ import type {
 
 export type AdventureAction =
   | Readonly<{ type: "create_profile"; profile: StudentProfile }>
+  | Readonly<{ type: "update_profile"; profile: StudentProfile }>
   | Readonly<{ type: "start_session"; session: ActiveSession }>
   | Readonly<{ type: "choose_tool"; tool: HintTool }>
   | Readonly<{ type: "choose_route"; route: MissionRoute }>
@@ -38,6 +39,13 @@ export function reduceAdventure(
       ...progress,
       profile: action.profile,
       stage: "diagnostic",
+    };
+  }
+
+  if (action.type === "update_profile" && progress.profile) {
+    return {
+      ...progress,
+      profile: action.profile,
     };
   }
 
@@ -151,6 +159,10 @@ export function reduceAdventure(
         !progress.repairedZones.includes(completedSkill)
           ? [...progress.repairedZones, completedSkill]
           : progress.repairedZones,
+      completedMissionCount:
+        progress.activeSession.kind === "mission" && completedMissionDate !== undefined
+          ? progress.completedMissionCount + 1
+          : progress.completedMissionCount,
       dexEntries:
         completedSkill && !progress.dexEntries.includes(completedSkill)
           ? [...progress.dexEntries, completedSkill]

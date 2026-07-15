@@ -11,6 +11,7 @@ import {
   Swords,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { playChime } from "@/domain/audio/chime";
 import { projectBattle } from "@/domain/battle/project-battle";
 import { buildHintScaffold } from "@/domain/hints/build-hint-scaffold";
 import { createLearningEvent } from "@/domain/learning/create-learning-event";
@@ -232,7 +233,9 @@ export function BattleSession({
   }
 
   const isBoss = question.purpose === "boss";
-  const bossMove = isBoss ? deriveBossMove(`${session.id}:${question.id}`) : null;
+  const bossMove = isBoss
+    ? deriveBossMove(`${session.id}:${question.id}`, progress.completedMissionCount)
+    : null;
   const hintScaffold = buildHintScaffold(question, activeHintTool);
 
   function showHint() {
@@ -288,6 +291,7 @@ export function BattleSession({
         rescueActive: projected.rescueActive,
       },
       outcomes: [...session.outcomes, event.outcome],
+      sessionXp: (session.sessionXp ?? 0) + award.total,
     };
 
     dispatch({
@@ -297,6 +301,9 @@ export function BattleSession({
       outcome: event.outcome,
       nextSession,
     });
+    if (event.outcome !== "pending_support") {
+      playChime(isBoss ? "boss-victory" : "correct");
+    }
     setFeedback({
       outcome: event.outcome,
       message: outcomeMessage(event.outcome),
@@ -360,6 +367,7 @@ export function BattleSession({
         shields: 1,
         rescueActive: false,
       },
+      sessionXp: (session.sessionXp ?? 0) + award.total,
     };
 
     dispatch({
@@ -372,6 +380,7 @@ export function BattleSession({
     setRescueStep("teach");
     setRescueFirstTryId(null);
     setRescueTriedIds([]);
+    playChime("correct");
     setFeedback({
       outcome: event.outcome,
       message: outcomeMessage(event.outcome),

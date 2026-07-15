@@ -3,7 +3,7 @@ import { buildMission } from "@/domain/session-builder/build-mission";
 import { buildReview } from "@/domain/session-builder/build-review";
 import type { Grade, Question } from "@/domain/questions/question-schema";
 import type { ActiveSession } from "@/infrastructure/progress/progress-types";
-import { FOCUS_MICRO_SKILL } from "./content-map";
+import { FOCUS_MICRO_SKILL, MICRO_SKILLS_BY_GRADE } from "./content-map";
 
 function baseSession(
   id: string,
@@ -52,14 +52,27 @@ function buildMissionWithGradeFallback(
   grade: Grade,
   microSkill: string,
   bank: ReadonlyArray<Question>,
+  excludeQuestionIds: ReadonlyArray<string>,
 ): Readonly<{
   result: ReturnType<typeof buildMission>;
   usedMicroSkill: string;
   fallbackFromGrade: Grade | null;
 }> {
-  const primary = buildMission({ grade, microSkill, bank, contentMode: "pilot", excludeQuestionIds: [] });
+  const primary = buildMission({ grade, microSkill, bank, contentMode: "pilot", excludeQuestionIds });
   if (primary.ok) {
     return { result: primary, usedMicroSkill: microSkill, fallbackFromGrade: null };
+  }
+
+  // 排除已作答題目後題量不足時，先允許同一項能力重複出題，勝過直接跳到較低年級。
+  const withoutExclusion = buildMission({
+    grade,
+    microSkill,
+    bank,
+    contentMode: "pilot",
+    excludeQuestionIds: [],
+  });
+  if (withoutExclusion.ok) {
+    return { result: withoutExclusion, usedMicroSkill: microSkill, fallbackFromGrade: null };
   }
 
   for (let candidateGrade = grade - 1; candidateGrade >= 3; candidateGrade -= 1) {
@@ -80,7 +93,25 @@ function buildMissionWithGradeFallback(
     }
   }
 
-  return { result: primary, usedMicroSkill: microSkill, fallbackFromGrade: null };
+  return { result: withoutExclusion, usedMicroSkill: microSkill, fallbackFromGrade: null };
+}
+
+/**
+ * 從這年級這學期涵蓋的能力裡，篩出練功／Boss 題目前足額、真的能開任務的技能，
+ * 依「已完成任務數」輪流指派下一個聚焦技能；沒有任何技能就緒時退回原本的重點能力。
+ */
+export function selectMissionMicroSkill(
+  grade: Grade,
+  bank: ReadonlyArray<Question>,
+  completedMissionCount: number,
+): string {
+  const candidates = MICRO_SKILLS_BY_GRADE[grade];
+  const ready = candidates.filter(
+    (microSkill) =>
+      buildMission({ grade, microSkill, bank, contentMode: "pilot", excludeQuestionIds: [] }).ok,
+  );
+  if (ready.length === 0) return FOCUS_MICRO_SKILL[grade];
+  return ready[completedMissionCount % ready.length];
 }
 
 export function createMissionSession(
@@ -88,11 +119,13 @@ export function createMissionSession(
   microSkill: string,
   bank: ReadonlyArray<Question>,
   id: string,
+  excludeQuestionIds: ReadonlyArray<string> = [],
 ): ActiveSession | null {
   const { result, usedMicroSkill, fallbackFromGrade } = buildMissionWithGradeFallback(
     grade,
     microSkill,
     bank,
+    excludeQuestionIds,
   );
   if (!result.ok) return null;
   return baseSession(

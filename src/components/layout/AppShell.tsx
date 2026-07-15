@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Compass, FlaskConical, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
+import { SoundToggle } from "@/components/layout/SoundToggle";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 
 export function AppShell({
@@ -30,21 +31,24 @@ export function AppShell({
           </span>
           <span>英語英雄島</span>
         </Link>
-        {progress.profile ? (
-          <div className="hero-status" role="group" aria-label="英雄狀態">
-            <HeroGlyph
-              heroId={progress.profile.heroId}
-              accent={progress.profile.accent ?? "ocean"}
-              size="small"
-            />
-            <span>{progress.profile.grade} 年級</span>
-            <strong>{progress.profile.nickname}</strong>
-            <span className="xp-chip" role="status" aria-label={`目前累積 ${progress.xp} XP`}>
-              <Sparkles aria-hidden="true" size={17} />
-              {progress.xp} XP
-            </span>
-          </div>
-        ) : null}
+        <div className="header-actions">
+          <SoundToggle />
+          {progress.profile ? (
+            <div className="hero-status" role="group" aria-label="英雄狀態">
+              <HeroGlyph
+                heroId={progress.profile.heroId}
+                accent={progress.profile.accent ?? "ocean"}
+                size="small"
+              />
+              <span>{progress.profile.grade} 年級</span>
+              <strong>{progress.profile.nickname}</strong>
+              <span className="xp-chip" role="status" aria-label={`目前累積 ${progress.xp} XP`}>
+                <Sparkles aria-hidden="true" size={17} />
+                {progress.xp} XP
+              </span>
+            </div>
+          ) : null}
+        </div>
       </header>
       {persistenceError ? (
         <p className="inline-alert" role="alert">

@@ -56,7 +56,11 @@ for (const grade of [3, 4, 5, 6] as const) {
     await page.getByRole("button", { name: "進入五題診斷戰" }).click();
 
     await expect(page).toHaveURL(/\/diagnostic$/);
+    await page.getByRole("button", { name: /圓形|星星/ }).first().click();
+    await page.getByRole("button", { name: "開始五題診斷戰" }).click();
     await finishBattleSession(page);
+    await expect(page.getByRole("heading", { name: /五題都走完了/ })).toBeVisible();
+    await page.getByRole("button", { name: "前往能力島" }).click();
     await expect(page).toHaveURL(/\/island$/);
     await expect(page.getByRole("heading", { name: /地圖不是分數表/ })).toBeVisible();
     await expectNoHorizontalOverflow(page);
@@ -75,6 +79,7 @@ for (const grade of [3, 4, 5, 6] as const) {
     await expect(
       page.getByRole("heading", { name: /星光捷徑|共鳴小徑|夥伴營火/ }),
     ).toBeVisible();
+    await expect(page.locator(".xp-medal")).toContainText(/累積\s*\d+\s*XP/);
     await expect(page.getByLabel(/島嶼亮度 3 格，共完成 1 個學習日/)).toBeVisible();
     await expect(page.locator(".result-hero .hero-accent-coral")).toBeVisible();
     await expect(page.getByRole("button", { name: "分享鼓勵卡" })).toBeVisible();
@@ -120,6 +125,9 @@ test("鍵盤答錯後啟動護盾救援，仍可完成作答", async ({ page }) 
   await page.getByRole("radio", { name: /3\s*年級/ }).check();
   await page.getByLabel("英雄暱稱").fill("鍵盤英雄");
   await page.getByRole("button", { name: "進入五題診斷戰" }).click();
+
+  await page.getByRole("button", { name: /圓形|星星/ }).first().click();
+  await page.getByRole("button", { name: "開始五題診斷戰" }).click();
 
   const wrongAnswer = page.getByRole("button", { name: "q", exact: true });
   await wrongAnswer.focus();

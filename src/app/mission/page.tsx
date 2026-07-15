@@ -13,7 +13,7 @@ import {
   MISSION_COPY,
   microSkillLabel,
 } from "@/features/adventure/content-map";
-import { createMissionSession } from "@/features/adventure/session-factory";
+import { createMissionSession, selectMissionMicroSkill } from "@/features/adventure/session-factory";
 import { MissionRadioGroup } from "./MissionRadioGroup";
 import styles from "./mission.module.css";
 
@@ -23,10 +23,13 @@ export default function MissionPage() {
   const [contractAccepted, setContractAccepted] = useState(false);
   const profile = progress.profile;
   const session = progress.activeSession;
+  const nextFocus = profile
+    ? selectMissionMicroSkill(profile.grade, playableQuestionBank, progress.completedMissionCount)
+    : null;
   const contentAvailable = profile
     ? createMissionSession(
         profile.grade,
-        FOCUS_MICRO_SKILL[profile.grade],
+        nextFocus ?? FOCUS_MICRO_SKILL[profile.grade],
         playableQuestionBank,
         "content-check",
       ) !== null
@@ -45,13 +48,28 @@ export default function MissionPage() {
       return;
     }
 
-    const focus = FOCUS_MICRO_SKILL[profile.grade];
-    const created = createMissionSession(profile.grade, focus, playableQuestionBank, crypto.randomUUID());
+    const focus = selectMissionMicroSkill(
+      profile.grade,
+      playableQuestionBank,
+      progress.completedMissionCount,
+    );
+    const seenQuestionIds = progress.events
+      .filter((event) => event.microSkill === focus)
+      .map((event) => event.questionId);
+    const created = createMissionSession(
+      profile.grade,
+      focus,
+      playableQuestionBank,
+      crypto.randomUUID(),
+      seenQuestionIds,
+    );
     if (!created) return;
     dispatch({ type: "start_session", session: created });
   }, [
     dispatch,
     profile,
+    progress.completedMissionCount,
+    progress.events,
     ready,
     router,
     session?.currentIndex,
@@ -70,7 +88,7 @@ export default function MissionPage() {
   }
 
   const mission = MISSION_COPY[profile.grade];
-  const focus = session?.microSkill ?? FOCUS_MICRO_SKILL[profile.grade];
+  const focus = session?.microSkill ?? nextFocus ?? FOCUS_MICRO_SKILL[profile.grade];
   const reviewFallbackGrade =
     session?.kind === "mission" ? session.reviewFallbackGrade : null;
 

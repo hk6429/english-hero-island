@@ -13,6 +13,40 @@ export const FOCUS_MICRO_SKILL: Readonly<Record<Grade, string>> = {
   6: "present-progressive",
 };
 
+// 每年級這學期涵蓋的能力，用來輪替任務聚焦技能，讓題庫不會卡在單一能力。
+// 陣列第一項固定等於 FOCUS_MICRO_SKILL，之後才是同年級其他能力；
+// 實際輪替時仍會先篩掉練功／Boss 題不足的技能（見 session-factory.ts）。
+export const MICRO_SKILLS_BY_GRADE: Readonly<Record<Grade, readonly string[]>> = {
+  3: [
+    "cvc-decoding",
+    "phonological-awareness",
+    "uppercase-lowercase",
+    "letter-listening",
+    "letter-writing",
+  ],
+  4: [
+    "yes-no-questions",
+    "affirmative-negative",
+    "this-that-questions",
+    "image-sentence-match",
+    "cvc-decoding",
+  ],
+  5: [
+    "age-and-can",
+    "adjectives",
+    "image-sentence-meaning",
+    "short-dialogue",
+    "weather-listening",
+  ],
+  6: [
+    "present-progressive",
+    "clothing-and-have",
+    "occupation-and-family",
+    "place-and-destination",
+    "integrated-dialogue-text",
+  ],
+};
+
 export const FOCUS_SKILL: Readonly<Record<Grade, Skill>> = {
   3: "phonics",
   4: "classroom_english",

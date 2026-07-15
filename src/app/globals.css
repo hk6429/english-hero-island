@@ -232,12 +232,39 @@ p {
   place-items: center;
 }
 
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .hero-status {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px 12px;
   color: var(--muted);
   font-size: 0.94rem;
+}
+
+.sound-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--muted);
+  cursor: pointer;
+  background: var(--white);
+  border: 1px solid var(--gold-surface, #e3c66f);
+  border-radius: 12px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.sound-toggle:hover,
+.sound-toggle:focus-visible {
+  color: var(--ink);
+  border-color: var(--primary);
 }
 
 .hero-status strong {
@@ -4652,6 +4679,11 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
     align-items: flex-start;
     flex-direction: column;
     gap: 10px;
+  }
+
+  .header-actions {
+    align-self: stretch;
+    justify-content: space-between;
   }
 
   .hero-status {

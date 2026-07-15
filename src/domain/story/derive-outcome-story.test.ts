@@ -30,4 +30,19 @@ describe("deriveOutcomeStory", () => {
       expect(`${branch.title}${branch.story}`).not.toMatch(/失敗|太弱|落後|你不會/);
     }
   });
+
+  it("first-ever mission keeps the original wording even with completedMissionCount = 1", () => {
+    const story = deriveOutcomeStory(["independent_correct"], 1);
+    expect(story.title).toBe("星光捷徑已出現");
+  });
+
+  it("varies the wording across repeat missions in the same route, without changing id or tone", () => {
+    const outcomes: readonly ["independent_correct"] = ["independent_correct"];
+    const first = deriveOutcomeStory(outcomes, 1);
+    const second = deriveOutcomeStory(outcomes, 2);
+
+    expect(first.title).not.toBe(second.title);
+    expect(first.id).toBe(second.id);
+    expect(first.tone).toBe(second.tone);
+  });
 });

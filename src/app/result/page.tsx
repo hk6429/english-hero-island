@@ -1,14 +1,17 @@
 "use client";
 
-import { ArrowRight, BookOpenCheck, CheckCircle2, Clock3, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpenCheck, CheckCircle2, Clock3, PartyPopper, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { HeroGlyph } from "@/components/adventure/HeroGlyph";
 import { StreakGlow } from "@/components/adventure/StreakGlow";
+import { XpCountUp } from "@/components/adventure/XpCountUp";
 import { AppShell } from "@/components/layout/AppShell";
 import { ShareEncouragementButton } from "@/components/social/ShareEncouragementButton";
 import { PairEncouragementRelay } from "@/components/social/PairEncouragementRelay";
+import { playableQuestionBank } from "@/content/playable";
+import { deriveBossDefeated } from "@/domain/battle/derive-boss-defeated";
 import { deriveMastery } from "@/domain/mastery/derive-mastery";
 import { deriveOutcomeStory } from "@/domain/story/derive-outcome-story";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
@@ -45,11 +48,14 @@ export default function ResultPage() {
   ).length;
   const focus = session.microSkill ?? sessionEvents[0]?.microSkill ?? "adventure";
   const mastery = deriveMastery(focus, progress.events);
-  const story = deriveOutcomeStory(session.outcomes);
+  const story = deriveOutcomeStory(session.outcomes, progress.completedMissionCount);
   const relayStrategy = HINT_TOOLS.find((tool) => tool.id === session.selectedTool) ?? {
     name: "慢慢排除",
     description: "先找題目關鍵字，再排除不相符的選項。",
   };
+  const sessionXpGained = session.sessionXp ?? 0;
+  const xpBeforeSession = Math.max(0, progress.xp - sessionXpGained);
+  const bossDefeated = deriveBossDefeated(sessionEvents, playableQuestionBank);
 
   return (
     <AppShell pageClassName="result-page">
@@ -63,6 +69,13 @@ export default function ResultPage() {
           <h1>{microSkillLabel(focus)}已留下新的學習證據。</h1>
           <p>不是只有全對才算進步；知道何時用線索、完成救援，也都會進入下一次安排。</p>
         </section>
+
+        {bossDefeated ? (
+          <section className={`boss-flourish ${styles.bossFlourish}`} role="status">
+            <PartyPopper aria-hidden="true" />
+            <p>Boss 已擊退！這只是換了故事演出，你用的方法和精熟規則完全沒有變。</p>
+          </section>
+        ) : null}
 
         <section
           className={`story-branch story-${story.tone}`}
@@ -87,7 +100,10 @@ export default function ResultPage() {
               需要兩天、兩種表面題都獨立完成，才會標示精熟。
             </p>
           </div>
-          <span className="xp-medal">累積 {progress.xp} XP</span>
+          <span className="xp-medal">
+            累積 <XpCountUp from={xpBeforeSession} to={progress.xp} />
+            <span className="sr-only">{progress.xp}</span> XP
+          </span>
         </section>
 
         <p className={styles.gridCaption}>數字只是紀錄；會用線索、完成救援，也都是這次帶走的成長。</p>

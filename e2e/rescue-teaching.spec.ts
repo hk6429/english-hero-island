@@ -46,7 +46,10 @@ test("護盾歸零後出現夥伴救援教學，完成救援題後護盾回到 1
   await page.getByRole("button", { name: "進入五題診斷戰" }).click();
 
   await expect(page).toHaveURL(/\/diagnostic$/);
+  await page.getByRole("button", { name: /圓形|星星/ }).first().click();
+  await page.getByRole("button", { name: "開始五題診斷戰" }).click();
   await finishDiagnostic(page);
+  await page.getByRole("button", { name: "前往能力島" }).click();
   await expect(page).toHaveURL(/\/island$/);
 
   await page.getByRole("link", { name: /前往今日任務/ }).click();

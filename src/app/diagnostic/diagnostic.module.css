@@ -104,6 +104,47 @@
   height: 20px;
 }
 
+.warmupOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.warmupOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+}
+
+.warmupConfirm {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.revealCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+  padding: clamp(20px, 4vw, 28px);
+  background: linear-gradient(180deg, var(--white) 0%, var(--paper) 100%);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
+}
+
+.revealNext {
+  padding: 14px 16px;
+  color: var(--ink);
+  background: var(--sky);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-control);
+}
+
 /* 題庫不足時的暖聲明：fail-closed，給孩子清楚的下一步 */
 
 .emptyState {

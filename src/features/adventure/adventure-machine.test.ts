@@ -17,6 +17,43 @@ describe("adventure state machine", () => {
     expect(next.stage).toBe("diagnostic");
   });
 
+  it("patches an existing profile without touching progress or stage", () => {
+    const withProfile = reduceAdventure(createEmptyProgress(), {
+      type: "create_profile",
+      profile: { nickname: "小浪", grade: 3, heroId: "wave-scout" },
+    });
+    const withProgress = {
+      ...withProfile,
+      xp: 120,
+      stage: "island" as const,
+      abilityCards: ["ability-cvc-decoding"],
+    };
+
+    const next = reduceAdventure(withProgress, {
+      type: "update_profile",
+      profile: { nickname: "小海星", grade: 3, heroId: "forest-keeper", accent: "coral" },
+    });
+
+    expect(next.profile).toEqual({
+      nickname: "小海星",
+      grade: 3,
+      heroId: "forest-keeper",
+      accent: "coral",
+    });
+    expect(next.xp).toBe(120);
+    expect(next.stage).toBe("island");
+    expect(next.abilityCards).toEqual(["ability-cvc-decoding"]);
+  });
+
+  it("ignores update_profile before any profile exists", () => {
+    const next = reduceAdventure(createEmptyProgress(), {
+      type: "update_profile",
+      profile: { nickname: "小海星", grade: 3, heroId: "forest-keeper" },
+    });
+
+    expect(next.profile).toBeNull();
+  });
+
   it("starts a recoverable diagnostic session after the profile exists", () => {
     const withProfile = reduceAdventure(createEmptyProgress(), {
       type: "create_profile",
@@ -207,6 +244,7 @@ describe("adventure state machine", () => {
     expect(result.dexEntries).toContain("age-and-can");
     expect(result.abilityCards).toContain("ability-age-and-can");
     expect(result.streak).toEqual({ completedDates: ["2026-07-14"], brightness: 3 });
+    expect(result.completedMissionCount).toBe(1);
     expect(island.stage).toBe("island");
     expect(island.activeSession).toBeNull();
   });

@@ -18,6 +18,7 @@ function normalizeProgress(stored: ProgressSnapshot): ProgressSnapshot {
     starlightKeys: stored.starlightKeys ?? 0,
     starlightKeyDates: stored.starlightKeyDates ?? [],
     partnerEncouragements: stored.partnerEncouragements ?? [],
+    completedMissionCount: stored.completedMissionCount ?? 0,
     activeSession: stored.activeSession
       ? {
           ...stored.activeSession,

@@ -26,3 +26,34 @@
     animation: none;
   }
 }
+
+/* Boss 擊退花絮：只是加一點慶祝感，跟規則／XP 完全無關 */
+.bossFlourish {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  color: var(--gold-ink);
+  font-weight: 800;
+  background: var(--gold-surface);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-control);
+  animation: boss-flourish-pop 320ms ease-out;
+}
+
+@keyframes boss-flourish-pop {
+  from {
+    transform: scale(0.94);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bossFlourish {
+    animation: none;
+  }
+}

@@ -15,7 +15,7 @@ import { HeroGlyph } from "@/components/adventure/HeroGlyph";
 import { AppShell } from "@/components/layout/AppShell";
 import { deriveMastery } from "@/domain/mastery/derive-mastery";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
-import { FOCUS_MICRO_SKILL, microSkillLabel } from "@/features/adventure/content-map";
+import { MICRO_SKILLS_BY_GRADE, microSkillLabel } from "@/features/adventure/content-map";
 import styles from "./dex.module.css";
 
 const discoveryTitles: Readonly<Record<string, string>> = {
@@ -52,9 +52,7 @@ export default function DexPage() {
     );
   }
 
-  const focus = FOCUS_MICRO_SKILL[profile.grade];
-  const mastery = deriveMastery(focus, progress.events);
-  const collected = progress.dexEntries.includes(focus);
+  const microSkills = MICRO_SKILLS_BY_GRADE[profile.grade];
 
   return (
     <AppShell pageClassName="dex-page">
@@ -81,42 +79,50 @@ export default function DexPage() {
         </section>
 
         <section className="ability-card-grid" aria-label="能力卡收藏">
-          <article
-            className={`ability-card ${collected ? `collected ${styles.collectedCard}` : "locked"}`}
-          >
-            <div
-              className={`ability-card-art ${collected ? styles.collectedArt : styles.pendingArt}`}
-              aria-hidden="true"
-            >
-              {collected ? <Sparkles /> : <LockKeyhole />}
-            </div>
-            <p className="eyebrow">{profile.grade} 年級主線</p>
-            <h2>{microSkillLabel(focus)}</h2>
-            <p>
-              {collected
-                ? "已完成一場完整任務，能力卡進入確認階段。"
-                : "完成今日任務後，這張能力卡會加入圖鑑。"}
-            </p>
-            <dl>
-              <div>
-                <dt>能力狀態</dt>
-                <dd>{mastery.status === "mastered" ? "已精熟" : collected ? "待確認" : "未取得"}</dd>
-              </div>
-              <div>
-                <dt>不同日期</dt>
-                <dd>{mastery.independentDates.length}／2</dd>
-              </div>
-              <div>
-                <dt>不同表面題</dt>
-                <dd>{mastery.independentSurfaces}／2</dd>
-              </div>
-            </dl>
-            {collected ? (
-              <span className="card-earned">
-                <CheckCircle2 aria-hidden="true" /> 已收入圖鑑
-              </span>
-            ) : null}
-          </article>
+          {microSkills.map((microSkill) => {
+            const mastery = deriveMastery(microSkill, progress.events);
+            const collected = progress.dexEntries.includes(microSkill);
+
+            return (
+              <article
+                className={`ability-card ${collected ? `collected ${styles.collectedCard}` : "locked"}`}
+                key={microSkill}
+              >
+                <div
+                  className={`ability-card-art ${collected ? styles.collectedArt : styles.pendingArt}`}
+                  aria-hidden="true"
+                >
+                  {collected ? <Sparkles /> : <LockKeyhole />}
+                </div>
+                <p className="eyebrow">{profile.grade} 年級能力</p>
+                <h2>{microSkillLabel(microSkill)}</h2>
+                <p>
+                  {collected
+                    ? "已完成一場完整任務，能力卡進入確認階段。"
+                    : "完成聚焦這項能力的任務後，這張能力卡會加入圖鑑。"}
+                </p>
+                <dl>
+                  <div>
+                    <dt>能力狀態</dt>
+                    <dd>{mastery.status === "mastered" ? "已精熟" : collected ? "待確認" : "未取得"}</dd>
+                  </div>
+                  <div>
+                    <dt>不同日期</dt>
+                    <dd>{mastery.independentDates.length}／2</dd>
+                  </div>
+                  <div>
+                    <dt>不同表面題</dt>
+                    <dd>{mastery.independentSurfaces}／2</dd>
+                  </div>
+                </dl>
+                {collected ? (
+                  <span className="card-earned">
+                    <CheckCircle2 aria-hidden="true" /> 已收入圖鑑
+                  </span>
+                ) : null}
+              </article>
+            );
+          })}
 
           <article className="ability-card future-card">
             <div className={`ability-card-art ${styles.pendingArt}`} aria-hidden="true">

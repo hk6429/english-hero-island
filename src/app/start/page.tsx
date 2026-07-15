@@ -15,7 +15,8 @@ const grades: Grade[] = [3, 4, 5, 6];
 
 export default function StartPage() {
   const router = useRouter();
-  const { ready, progress, dispatch, reset } = useAdventure();
+  const { ready, progress, dispatch } = useAdventure();
+  const isEditingExisting = Boolean(progress.profile);
   const [grade, setGrade] = useState<Grade>(progress.profile?.grade ?? 3);
   const [heroId, setHeroId] = useState<HeroId>(progress.profile?.heroId ?? "wave-scout");
   const [accent, setAccent] = useState<HeroAccent>(progress.profile?.accent ?? "ocean");
@@ -39,8 +40,13 @@ export default function StartPage() {
     }
 
     setSubmitting(true);
-    if (progress.profile) {
-      await reset();
+    if (isEditingExisting) {
+      dispatch({
+        type: "update_profile",
+        profile: { nickname: safeNickname, grade, heroId, accent },
+      });
+      router.push("/island");
+      return;
     }
     dispatch({
       type: "create_profile",
@@ -53,9 +59,17 @@ export default function StartPage() {
     <AppShell pageClassName="start-page">
       <main id="main-content" className="page-main narrow-main" tabIndex={-1}>
         <div className="section-heading centered-heading">
-          <p className="eyebrow">建立你的冒險檔案</p>
-          <h1>選一位英雄，找到今天最適合的起點。</h1>
-          <p>四個小步驟、大約一分鐘就完成；接著用五題，讓能力島推薦你的第一個任務。</p>
+          <p className="eyebrow">{isEditingExisting ? "調整你的英雄設定" : "建立你的冒險檔案"}</p>
+          <h1>
+            {isEditingExisting
+              ? "換個造型或暱稱，你的進度都會留著。"
+              : "選一位英雄，找到今天最適合的起點。"}
+          </h1>
+          <p>
+            {isEditingExisting
+              ? "改完直接回到能力島，不會重新測驗，也不會清空任何 XP 或收藏。"
+              : "四個小步驟、大約一分鐘就完成；接著用五題，讓能力島推薦你的第一個任務。"}
+          </p>
         </div>
 
         {!ready ? (
@@ -172,7 +186,11 @@ export default function StartPage() {
             </div>
 
             <button className="primary-button wide-action" type="submit" disabled={submitting}>
-              {submitting ? "正在開啟傳送門……" : "進入五題診斷戰"}
+              {submitting
+                ? "正在開啟傳送門……"
+                : isEditingExisting
+                  ? "儲存設定，回到能力島"
+                  : "進入五題診斷戰"}
               <ArrowRight aria-hidden="true" />
             </button>
             <p className="privacy-note centered-note">

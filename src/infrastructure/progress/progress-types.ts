@@ -41,6 +41,8 @@ export type ActiveSession = Readonly<{
   selectedRoute?: MissionRoute | null;
   battle: BattleState;
   outcomes: LearningOutcome[];
+  // 這個回合累積的 XP，只用來讓結果頁跑「數字往上跳」的動畫，不影響 progress.xp 這個總數本身。
+  sessionXp?: number;
   // 本年級這項能力的練功／Boss 題不足時，改借用較低年級已驗證足額的重點能力；
   // 有值代表這是「往前複習」而非原年級任務，UI 要誠實標示，不可悄悄替換。
   reviewFallbackGrade?: Grade | null;
@@ -64,6 +66,8 @@ export type ProgressSnapshot = Readonly<{
     completedDates: string[];
     brightness: 0 | 1 | 2 | 3;
   }>;
+  // 已完成的任務（mission）總數，用來輪替每年級的聚焦能力；不分年級，只是單調遞增的計數器。
+  completedMissionCount: number;
 }>;
 
 export function createEmptyProgress(): ProgressSnapshot {
@@ -85,5 +89,6 @@ export function createEmptyProgress(): ProgressSnapshot {
       completedDates: [],
       brightness: 3,
     },
+    completedMissionCount: 0,
   };
 }
