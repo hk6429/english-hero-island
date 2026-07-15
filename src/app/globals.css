@@ -5794,3 +5794,101 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
   padding: 20px;
   text-align: center;
 }
+
+/* ── 兩兩對戰 ───────────────────────────── */
+.versus-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.versus-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.versus-field input {
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.versus-field input:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 2px;
+}
+
+.versus-handoff {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 28px 20px;
+  border: 2px dashed var(--forest-border);
+  border-radius: var(--radius-large);
+  background: var(--sky);
+}
+
+.versus-handoff svg {
+  width: 36px;
+  height: 36px;
+  color: var(--forest);
+}
+
+.versus-handoff h2 {
+  color: var(--ink);
+}
+
+.versus-handoff p {
+  color: var(--muted);
+}
+
+/* ── 全班協力（示意＋fail-closed 閘門） ─────── */
+.class-battle-demo {
+  padding: 18px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-card);
+  background: #ffffff;
+  margin-bottom: 16px;
+}
+
+.class-battle-demo-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.class-battle-demo-label svg {
+  width: 18px;
+  height: 18px;
+}
+
+.class-battle-bar {
+  height: 20px;
+  border-radius: 999px;
+  background: var(--border-soft);
+  overflow: hidden;
+}
+
+.class-battle-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.class-battle-demo-caption {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
