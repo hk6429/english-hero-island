@@ -12,6 +12,7 @@ import {
   multiplierForStreak,
 } from "@/domain/arena/scoring";
 import { shuffle } from "@/domain/self-learning/match-games";
+import { shuffledOptions } from "@/domain/questions/shuffle-options";
 import type { Grade, Question } from "@/domain/questions/question-schema";
 
 const GRADES: Grade[] = [3, 4, 5, 6];
@@ -191,7 +192,7 @@ export default function VersusPage() {
             </p>
             <h2 className="arena-prompt">{current.prompt}</h2>
             <ul className="arena-options" aria-label="選項">
-              {current.options.map((option) => {
+              {shuffledOptions(current, `${turn}:${counts[turn]}`).map((option) => {
                 const isCorrect = option.id === current.correctOptionId;
                 const isPicked = option.id === picked;
                 const showState = picked !== null;

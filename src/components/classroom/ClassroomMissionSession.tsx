@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import styles from "./StudentClassroom.module.css";
 import { AudioControls } from "@/components/question/AudioControls";
 import { QuestionScene } from "@/components/question/QuestionScene";
+import { shuffledOptions } from "@/domain/questions/shuffle-options";
 import type {
   ClassroomSupportEvidenceStore,
   ClassroomSupportScope,
@@ -488,7 +489,7 @@ export function ClassroomMissionSession({
 
       <h2 className="classroom-question-prompt">{currentQuestion.prompt}</h2>
       <div className="option-grid">
-        {currentQuestion.options.map((option) => {
+        {shuffledOptions(currentQuestion, `${participantId}:${currentIndex}`).map((option) => {
           return (
             <button
               aria-pressed={selectedOptionId === option.id}

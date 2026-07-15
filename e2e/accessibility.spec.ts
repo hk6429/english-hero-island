@@ -31,14 +31,25 @@ async function expectNoAutomatedWcagViolations(
 }
 
 async function finishBattleSession(page: Page): Promise<void> {
-  for (let questionNumber = 0; questionNumber < 8; questionNumber += 1) {
+  // 每題最多 6 個選項、隨機排序，答錯可能觸發夥伴救援（教學＋救援題各佔一輪），
+// 所以單一任務（最多 8 題）要給足夠的輪次餘裕，而不是假設每輪都直接前進一題。
+for (let questionNumber = 0; questionNumber < 24; questionNumber += 1) {
     const feedback = page.locator(".feedback-card");
+    const rescueTeachButton = page.getByRole("button", {
+      name: /我準備好了，開始救援任務|把方法帶回挑戰/,
+    });
+    if (await rescueTeachButton.isVisible()) {
+      await rescueTeachButton.click();
+    }
     const availableOptions = page.locator(".answer-option:not([disabled])");
     await expect(availableOptions.first()).toBeVisible();
-    await availableOptions.first().click();
 
-    if (!(await feedback.isVisible())) {
-      await page.locator(".answer-option:not([disabled])").first().click();
+    // 選項現在會隨機排序，猜對前可能要點好幾次（尤其夥伴救援題），
+    // 所以持續點還沒被點過的選項直到出現回饋，而不是假設固定次數。
+    for (let attempt = 0; attempt < 6 && !(await feedback.isVisible()); attempt += 1) {
+      const nextOption = page.locator(".answer-option:not([disabled])").first();
+      await expect(nextOption).toBeVisible();
+      await nextOption.click();
     }
 
     await expect(feedback).toBeVisible();
@@ -49,7 +60,7 @@ async function finishBattleSession(page: Page): Promise<void> {
     if (/完成診斷|查看任務結果|查看修煉結果/.test(label)) return;
   }
 
-  throw new Error("Battle session did not complete within eight questions");
+  throw new Error("Battle session did not complete within the expected number of rounds");
 }
 
 test("首頁沒有 axe 可偵測的 WCAG 2.2 A／AA 違規", async ({ page }, testInfo) => {

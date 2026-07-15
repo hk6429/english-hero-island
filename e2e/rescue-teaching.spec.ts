@@ -1,16 +1,23 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function finishDiagnostic(page: Page): Promise<void> {
-  for (let questionNumber = 0; questionNumber < 8; questionNumber += 1) {
+  // 每題最多 6 個選項、隨機排序，答錯可能觸發夥伴救援（教學＋救援題各佔一輪），
+// 所以診斷（5 題）要給足夠的輪次餘裕，而不是假設每輪都直接前進一題。
+for (let questionNumber = 0; questionNumber < 24; questionNumber += 1) {
     const feedback = page.locator(".feedback-card");
-    const availableOptions = page.locator(".answer-option:not([disabled])");
-    await expect(availableOptions.first()).toBeVisible();
-    await availableOptions.first().click();
+    const rescueTeachButton = page.getByRole("button", {
+      name: /我準備好了，開始救援任務|把方法帶回挑戰/,
+    });
+    if (await rescueTeachButton.isVisible()) {
+      await rescueTeachButton.click();
+    }
 
-    try {
-      await feedback.waitFor({ state: "visible", timeout: 1500 });
-    } catch {
-      await page.locator(".answer-option:not([disabled])").first().click();
+    // 選項現在會隨機排序，猜對前可能要點好幾次（尤其夥伴救援題），
+    // 所以持續點還沒被點過的選項直到出現回饋，而不是假設固定次數。
+    for (let attempt = 0; attempt < 6 && !(await feedback.isVisible()); attempt += 1) {
+      const nextOption = page.locator(".answer-option:not([disabled])").first();
+      await expect(nextOption).toBeVisible();
+      await nextOption.click();
     }
 
     await expect(feedback).toBeVisible();
@@ -20,7 +27,7 @@ async function finishDiagnostic(page: Page): Promise<void> {
     if (/完成診斷/.test(label)) return;
   }
 
-  throw new Error("Diagnostic did not complete within eight questions");
+  throw new Error("Diagnostic did not complete within the expected number of rounds");
 }
 
 async function answerWrongTwice(page: Page, wrongTexts: readonly [string, string]): Promise<void> {
@@ -65,13 +72,12 @@ test("護盾歸零後出現夥伴救援教學，完成救援題後護盾回到 1
   await page.getByRole("button", { name: /我準備好了，開始救援任務/ }).click();
 
   // 救援題答對後：outcome 為夥伴協力成功，護盾回到 1 格。
+  // 選項現在會隨機排序，猜對前可能要試過所有選項，攻頂次數對齊題庫選項上限（6）。
   const feedback = page.locator(".feedback-card");
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (await feedback.isVisible()) break;
-    await page
-      .locator(".rescue-card .answer-option:not([disabled])")
-      .first()
-      .click();
+  for (let attempt = 0; attempt < 6 && !(await feedback.isVisible()); attempt += 1) {
+    const nextOption = page.locator(".rescue-card .answer-option:not([disabled])").first();
+    await expect(nextOption).toBeVisible();
+    await nextOption.click();
   }
   await expect(feedback).toBeVisible();
   await expect(feedback).toContainText("夥伴協力成功：救援任務完成，專注護盾回到 1 格。");

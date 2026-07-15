@@ -16,6 +16,7 @@ import {
   tierForScore,
 } from "@/domain/arena/scoring";
 import { shuffle } from "@/domain/self-learning/match-games";
+import { shuffledOptions } from "@/domain/questions/shuffle-options";
 import type { Grade, Question } from "@/domain/questions/question-schema";
 
 const GRADES: Grade[] = [3, 4, 5, 6];
@@ -193,7 +194,7 @@ export default function ArenaPage() {
             <p className="arena-round">第 {round + 1} / {pool.length} 題</p>
             <h2 className="arena-prompt">{current.prompt}</h2>
             <ul className="arena-options" aria-label="選項">
-              {current.options.map((option) => {
+              {shuffledOptions(current, `${grade}:${round}`).map((option) => {
                 const isCorrect = option.id === current.correctOptionId;
                 const isPicked = option.id === picked;
                 const showState = picked !== null;

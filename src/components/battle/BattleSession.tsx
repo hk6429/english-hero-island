@@ -20,6 +20,7 @@ import { calculateXp } from "@/domain/rewards/calculate-xp";
 import { buildRescue } from "@/domain/session-builder/build-rescue";
 import { deriveBossMove } from "@/domain/story/derive-boss-move";
 import { seededIndex } from "@/domain/story/seeded-pick";
+import { shuffledOptions } from "@/domain/questions/shuffle-options";
 import { useAdventure } from "@/features/adventure/AdventureProvider";
 import { HINT_TOOLS } from "@/features/adventure/content-map";
 import { AudioControls } from "@/components/question/AudioControls";
@@ -497,7 +498,7 @@ export function BattleSession({
               ) : null}
 
               <div className="option-grid" role="group" aria-label="救援題選項">
-                {rescueQuestion.options.map((option) => (
+                {shuffledOptions(rescueQuestion, `${session.id}:rescue`).map((option) => (
                   <button
                     className={`answer-option ${rescueTriedIds.includes(option.id) ? "option-tried" : ""}`}
                     type="button"
@@ -667,7 +668,7 @@ export function BattleSession({
         ) : null}
 
         <div className="option-grid" role="group" aria-label="答案選項">
-          {question.options.map((option) => (
+          {shuffledOptions(question, session.id).map((option) => (
             <button
               className={`answer-option ${firstWrongOptionId === option.id ? "option-tried" : ""}`}
               type="button"
