@@ -70,7 +70,9 @@ export default function MissionPage() {
   }
 
   const mission = MISSION_COPY[profile.grade];
-  const focus = FOCUS_MICRO_SKILL[profile.grade];
+  const focus = session?.microSkill ?? FOCUS_MICRO_SKILL[profile.grade];
+  const reviewFallbackGrade =
+    session?.kind === "mission" ? session.reviewFallbackGrade : null;
 
   return (
     <AppShell pageClassName="mission-page">
@@ -84,6 +86,11 @@ export default function MissionPage() {
             <span>6 回合</span>
             <span>約 3–5 分鐘</span>
           </div>
+          {reviewFallbackGrade ? (
+            <p className="mission-fallback-note" role="status">
+              目前這項能力的題目還在補齊，先帶你往前複習 {reviewFallbackGrade} 年級已經練熟的內容。
+            </p>
+          ) : null}
         </section>
 
         {!contentAvailable ? (

@@ -102,7 +102,7 @@ export default function FlashcardsPage() {
           <p className="eyebrow">自學・閃卡</p>
           <h1>單字閃卡（五盒複習）</h1>
           <p className="learn-sub">
-            看英文想中文，翻牌對答案。會的往上升一盒，不熟的回第一盒——多看幾輪就記住了。答錯不扣分、不計時。
+            看英文想中文，翻牌對答案。會的往上升一盒，不熟的退一盒——多看幾輪就記住了。答錯不扣分、不計時。
           </p>
         </header>
 

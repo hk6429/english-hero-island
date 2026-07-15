@@ -85,6 +85,9 @@ export default function MatchPage() {
         <p className="learn-progress" role="status">
           連對 {connected.length} / {roundCount}
         </p>
+        <p className="sr-only" role="status" aria-live="polite">
+          {wrong ? "配錯了，再試一次" : ""}
+        </p>
 
         {done ? (
           <div className="flashcard-done">

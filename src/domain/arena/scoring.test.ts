@@ -4,6 +4,7 @@ import {
   INSURANCE_COST,
   applyAnswer,
   buyInsurance,
+  computerAccuracyFor,
   gainForCorrect,
   levelForCorrect,
   multiplierForStreak,
@@ -56,12 +57,12 @@ describe("applyAnswer", () => {
     expect(second.state.score).toBe(3);
   });
 
-  it("resets the streak and deducts more from a higher score on a wrong answer", () => {
-    const state = { score: 500, streak: 4, totalCorrect: 20, insured: false };
+  it("halves (not zeroes) the streak and deducts a flat penalty on a wrong answer", () => {
+    const state = { score: 500, streak: 5, totalCorrect: 20, insured: false };
     const wrong = applyAnswer(state, false);
-    expect(wrong.penalty).toBe(penaltyForWrong(500, false));
-    expect(wrong.penalty).toBe(50);
-    expect(wrong.state).toMatchObject({ score: 450, streak: 0, totalCorrect: 20 });
+    expect(wrong.penalty).toBe(penaltyForWrong(false));
+    expect(wrong.penalty).toBe(3);
+    expect(wrong.state).toMatchObject({ score: 497, streak: 2, totalCorrect: 20 });
   });
 
   it("never lets the score fall below zero", () => {
@@ -76,9 +77,9 @@ describe("applyAnswer", () => {
 });
 
 describe("insurance", () => {
-  it("cuts the wrong-answer penalty to a fifth when insured", () => {
-    expect(penaltyForWrong(1000, false)).toBe(100);
-    expect(penaltyForWrong(1000, true)).toBe(20);
+  it("cuts the flat wrong-answer penalty when insured, regardless of score size", () => {
+    expect(penaltyForWrong(false)).toBe(3);
+    expect(penaltyForWrong(true)).toBe(1);
   });
 
   it("charges the insurance cost and marks the state insured", () => {
@@ -87,9 +88,40 @@ describe("insurance", () => {
   });
 
   it("refuses insurance when the score is too low or already insured", () => {
-    const broke = buyInsurance({ score: 10, streak: 0, totalCorrect: 0, insured: false });
+    const broke = buyInsurance({ score: 5, streak: 0, totalCorrect: 0, insured: false });
     expect(broke.insured).toBe(false);
     const already = buyInsurance({ score: 500, streak: 0, totalCorrect: 0, insured: true });
     expect(already.score).toBe(500);
+  });
+
+  it("keeps the cost low enough for an early low score to afford it", () => {
+    // 保險門檻要讓分數還不高的學生（正是最需要緩衝的人）也買得起。
+    const insured = buyInsurance({ score: INSURANCE_COST, streak: 0, totalCorrect: 0, insured: false });
+    expect(insured.insured).toBe(true);
+  });
+});
+
+describe("computerAccuracyFor", () => {
+  it("starts at a neutral middle value before anyone has answered", () => {
+    expect(computerAccuracyFor(0, 0)).toBe(0.5);
+  });
+
+  it("stays a little below a strong player instead of running away", () => {
+    expect(computerAccuracyFor(10, 10)).toBe(0.65);
+  });
+
+  it("eases off for a struggling player instead of staying out of reach", () => {
+    expect(computerAccuracyFor(0, 10)).toBe(0.35);
+  });
+
+  it("tracks moderately between the two bounds", () => {
+    expect(computerAccuracyFor(5, 10)).toBeCloseTo(0.45, 5);
+  });
+});
+
+describe("streak softening", () => {
+  it("halves small streaks instead of zeroing them", () => {
+    expect(applyAnswer({ score: 10, streak: 1, totalCorrect: 5, insured: false }, false).state.streak).toBe(0);
+    expect(applyAnswer({ score: 10, streak: 3, totalCorrect: 5, insured: false }, false).state.streak).toBe(1);
   });
 });

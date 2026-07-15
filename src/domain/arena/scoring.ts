@@ -19,8 +19,10 @@ export const INITIAL_ARENA: ArenaState = {
   insured: false,
 };
 
-export const INSURANCE_COST = 50;
+export const INSURANCE_COST = 10;
 export const MAX_LEVEL = 10;
+export const BASE_PENALTY = 3;
+export const INSURED_PENALTY = 1;
 
 const TIERS: readonly { threshold: number; name: string }[] = [
   { threshold: 0, name: "見習生" },
@@ -61,11 +63,13 @@ export function gainForCorrect(state: ArenaState): number {
   return level * multiplierForStreak(nextStreak);
 }
 
-/** 答錯扣分：分數越高扣越多（10%，至少 5）；有保險則只扣兩成。分數不會低於 0。 */
-export function penaltyForWrong(score: number, insured: boolean): number {
-  const base = Math.max(5, Math.round(score * 0.1));
-  const penalty = insured ? Math.round(base * 0.2) : base;
-  return Math.min(score, penalty);
+/**
+ * 答錯扣分：固定小額，不隨分數放大——分數越高的學生不會被扣得更慘，
+ * 才不會讓「贏比較多」反而變成「輸得起的風險更高」。有保險則扣更少。
+ * 分數不會低於 0。
+ */
+export function penaltyForWrong(insured: boolean): number {
+  return insured ? INSURED_PENALTY : BASE_PENALTY;
 }
 
 export type AnswerOutcome = Readonly<{
@@ -91,11 +95,12 @@ export function applyAnswer(state: ArenaState, correct: boolean): AnswerOutcome 
       penalty: 0,
     };
   }
-  const penalty = penaltyForWrong(state.score, state.insured);
+  const penalty = Math.min(state.score, penaltyForWrong(state.insured));
   return {
     state: {
       score: Math.max(0, state.score - penalty),
-      streak: 0,
+      // 答錯只砍半連對數（無條件捨去），不整串歸零：一次失手不該抹掉先前所有連對的努力。
+      streak: Math.floor(state.streak / 2),
       totalCorrect: state.totalCorrect,
       insured: false,
     },
@@ -103,6 +108,22 @@ export function applyAnswer(state: ArenaState, correct: boolean): AnswerOutcome 
     gain: 0,
     penalty,
   };
+}
+
+const MIN_COMPUTER_ACCURACY = 0.35;
+const MAX_COMPUTER_ACCURACY = 0.65;
+const COMPUTER_ACCURACY_HANDICAP = 0.05;
+
+/**
+ * 電腦對手的命中率會貼著玩家目前的答對率走（略低一點），而不是固定值——
+ * 避免電腦在學生程度好的時候太弱沒挑戰性，也避免學生落後時電腦還是遙遙領先、
+ * 讓弱勢學生永遠追不上。答題數為 0 時用中間值起手。
+ */
+export function computerAccuracyFor(playerCorrect: number, playerAnswered: number): number {
+  if (playerAnswered <= 0) return 0.5;
+  const playerAccuracy = playerCorrect / playerAnswered;
+  const target = playerAccuracy - COMPUTER_ACCURACY_HANDICAP;
+  return Math.min(MAX_COMPUTER_ACCURACY, Math.max(MIN_COMPUTER_ACCURACY, target));
 }
 
 /** 買保險：分數足夠且尚未投保時，扣除成本並標記已投保；否則原樣返回。 */

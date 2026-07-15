@@ -15,6 +15,26 @@ import type { Grade } from "@/domain/questions/question-schema";
 
 const GRADES: Grade[] = [3, 4, 5, 6];
 const PAIR_COUNT = 8;
+const FLIP_BACK_DELAY_MS = 850;
+// 降低動態偏好時，配錯的牌多留一點時間再蓋回去，給需要更多處理時間的學生看清楚。
+const FLIP_BACK_DELAY_REDUCED_MOTION_MS = 1600;
+
+function usePrefersReducedMotion(): boolean {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      return;
+    }
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(query.matches);
+    const onChange = () => setPrefersReducedMotion(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
+  return prefersReducedMotion;
+}
 
 export default function MemoryPage() {
   const [grade, setGrade] = useState<Grade>(3);
@@ -23,6 +43,7 @@ export default function MemoryPage() {
   const [matched, setMatched] = useState<string[]>([]);
   const [moves, setMoves] = useState(0);
   const [locked, setLocked] = useState(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const pairsInGrade = useMemo(() => vocabByGrade(grade), [grade]);
 
@@ -53,12 +74,15 @@ export default function MemoryPage() {
       setLocked(false);
       return;
     }
-    const timer = setTimeout(() => {
-      setRevealed([]);
-      setLocked(false);
-    }, 850);
+    const timer = setTimeout(
+      () => {
+        setRevealed([]);
+        setLocked(false);
+      },
+      prefersReducedMotion ? FLIP_BACK_DELAY_REDUCED_MOTION_MS : FLIP_BACK_DELAY_MS,
+    );
     return () => clearTimeout(timer);
-  }, [revealed, deck]);
+  }, [revealed, deck, prefersReducedMotion]);
 
   const pairCount = Math.min(PAIR_COUNT, pairsInGrade.length);
   const done = matched.length === pairCount && pairCount > 0;
@@ -113,7 +137,7 @@ export default function MemoryPage() {
           </div>
         ) : (
           <ul className="memory-grid" aria-label="記憶翻牌">
-            {deck.map((card) => {
+            {deck.map((card, index) => {
               const isUp = revealed.includes(card.id) || matched.includes(card.key);
               const isGone = matched.includes(card.key);
               return (
@@ -122,7 +146,13 @@ export default function MemoryPage() {
                     type="button"
                     className={`memory-card${isUp ? " memory-card-up" : ""}${isGone ? " memory-card-done" : ""}`}
                     onClick={() => flip(card)}
-                    aria-label={isUp ? (card.kind === "en" ? card.en : `${card.zh}`) : "蓋著的牌"}
+                    aria-label={
+                      isUp
+                        ? card.kind === "en"
+                          ? card.en
+                          : `${card.zh}`
+                        : `第 ${index + 1} 張，蓋著的牌`
+                    }
                     aria-pressed={isUp}
                   >
                     {isUp ? (

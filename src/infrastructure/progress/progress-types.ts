@@ -41,6 +41,9 @@ export type ActiveSession = Readonly<{
   selectedRoute?: MissionRoute | null;
   battle: BattleState;
   outcomes: LearningOutcome[];
+  // 本年級這項能力的練功／Boss 題不足時，改借用較低年級已驗證足額的重點能力；
+  // 有值代表這是「往前複習」而非原年級任務，UI 要誠實標示，不可悄悄替換。
+  reviewFallbackGrade?: Grade | null;
 }>;
 
 export type ProgressSnapshot = Readonly<{

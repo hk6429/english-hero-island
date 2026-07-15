@@ -9,6 +9,7 @@ import {
   applyAnswer,
   type ArenaState,
   buyInsurance,
+  computerAccuracyFor,
   INITIAL_ARENA,
   INSURANCE_COST,
   levelForCorrect,
@@ -21,7 +22,6 @@ import type { Grade, Question } from "@/domain/questions/question-schema";
 
 const GRADES: Grade[] = [3, 4, 5, 6];
 const ROUND_COUNT = 10;
-const COMPUTER_ACCURACY = 0.62;
 
 function textQuestionsForGrade(grade: Grade): Question[] {
   return playableQuestionBank.filter(
@@ -89,8 +89,10 @@ export default function ArenaPage() {
     }
     const correct = optionId === current.correctOptionId;
     const playerOutcome = applyAnswer(player, correct);
-    // 電腦對手：固定命中率模擬作答，讓學生有一個可追趕的對象（非真人、不排名）。
-    const computerCorrect = Math.random() < COMPUTER_ACCURACY;
+    // 電腦對手：命中率貼著玩家目前的答對率走（略低一點），不會遙遙領先，
+    // 也不會在學生表現好時毫無挑戰性（非真人、不排名）。
+    const computerAccuracy = computerAccuracyFor(player.totalCorrect, round);
+    const computerCorrect = Math.random() < computerAccuracy;
     const computerOutcome = applyAnswer(computer, computerCorrect);
 
     setPicked(optionId);

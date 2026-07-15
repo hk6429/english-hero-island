@@ -15,9 +15,10 @@ describe("leitner box logic", () => {
     expect(promoteBox(5, true)).toBe(LEITNER_MAX_BOX);
   });
 
-  it("resets to box 1 on unknown", () => {
-    expect(promoteBox(5, false)).toBe(1);
-    expect(promoteBox(3, false)).toBe(1);
+  it("drops back only one box on unknown, floored at box 1", () => {
+    expect(promoteBox(5, false)).toBe(4);
+    expect(promoteBox(3, false)).toBe(2);
+    expect(promoteBox(1, false)).toBe(1);
   });
 
   it("initialises every key at box 1", () => {

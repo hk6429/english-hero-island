@@ -15,17 +15,18 @@ function renderPage() {
 describe("MemoryPage", () => {
   afterEach(cleanup);
 
-  it("deals sixteen face-down cards", () => {
+  it("deals sixteen face-down cards, each with a positional label", () => {
     renderPage();
-    expect(screen.getAllByRole("button", { name: "蓋著的牌" })).toHaveLength(16);
+    expect(screen.getAllByRole("button", { name: /^第 \d+ 張，蓋著的牌$/ })).toHaveLength(16);
+    expect(screen.getByRole("button", { name: "第 1 張，蓋著的牌" })).toBeInTheDocument();
     expect(screen.getByText(/配對 0 \/ 8/)).toBeInTheDocument();
   });
 
   it("reveals a card's face when tapped", () => {
     renderPage();
-    const first = screen.getAllByRole("button", { name: "蓋著的牌" })[0];
+    const first = screen.getAllByRole("button", { name: /^第 \d+ 張，蓋著的牌$/ })[0];
     fireEvent.click(first);
-    expect(screen.getAllByRole("button", { name: "蓋著的牌" }).length).toBe(15);
+    expect(screen.getAllByRole("button", { name: /^第 \d+ 張，蓋著的牌$/ }).length).toBe(15);
   });
 
   it("switches grade", () => {

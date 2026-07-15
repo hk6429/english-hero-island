@@ -1,16 +1,17 @@
 /**
  * Leitner 五盒間隔複習：純函式，無副作用，供閃卡自學使用。
- * 盒號 1（最生疏，最常複習）到 5（最熟）。答「會」升一盒、答「不會」退回第一盒。
+ * 盒號 1（最生疏，最常複習）到 5（最熟）。答「會」升一盒、答「不會」退一盒——
+ * 只退一級而非打回第一盒，一次失手不該抹掉先前所有複習的進度。
  */
 export const LEITNER_MIN_BOX = 1;
 export const LEITNER_MAX_BOX = 5;
 
 export type BoxMap = Readonly<Record<string, number>>;
 
-/** 答對升一盒（上限 5），答錯退回第一盒。 */
+/** 答對升一盒（上限 5），答錯退一盒（下限 1）。 */
 export function promoteBox(box: number, known: boolean): number {
   if (!known) {
-    return LEITNER_MIN_BOX;
+    return Math.max(LEITNER_MIN_BOX, box - 1);
   }
   return Math.min(LEITNER_MAX_BOX, box + 1);
 }
