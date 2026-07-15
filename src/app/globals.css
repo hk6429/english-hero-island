@@ -5464,3 +5464,126 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;
 }
+
+/* ── 記憶翻牌 ─────────────────────────────────────────────── */
+.memory-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  width: min(100%, 460px);
+  margin: 0 auto 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.memory-card {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 6px;
+  font-weight: 850;
+  color: var(--ink);
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 #d7d7d7;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.memory-card-up {
+  border-color: var(--primary);
+  background: var(--forest-pale);
+  box-shadow: 0 4px 0 var(--forest-border);
+}
+
+.memory-card-done {
+  border-color: var(--primary);
+  background: var(--grass);
+  box-shadow: 0 4px 0 var(--primary);
+  cursor: default;
+}
+
+.memory-back {
+  font-size: 1.6rem;
+  color: var(--muted);
+}
+
+.memory-en {
+  font-size: clamp(0.9rem, 3.5vw, 1.15rem);
+}
+
+.memory-zh {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: clamp(0.85rem, 3vw, 1.05rem);
+}
+
+.memory-zh span[aria-hidden] {
+  font-size: 1.5rem;
+}
+
+/* ── 連連看 ───────────────────────────────────────────────── */
+.match-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: min(100%, 460px);
+  margin: 0 auto 20px;
+}
+
+.match-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.match-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px;
+  font-weight: 800;
+  color: var(--ink);
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 4px 0 #d7d7d7;
+  cursor: pointer;
+}
+
+.match-item-sel {
+  color: var(--white);
+  background: var(--forest);
+  border-color: var(--forest);
+  box-shadow: 0 4px 0 #0a5688;
+}
+
+.match-item-done {
+  color: var(--white);
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 4px 0 var(--primary-strong);
+  cursor: default;
+}
+
+.match-item-wrong {
+  border-color: var(--danger);
+  background: var(--danger-pale);
+  animation: match-shake 0.3s ease;
+}
+
+@keyframes match-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}

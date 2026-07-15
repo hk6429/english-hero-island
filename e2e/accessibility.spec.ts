@@ -73,6 +73,18 @@ test("閃卡頁沒有 axe 可偵測的 WCAG 2.2 A／AA 違規", async ({ page },
   await expectNoAutomatedWcagViolations(page, testInfo, "flashcards");
 });
 
+test("記憶翻牌頁沒有 axe 可偵測的 WCAG 2.2 A／AA 違規", async ({ page }, testInfo) => {
+  await page.goto("/learn/memory");
+  await expect(page.getByRole("heading", { name: "記憶翻牌（英文配中文）" })).toBeVisible();
+  await expectNoAutomatedWcagViolations(page, testInfo, "memory");
+});
+
+test("連連看頁沒有 axe 可偵測的 WCAG 2.2 A／AA 違規", async ({ page }, testInfo) => {
+  await page.goto("/learn/match");
+  await expect(page.getByRole("heading", { name: "連連看（英文對中文）" })).toBeVisible();
+  await expectNoAutomatedWcagViolations(page, testInfo, "match");
+});
+
 test("鍵盤使用者可跳到主要內容", async ({ page }) => {
   await page.goto("/");
 

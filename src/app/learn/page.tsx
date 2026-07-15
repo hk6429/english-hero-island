@@ -24,19 +24,19 @@ export default function LearnHubPage() {
             <span className="learn-card-go">開始練 <Sparkles aria-hidden="true" size={18} /></span>
           </Link>
 
-          <div className="learn-card learn-card-soon" aria-disabled="true">
+          <Link className="learn-card learn-card-ready" href="/learn/memory">
             <span className="learn-card-icon" aria-hidden="true"><Grid3x3 /></span>
             <h2>記憶翻牌</h2>
             <p>4×4 翻翻牌，把英文和中文配成一對。</p>
-            <span className="coming-chip">即將推出</span>
-          </div>
+            <span className="learn-card-go">開始玩 <Sparkles aria-hidden="true" size={18} /></span>
+          </Link>
 
-          <div className="learn-card learn-card-soon" aria-disabled="true">
+          <Link className="learn-card learn-card-ready" href="/learn/match">
             <span className="learn-card-icon" aria-hidden="true"><Link2 /></span>
             <h2>連連看</h2>
             <p>左邊英文、右邊中文，點一點連成正確的線。</p>
-            <span className="coming-chip">即將推出</span>
-          </div>
+            <span className="learn-card-go">開始玩 <Sparkles aria-hidden="true" size={18} /></span>
+          </Link>
         </div>
       </main>
     </AppShell>
