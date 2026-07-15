@@ -14,9 +14,9 @@ const focusByGrade: Readonly<Record<Grade, string>> = {
 };
 
 describe("playable question bank", () => {
-  it("serves the full 200 original drafts, honestly unreviewed", () => {
-    expect(playableQuestionBank).toHaveLength(200);
-    expect(new Set(playableQuestionBank.map((question) => question.id)).size).toBe(200);
+  it("serves the full 203 original drafts, honestly unreviewed", () => {
+    expect(playableQuestionBank).toHaveLength(203);
+    expect(new Set(playableQuestionBank.map((question) => question.id)).size).toBe(203);
 
     for (const question of playableQuestionBank) {
       expect(questionSchema.safeParse(question).success, question.id).toBe(true);
@@ -27,12 +27,12 @@ describe("playable question bank", () => {
     }
   });
 
-  it("gives every grade fifty questions", () => {
+  it("gives every grade fifty questions (grade 3 has three extra boss top-ups)", () => {
     for (const grade of grades) {
       expect(
         playableQuestionBank.filter((question) => question.grade === grade),
         `grade ${grade}`,
-      ).toHaveLength(50);
+      ).toHaveLength(grade === 3 ? 53 : 50);
     }
   });
 

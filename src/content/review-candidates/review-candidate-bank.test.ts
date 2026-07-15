@@ -8,11 +8,11 @@ import { newReviewCandidates, reviewCandidateQuestionBank } from "./index";
 const grades: Grade[] = [3, 4, 5, 6];
 
 describe("review candidate question bank", () => {
-  it("combines the fixed sixty-question pilot with 140 new drafts", () => {
+  it("combines the fixed sixty-question pilot with 143 new drafts", () => {
     expect(pilotQuestionBank).toHaveLength(60);
-    expect(newReviewCandidates).toHaveLength(140);
-    expect(reviewCandidateQuestionBank).toHaveLength(200);
-    expect(new Set(reviewCandidateQuestionBank.map((question) => question.id)).size).toBe(200);
+    expect(newReviewCandidates).toHaveLength(143);
+    expect(reviewCandidateQuestionBank).toHaveLength(203);
+    expect(new Set(reviewCandidateQuestionBank.map((question) => question.id)).size).toBe(203);
 
     for (const question of reviewCandidateQuestionBank) {
       expect(questionSchema.safeParse(question).success, question.id).toBe(true);
@@ -22,12 +22,12 @@ describe("review candidate question bank", () => {
     }
   });
 
-  it("provides fifty questions per grade and at least eight per priority micro-skill", () => {
+  it("provides fifty questions per grade (grade 3 has three extra boss top-ups) and at least eight per priority micro-skill", () => {
     for (const grade of grades) {
       const gradeQuestions = reviewCandidateQuestionBank.filter(
         (question) => question.grade === grade,
       );
-      expect(gradeQuestions, `grade ${grade}`).toHaveLength(50);
+      expect(gradeQuestions, `grade ${grade}`).toHaveLength(grade === 3 ? 53 : 50);
 
       for (const microSkill of PRIORITY_MICRO_SKILLS[grade]) {
         expect(
@@ -45,7 +45,7 @@ describe("review candidate question bank", () => {
         ...question.options.map((option) => option.text.trim().toLocaleLowerCase()).sort(),
       ].join(" | "),
     );
-    expect(new Set(surfaces).size).toBe(200);
+    expect(new Set(surfaces).size).toBe(203);
 
     const payload = toQuestionImportPayload(reviewCandidateQuestionBank);
     expect(validateQuestionImport(payload)).toEqual({ ok: true, questions: payload });
