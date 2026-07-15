@@ -85,6 +85,16 @@ test("連連看頁沒有 axe 可偵測的 WCAG 2.2 A／AA 違規", async ({ page
   await expectNoAutomatedWcagViolations(page, testInfo, "match");
 });
 
+test("積分挑戰頁作答前後都沒有 axe 可偵測的 WCAG 2.2 A／AA 違規", async ({ page }, testInfo) => {
+  await page.goto("/learn/arena");
+  await expect(page.getByRole("heading", { name: "積分挑戰（單人對電腦）" })).toBeVisible();
+  await expectNoAutomatedWcagViolations(page, testInfo, "arena-question");
+
+  await page.locator(".arena-option").first().click();
+  await expect(page.locator(".arena-feedback")).toBeVisible();
+  await expectNoAutomatedWcagViolations(page, testInfo, "arena-feedback");
+});
+
 test("鍵盤使用者可跳到主要內容", async ({ page }) => {
   await page.goto("/");
 

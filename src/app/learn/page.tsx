@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenCheck, Grid3x3, Link2, Sparkles } from "lucide-react";
+import { BookOpenCheck, Grid3x3, Link2, Sparkles, Swords } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 
@@ -36,6 +36,13 @@ export default function LearnHubPage() {
             <h2>連連看</h2>
             <p>左邊英文、右邊中文，點一點連成正確的線。</p>
             <span className="learn-card-go">開始玩 <Sparkles aria-hidden="true" size={18} /></span>
+          </Link>
+
+          <Link className="learn-card learn-card-ready" href="/learn/arena">
+            <span className="learn-card-icon" aria-hidden="true"><Swords /></span>
+            <h2>積分挑戰</h2>
+            <p>單人對電腦答題賽：連對加倍、越答越升級。不排名、不進成績。</p>
+            <span className="learn-card-go">開始挑戰 <Sparkles aria-hidden="true" size={18} /></span>
           </Link>
         </div>
       </main>

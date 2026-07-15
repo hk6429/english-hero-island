@@ -5587,3 +5587,210 @@ section[aria-label="題目品質檢查"] > section article p:last-child {
   25% { transform: translateX(-5px); }
   75% { transform: translateX(5px); }
 }
+
+/* ── 積分挑戰競技場 ───────────────────────────── */
+.arena-scoreboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 4px 0 8px;
+}
+
+.arena-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 10px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-card);
+  background: #ffffff;
+}
+
+.arena-score-me {
+  border-color: var(--forest-border);
+  background: var(--sky);
+}
+
+.arena-score-label {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.arena-score-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.arena-score-cpu .arena-score-value {
+  color: var(--forest);
+}
+
+.arena-tier {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.arena-streak {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.arena-combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.arena-combo svg {
+  width: 18px;
+  height: 18px;
+}
+
+.arena-combo-hot {
+  color: var(--gold-ink);
+}
+
+.arena-insured {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.arena-insured svg,
+.arena-insure-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.arena-insure-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--forest);
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #095480;
+}
+
+.arena-insure-button:disabled {
+  background: var(--border);
+  color: var(--muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.arena-question {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-large);
+  background: #ffffff;
+  padding: 20px;
+}
+
+.arena-round {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.arena-prompt {
+  font-size: 1.3rem;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  color: var(--ink);
+}
+
+.arena-options {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.arena-option {
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--sky);
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.arena-option:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.arena-option:disabled {
+  cursor: default;
+}
+
+.arena-option-correct {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.arena-option-wrong {
+  border-color: var(--danger-border);
+  background: var(--danger-pale);
+  color: var(--ink);
+}
+
+.arena-feedback {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  border: 2px solid var(--border);
+}
+
+.arena-feedback-good {
+  border-color: var(--forest-border);
+  background: var(--sky);
+}
+
+.arena-feedback-bad {
+  border-color: var(--danger-border);
+  background: var(--danger-pale);
+}
+
+.arena-feedback-line {
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.arena-feedback-cpu {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.arena-explain {
+  color: var(--ink);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.learn-empty {
+  color: var(--muted);
+  padding: 20px;
+  text-align: center;
+}
