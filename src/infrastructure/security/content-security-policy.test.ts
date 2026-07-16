@@ -52,7 +52,7 @@ describe("resolveSupabaseConnectSources", () => {
 describe("buildContentSecurityPolicy", () => {
   it("keeps connect-src 'self' and upgrade-insecure-requests when Supabase is not configured", () => {
     const policy = buildContentSecurityPolicy({});
-    expect(policy).toContain("connect-src 'self';");
+    expect(policy).toContain("connect-src 'self' https://hk6429.goatcounter.com;");
     expect(policy).toContain("upgrade-insecure-requests");
   });
 
@@ -61,7 +61,7 @@ describe("buildContentSecurityPolicy", () => {
       NEXT_PUBLIC_SUPABASE_URL: "https://hero-island.supabase.co",
     });
     expect(policy).toContain(
-      "connect-src 'self' https://hero-island.supabase.co wss://hero-island.supabase.co;",
+      "connect-src 'self' https://hero-island.supabase.co wss://hero-island.supabase.co https://hk6429.goatcounter.com;",
     );
     expect(policy).toContain("upgrade-insecure-requests");
     expect(policy).not.toContain("connect-src *");
@@ -72,7 +72,7 @@ describe("buildContentSecurityPolicy", () => {
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
     });
     expect(policy).toContain(
-      "connect-src 'self' http://127.0.0.1:54321 ws://127.0.0.1:54321",
+      "connect-src 'self' http://127.0.0.1:54321 ws://127.0.0.1:54321 https://hk6429.goatcounter.com",
     );
     expect(policy).not.toContain("upgrade-insecure-requests");
   });
@@ -87,10 +87,10 @@ describe("buildContentSecurityPolicy", () => {
       "object-src 'none'",
       "frame-ancestors 'none'",
       "form-action 'self'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https://visitor-badge.laobi.icu https://hk6429.goatcounter.com",
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' https://gc.zgo.at",
     ]) {
       expect(policy).toContain(directive);
     }
